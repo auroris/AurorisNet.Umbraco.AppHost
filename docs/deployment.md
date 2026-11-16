@@ -39,8 +39,8 @@ Configure the reference with the defaults wanted in new sites. Every backoffice 
 to `reference/uSync/`; copy the changed files into `src/UmbracoAppHost/uSync/` and commit
 them to make them part of the saved export. Each new site imports the complete saved export, and
 updates deliver its definition folders to existing sites. The content tree and selected templates
-determine the shell: a block/report page beneath a website uses the website shell; beneath an
-Application root it uses the application shell.
+determine the shell: a Web Site selects Website home or Application site, and ordinary Web Pages
+inherit that choice. Umbraco Public Access controls access independently of the template.
 
 Upgrade Umbraco and plugins in this checkout, test the reference, then run `update-site.ps1`
 for each site. Existing sites retain their content and settings; startup applies database
@@ -148,8 +148,10 @@ To choose or reset the administrator password, set `UmbracoAppHost:AdminPassword
 A valid value also unlocks the account, resets failed login attempts and removes its two-factor
 enrolment. An empty or missing value leaves the current password, lockout state and enrolment
 alone. `BackOfficeLogin:DefaultFlow` defaults to `Auto`, which prefers the configured identity server and falls back to local
-password sign-in when SSO fails. Explicit `IdentityServer` and `Form` choices
-remain available. For emergency access blocked by lockout or two-factor authentication,
+password sign-in when SSO fails. The native password fallback also handles an SSO identity
+that has no linked backoffice account: its return address drops `identity_provider` while
+preserving the authorization state and PKCE challenge, so a valid password does not retry SSO.
+Explicit `IdentityServer` and `Form` choices remain available. For emergency access blocked by lockout or two-factor authentication,
 explicitly enable the Debug flow with `Umbraco:CMS:Hosting:Debug=true` and
 `BackOfficeLogin:DebugFlow=Debug`, then restart. Debug accepts any nonempty password for an
 existing account. Restore normal settings after repairing access. See

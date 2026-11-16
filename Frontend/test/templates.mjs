@@ -43,7 +43,7 @@ test('website and application templates emit Umbraco 18 views with their assets'
     const result = spawnSync(process.execPath, ['templates.mjs', '--emit', '--target', target], { cwd: root, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr);
     const files = readdirSync(target).filter(f => f.endsWith('.cshtml'));
-    assert.deepEqual(files.sort(), ['AppHome.cshtml', 'AppMaster.cshtml', 'AppPage.cshtml', 'AppSignIn.cshtml', 'WebsiteLayout.cshtml']);
+    assert.deepEqual(files.sort(), ['AppMaster.cshtml', 'AppSignIn.cshtml', 'WebsiteLayout.cshtml']);
 
     const website = readFileSync(join(target, 'WebsiteLayout.cshtml'), 'utf8');
     assert.match(website, /~\/dist\/scripts\/site\.js/);

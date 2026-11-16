@@ -1,5 +1,9 @@
 # Design: themes, blocks and data sources
 
+The November 2026 content model replaces the original application document types with shared
+Web Site and Web Page types. See [the current authoring guide](application-blocks.md) for their
+compositions, tabs and Public Access settings. The implementation history below retains its original names.
+
 Status: design and implementation record, updated 2026-10-24. WP1–WP3 landed on 2026-10-23;
 WP4–WP8 are implemented; verification is recorded below. The authentication platform landed on
 2026-10-23 (see the README's "Single sign-on", "Who gets an account" and "Creating accounts

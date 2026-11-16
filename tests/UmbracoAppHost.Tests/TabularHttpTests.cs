@@ -78,7 +78,7 @@ public sealed class TabularHttpTests
             var html = await page.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
             Assert.True(page.IsSuccessStatusCode, html);
             Assert.Contains("data-app-tabular", html);
-            Assert.Contains($"data-api=\"{site.PathBase}/api/tabular/{ApplicationStarter.FormPageKey}/{ApplicationStarter.FormLinesBlockKey}\"", html);
+            Assert.Contains($"data-api=\"{site.PathBase}/api/tabular/{ApplicationStarter.FormPageKey}/{ApplicationStarter.FormLinesBlockKey}?appCulture=en\"", html);
         }
         foreach (var stylesheet in new[] { "/dist/css/app.css", "/dist/css/site.css" })
             Assert.Contains(".ah-tabular__scroll", await client.GetStringAsync(site.PathBase + stylesheet, TestContext.Current.CancellationToken));

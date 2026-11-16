@@ -57,12 +57,13 @@ public sealed class ContentBlocksHttpTests
         // The demo page's blocks again, with every field defaulting to one of the bind variables.
         var template = types.Get(ApplicationStarter.BlockPageAlias)!.DefaultTemplate?.Id;
         var variables = contents.Create("Bind variables", demo.ParentId, ApplicationStarter.BlockPageAlias);
+        variables.SetCultureName(variables.Name!, "en");
         variables.TemplateId = template;
         variables.SetValue(ApplicationStarter.BlockPropertyAlias, WithDefaults(ContentBlocksTests.DemoContent(), new Dictionary<string, string>
         {
             ["customer"] = ":USER_NAME", ["notes"] = ":USER_EMAIL", ["status"] = ":USER_SID",
             ["amount"] = ":USER_KEY", ["orderDate"] = ":NOW", ["region"] = ":param.region",
-        }));
+        }), "en");
         Assert.True(contents.Save(variables).Success);
         var published = contents.Publish(variables, ["*"]);
         Assert.True(published.Success, string.Join(" ", published.EventMessages?.GetAll().Select(m => m.Message) ?? []));
@@ -74,8 +75,9 @@ public sealed class ContentBlocksHttpTests
         Assert.True(contents.Save(website).Success);
         Assert.True(contents.Publish(website, ["*"]).Success);
         var copy = contents.Create("Content blocks in the website", website.Id, ApplicationStarter.BlockPageAlias);
+        copy.SetCultureName(copy.Name!, "en");
         copy.TemplateId = template;
-        copy.SetValue(ApplicationStarter.BlockPropertyAlias, ContentBlocksTests.DemoContent());
+        copy.SetValue(ApplicationStarter.BlockPropertyAlias, ContentBlocksTests.DemoContent(), "en");
         Assert.True(contents.Save(copy).Success);
         published = contents.Publish(copy, ["*"]);
         Assert.True(published.Success, string.Join(" ", published.EventMessages?.GetAll().Select(m => m.Message) ?? []));

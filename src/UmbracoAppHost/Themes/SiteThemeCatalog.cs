@@ -13,7 +13,7 @@ public sealed record SiteTheme(string Alias, string PageLayout, string SignInLay
 
 /// <summary>
 /// Resolves the explicit theme on a site root. Register another <see cref="SiteTheme"/> in DI to add a
-/// theme without adding a root document type. Existing sites retain their document type's default.
+/// theme without adding a root document type. The site template selects the presentation family.
 /// </summary>
 public sealed class SiteThemeCatalog
 {
@@ -43,14 +43,14 @@ public sealed class SiteThemeCatalog
 
     /// <summary>
     /// A registered explicit choice wins, then the view's own default (Website home and Application site pass
-    /// theirs), then the Application site template on the root, then the root's document type.
+    /// theirs), then the Application site template on the root, then the website default.
     /// </summary>
     public SiteTheme Resolve(string? alias, string rootType, SiteTheme? defaultTheme, string? siteTemplate) =>
         Find(alias) ?? (defaultTheme is not null ? _themes[defaultTheme.Alias]
             : siteTemplate == "ApplicationSite" ? _themes[Application.Alias] : Resolve(null, rootType));
 
     public SiteTheme Resolve(string? alias, string rootType) =>
-        Find(alias) ?? (rootType == "application" ? _themes[Application.Alias] : _themes[Website.Alias]);
+        Find(alias) ?? _themes[Website.Alias];
 
     private SiteTheme? Find(string? alias) => alias is not null && _themes.TryGetValue(alias.Trim(), out var selected) ? selected : null;
 }

@@ -83,12 +83,13 @@ public sealed class ScheduleHttpTests
         using var scope = site.CreateScope();
         var contents = scope.ServiceProvider.GetRequiredService<IContentService>();
         var original = contents.GetById(SchedulePage)!;
-        var blocks = JsonNode.Parse(original.GetValue<string>(ApplicationStarter.BlockPropertyAlias)!)!;
+        var blocks = JsonNode.Parse(original.GetValue<string>(ApplicationStarter.BlockPropertyAlias, "en")!)!;
         foreach (var value in blocks["contentData"]![0]!["values"]!.AsArray())
             if (value!["alias"]!.GetValue<string>() == ScheduleSettings.BarsSourceAlias) value["value"] = "orders.schedule-rows";
         var copy = contents.Create("Broken schedule", original.ParentId, ApplicationStarter.BlockPageAlias);
+        copy.SetCultureName(copy.Name!, "en");
         copy.TemplateId = original.TemplateId;
-        copy.SetValue(ApplicationStarter.BlockPropertyAlias, blocks.ToJsonString());
+        copy.SetValue(ApplicationStarter.BlockPropertyAlias, blocks.ToJsonString(), "en");
         Assert.True(contents.Save(copy).Success);
 #pragma warning disable CS0618
         var published = contents.Publish(copy, ["*"]);

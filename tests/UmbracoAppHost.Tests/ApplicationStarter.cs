@@ -7,7 +7,7 @@ namespace UmbracoAppHost.Tests;
 internal static class ApplicationStarter
 {
     // These aliases belong to the host's exported content types, not to the generic block library.
-    public const string BlockPageAlias = "appBlockPage";
+    public const string BlockPageAlias = "webPage";
     public const string BlockPropertyAlias = "applicationBlocks";
     // Sample nodes, block instances and editor groups retain the host's original identities.
     // Only block type definitions moved to AppBlockSchema's package-owned key seed.

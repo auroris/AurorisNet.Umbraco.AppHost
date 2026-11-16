@@ -25,7 +25,7 @@ public static class BackOfficeSsoFallback
         return Task.CompletedTask;
     }
 
-    private static string? LocalAuthorizeUrl(HttpRequest request, string original, string authorize)
+    internal static string? LocalAuthorizeUrl(HttpRequest request, string original, string authorize, bool requireExternalProvider = false)
     {
         if (!Uri.TryCreate($"{request.Scheme}://{request.Host}", UriKind.Absolute, out var origin)) return null;
         if (!Uri.TryCreate(origin, original, out var uri)
@@ -35,6 +35,7 @@ public static class BackOfficeSsoFallback
             || !string.IsNullOrEmpty(uri.Fragment)) return null;
 
         var query = QueryHelpers.ParseQuery(uri.Query);
+        if (requireExternalProvider && !query.ContainsKey("identity_provider")) return null;
         // Keep state and the code challenge unchanged. The browser still owns its matching
         // umb:pkce verifier; choosing Umbraco's internal authorize branch avoids another SSO attempt.
         query.Remove("identity_provider");

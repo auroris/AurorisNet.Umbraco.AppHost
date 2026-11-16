@@ -3,7 +3,7 @@ namespace UmbracoAppHost.Authentication;
 /// <summary>Configuration for Umbraco's native backoffice external-login options.</summary>
 public sealed class BackOfficeAutoLinkSettings
 {
-    public bool AutoLinkExternalAccount { get; set; } = true;
+    public bool AutoLinkExternalAccount { get; set; }
 
     /// <summary>User group aliases for newly created users. Empty grants no backoffice groups.</summary>
     public string[] DefaultUserGroups { get; set; } = [];

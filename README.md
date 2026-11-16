@@ -394,9 +394,11 @@ How the pieces fit:
 
 ### Who gets an account
 
-OpenID Connect uses Umbraco's native external-login managers. Auto-creation and auto-linking
-are enabled by default for both backoffice users and members. Umbraco finds a stored provider
-link first; when auto-linking is enabled, it can match an existing account by email or create a
+OpenID Connect uses Umbraco's native external-login managers. Backoffice auto-creation and
+auto-linking are disabled by default: provision the user and link its directory identity before
+SSO, or let an existing user link the provider after local sign-in. Member auto-creation and
+auto-linking remain enabled. Umbraco finds a stored provider
+link first; when auto-linking is explicitly enabled, it can match an existing account by email or create a
 new account from the provider's email and name claims. Missing required claims are handled by
 Umbraco. The host does not rewrite the principal or apply a custom provisioning veto before
 Umbraco receives it.
@@ -408,7 +410,7 @@ See [Umbraco's external login provider options](https://apidocs.umbraco.com/v18/
 
 | `IdentityServer:BackOfficeAutoLink` setting | Meaning |
 |---|---|
-| `AutoLinkExternalAccount` | Enable native account creation and linking on first login; defaults to `true`. Turning it off still permits already-linked accounts to sign in. |
+| `AutoLinkExternalAccount` | Enable native account creation and linking on first login; defaults to `false`. Already-linked accounts can still sign in. |
 | `AllowManualLinking` | Allow users to link and unlink the provider in Umbraco; defaults to `true`. |
 | `DefaultUserGroups` | User group **aliases** for newly created users. Defaults to empty, so auto-creation grants no backoffice groups. |
 | `DefaultCulture` | Culture for new users; unset uses Umbraco's configured default. |

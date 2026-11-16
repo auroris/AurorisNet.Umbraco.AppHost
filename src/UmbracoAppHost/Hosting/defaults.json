@@ -82,7 +82,7 @@
     "MemberEnabled": true,
     "DenyLocalLogin": false,
     "BackOfficeAutoLink": {
-      "AutoLinkExternalAccount": true,
+      "AutoLinkExternalAccount": false,
       "AllowManualLinking": true,
       "DefaultUserGroups": []
     },

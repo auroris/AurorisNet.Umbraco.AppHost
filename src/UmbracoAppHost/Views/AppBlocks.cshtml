@@ -7,5 +7,5 @@
 }
 @if (Visitor.IsSignedIn)
 {
-    @await Component.InvokeAsync("AppBlocks", new { page = Model })
+    <partial name="Website/Content" />
 }

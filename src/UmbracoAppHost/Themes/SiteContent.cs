@@ -9,9 +9,9 @@ namespace UmbracoAppHost.Website;
 /// <summary>The site containing a page, and the labels shared by its menus and layouts.</summary>
 public static class SiteContent
 {
-    public static bool IsWebsite(IPublishedContent page) => page.ContentType.Alias is "appHostWebsite" or "webSite" or "blockWebSite"
+    public static bool IsWebsite(IPublishedContent page) => page.ContentType.Alias == "appHostWebsite"
         || page.HasProperty("siteTitle");
-    public static bool IsSite(IPublishedContent page) => IsWebsite(page) || page.ContentType.Alias == "application" || page.HasProperty("theme");
+    public static bool IsSite(IPublishedContent page) => IsWebsite(page) || page.HasProperty("theme");
 
     public static IPublishedContent SiteRoot(this IPublishedContent page, IDocumentNavigationQueryService navigation,
         IPublishedContentStatusFilteringService published)

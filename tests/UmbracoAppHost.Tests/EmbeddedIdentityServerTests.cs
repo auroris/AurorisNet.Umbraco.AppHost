@@ -287,6 +287,8 @@ public sealed class EmbeddedIdentityServerTests
         {
             // IdentityServer:Enabled with an empty Authority is the library default: the embedded server.
             ["Accounts:SeedCurrentWindowsUserAsAdministrator"] = "true",
+            // This test exercises automatic linking; production defaults require manual provisioning.
+            ["IdentityServer:BackOfficeAutoLink:AutoLinkExternalAccount"] = "true",
         });
         var address = Address(site);
         var email = $"{Environment.UserName}@localhost";

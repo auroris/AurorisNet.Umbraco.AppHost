@@ -126,7 +126,8 @@ public sealed class DataSourceHttpTests
         var pilotForm = pilotBlocks.Form("pilot-notes", [pilotBlocks.Field("appTextArea", "body"), pilotBlocks.Field("appSelect", "topic")]);
         pilotBlocks.Place(pilotForm);
         var page = contents.Create("Pilot notes form", contents.GetById(ApplicationStarter.FormPageKey)!.ParentId, ApplicationStarter.BlockPageAlias);
-        page.SetValue(ApplicationStarter.BlockPropertyAlias, pilotBlocks.ToJson());
+        page.SetCultureName(page.Name!, "en");
+        page.SetValue(ApplicationStarter.BlockPropertyAlias, pilotBlocks.ToJson(), "en");
         contents.Save(page);
         var bound = contents.Publish(page, ["*"]);
         Assert.True(bound.Success, string.Join(" ", bound.EventMessages?.GetAll().Select(m => m.Message) ?? []));

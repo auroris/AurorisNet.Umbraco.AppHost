@@ -1,9 +1,6 @@
 {
   "origin": "https://localhost:44392",
-  "layouts": {
-    "AppHome": "AppMaster",
-    "AppPage": "AppMaster"
-  },
+  "layouts": {},
   "values": {
     "content": "<p>This application was created from the UmbracoAppHost application starter. Rename it, replace this introduction, and add pages and reports beneath it.</p>"
   },

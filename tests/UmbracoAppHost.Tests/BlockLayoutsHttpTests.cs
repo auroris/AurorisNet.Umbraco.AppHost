@@ -46,8 +46,9 @@ public sealed class BlockLayoutsHttpTests
         Assert.True(contents.Save(website).Success);
         Assert.True(contents.Publish(website, ["*"]).Success);
         var copy = contents.Create("Layouts in the website", website.Id, ApplicationStarter.BlockPageAlias);
+        copy.SetCultureName(copy.Name!, "en");
         copy.TemplateId = types.Get(ApplicationStarter.BlockPageAlias)!.DefaultTemplate?.Id;
-        copy.SetValue(ApplicationStarter.BlockPropertyAlias, LayoutsContent());
+        copy.SetValue(ApplicationStarter.BlockPropertyAlias, LayoutsContent(), "en");
         Assert.True(contents.Save(copy).Success);
         var published = contents.Publish(copy, ["*"]);
         Assert.True(published.Success, string.Join(" ", published.EventMessages?.GetAll().Select(m => m.Message) ?? []));

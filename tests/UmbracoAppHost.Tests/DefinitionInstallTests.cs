@@ -6,7 +6,6 @@ using AppBlocks.Setup;
 using Microsoft.Extensions.DependencyInjection;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.Events;
-using Umbraco.Cms.Core.Exceptions;
 using Umbraco.Cms.Core.Models;
 using Umbraco.Cms.Core.Services;
 using uSync.BackOffice;
@@ -87,6 +86,21 @@ public sealed class DefinitionInstallTests
         Assert.Equal("OrdersPaperReport", types.Get("paperReport")!.DefaultTemplate?.Alias);
         Assert.Equal(new[] { "sqlDataSource", "reportDefinition", "listOfValues", "apiEndpoint" }, types.Get("dataSources")!.AllowedContentTypes!.OrderBy(child => child.SortOrder).Select(child => child.Alias));
 
+        foreach (var alias in new[] { "application", "appPage", "appBlockPage" }) Assert.Null(types.Get(alias));
+        foreach (var alias in new[] { "appHostWebsite", "webPage" })
+        {
+            var pageType = types.Get(alias)!;
+            Assert.Empty(pageType.PropertyTypes);
+            Assert.True(pageType.PropertyTypeExists("title"));
+            Assert.True(pageType.PropertyTypeExists("applicationBlocks"));
+        }
+        foreach (var alias in new[] { "webPageContent", "webPageSidebar", "pageNavigation", "sitePresentation", "webPageCode", "navigationMenu" })
+        {
+            var composition = types.Get(alias)!;
+            Assert.NotEmpty(composition.PropertyGroups);
+            Assert.All(composition.PropertyGroups, tab => Assert.Equal("Tab", tab.Type.ToString()));
+        }
+
         var contents = services.GetRequiredService<IContentService>();
         if (group == "Settings")
         {
@@ -94,15 +108,15 @@ public sealed class DefinitionInstallTests
             return;
         }
         await site.WaitForPublishedAsync(OrdersInteractive, TimeSpan.FromMinutes(2));
-        Assert.Contains("\"paperReport\"", contents.GetById(OrdersInteractive)!.GetValue<string>("applicationBlocks"));
+        Assert.Contains("\"paperReport\"", contents.GetById(OrdersInteractive)!.GetValue<string>("applicationBlocks", "en"));
     }
 
-    /// <summary>A failed native package migration fails the boot before uSync can import content.</summary>
+    /// <summary>An invalid package schema stops the host before uSync can import content.</summary>
     [Fact]
     public async Task A_failed_installation_stops_the_first_boot_import()
     {
         var probe = new ProbeResult();
-        var exception = await Assert.ThrowsAsync<TestSiteException>(async () =>
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
             await using var site = await TestSite.StartAsync(new TestSiteOptions
             {
@@ -112,15 +126,13 @@ public sealed class DefinitionInstallTests
                 {
                     builder.Services.AddSingleton(probe);
                     builder.Services.AddTransient<INotificationAsyncHandler<uSyncImportingItemNotification>, ImportProbe>();
-                    // This assembly embeds no schema, so reading its definitions fails the migration.
+                    // This assembly embeds no schema, so configuring its block previews fails before boot.
                     builder.Services.AddSingleton(new AppBlocksSchema(typeof(DefinitionInstallTests).Assembly));
                 },
             }, TestContext.Current.CancellationToken);
         });
-        Assert.Contains(nameof(RuntimeLevel.BootFailed), exception.Message);
-        var cause = Assert.IsType<BootFailedException>(exception.InnerException);
-        Assert.Contains("embedded file manifest", cause.Message);
-        Assert.Contains(typeof(DefinitionInstallTests).Assembly.GetName().Name!, cause.Message);
+        Assert.Contains("embedded file manifest", exception.Message);
+        Assert.Contains(typeof(DefinitionInstallTests).Assembly.GetName().Name!, exception.Message);
         Assert.False(probe.Seen, "The first boot imported although the definitions failed to install.");
     }
 

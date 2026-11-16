@@ -1,9 +1,12 @@
 # Websites, pages and application blocks
 
-uSync imports the **Block Application Page** document type and its block catalogue on first
-boot. These pages are available beneath Website, Application and Application Page. The saved
-export uses stable keys. Ordinary restarts preserve editor changes; definition updates arrive
-through an explicit uSync import.
+The shared content model has two general-purpose document types: **Web Site** for a site branch
+and **Web Page** for its pages. Both can contain content, forms and reports. Templates and themes
+select presentation; Umbraco Public Access and the block resources enforce permissions.
+
+This schema revision uses a clean database installation. Reset the development databases and
+working instance files before reinstalling. There is no in-place conversion from the removed
+Application, Application Page and Block Application Page types.
 
 The saved uSync export includes **Orders interactive** and **Orders form** beneath Sample
 Application, and the **Orders** data source beneath the Data sources root. The Orders form runs on
@@ -17,14 +20,22 @@ submission receipts without replacing existing rows.
 
 ## Web Sites and Web Pages
 
-**Web Site** can be a root or a nested site. It has the page content fields plus a site title,
-badge, optional external link, and a template selection. **Web Page** holds the page's own
-content and inherits its containing site's template and visual identity. Both compose
-**Web Page Content**, which provides page blocks, sidebar content, CSS, JavaScript, and the
-generated-navigation options. Existing Website content keeps its `appHostWebsite` alias.
+**Web Site** can be a root or a nested site. **Web Page** inherits its containing site's template
+and visual identity. Their fields are supplied by reusable compositions:
 
-**Navigation Menu** is a separate reusable document-type composition containing the UmbNav
-**Top navigation menu** field. Web Site composes it; other document types can opt in later.
+| Composition | Properties | Editor tab | Used by |
+| --- | --- | --- | --- |
+| Page Content | Title, introduction, page blocks | Content | Site and page |
+| Page Sidebar | Sidebar content | Content | Site and page |
+| Page Navigation | Hide from navigation, spacing, grouping, external link | Navigation | Site and page |
+| Site Menu | Authored menu and profile page | Navigation | Site |
+| Site Presentation | Site title, badge, optional theme override | Appearance | Site |
+| Page Code | CSS and JavaScript | Code | Site and page |
+
+These containers are native **tabs**, not groups placed on an unlabelled tab. A custom document
+type can compose just the capabilities it needs. The `appHostWebsite`, `webPageContent` and
+`navigationMenu` aliases remain stable; the site and page types define no direct properties.
+
 A page uses the nearest nonempty ancestor menu or badge. There is no fixed fallback content
 ID. Without an authored menu, navigation is generated from the containing site's pages.
 Page content itself is not inherited.
@@ -81,7 +92,7 @@ a form context. Public text and embedded HTML/JavaScript render without signing 
 Access, a C# form class decides for an anonymous visitor, so one with no check of its own is public.
 A class that refuses, report blocks, the data source engine, tabular forms and schedules show a
 sign-in notice in place of the block. This host's report policy requires an account for every report.
-The application templates show a sign-in form instead of their blocks, but that is presentation
+The optional **Signed-in page** template (`AppBlocks`) shows a sign-in form before its blocks. That is presentation
 only: a form's endpoints follow the same rule, so use Public Access to protect a branch.
 Language-specific page bindings are retained by form and report API calls.
 
@@ -94,10 +105,10 @@ The saved **Website authoring** page beneath **Website theme demo** demonstrates
 overview/support page, inherited navigation, two-column content, and a guide filter implemented
 with the page's CSS and JavaScript fields.
 
-## Authoring a Block Application Page
+## Authoring a Web Page
 
-1. Create a Block Application Page.
-2. Add an **Interactive Report**, or a **Form**. A page can contain several reports and one form.
+1. Create a Web Page.
+2. Add an **Interactive Report**, or a **Form**. A page can contain several reports and independent forms.
 3. For a report, select its configured or published source. Set the heading, initial page size, visible
    controls, and empty message as needed. Report administrators can use **Configure view**,
    make changes in the native report UI, and choose **Use this view**. Ordinary editors can
@@ -179,15 +190,11 @@ Four blocks arrange the content of a form:
 | **Region** | One, 12 columns, under an optional title bar | APEX's region. **Collapsible** in its settings lets visitors fold it from the title bar; it starts open and needs a title |
 
 The block catalogue has two groups. **Layouts** holds Full width, Two columns and Three
-columns; **Content** holds Region, Fieldset, Form actions and the field blocks. A form's
-fields area takes both groups. Every area of a column layout, a region or a fieldset takes
-Content only, so column layouts never nest and both themes can style them without guessing at
-depth: put regions and fieldsets in the columns, not columns in the regions. These rules are
-the area allowances of the **Application: Application blocks** data type; the backoffice editor
-enforces them (Umbraco does not check them again on the server). A new content block joins the
-**Content** group to become available in every layout. Layout blocks stand at the page level
-too, beside or instead of a form, with their areas holding reports, content blocks, attachments
-and tabular forms that name their owner; a page still holds at most one form, wherever it sits.
+columns; **Content** holds Region, Fieldset, Form actions and the field blocks. The shared
+**Website: Page blocks** grid allows nested layouts: for example, put Two columns inside a
+Region to arrange related fields side by side. Layouts also stand at page level, beside or
+inside forms, with their areas holding reports, content blocks, attachments and tabular forms.
+A page can contain several independent forms; a form cannot contain another form.
 
 A block's span inside an area counts that area's columns, as the backoffice draws it: a block
 that fills a Three columns area spans 4, one that fills a Two columns area spans 6. The split
@@ -222,7 +229,7 @@ content continues below it.
 The saved export's **Layouts** page beneath Sample Application shows every layout: a read-only
 form over the sample orders with each layout, regions and fieldsets as placeholders. Add
 `?id=4` to its address to fill the display values with an order. To see the layouts in the
-website shell, place a Block Application Page with the same blocks beneath a Website root.
+website shell, place a Web Page with the same blocks beneath a Web Site using Website home.
 
 ## Content blocks
 
@@ -385,7 +392,7 @@ own lines.
 
 The **Schedule** block (`appSchedule`, in the **Content** group) shows resources against time: a
 tape chart of rooms with the stays and repairs in them, a calendar of activities, vehicles and
-their allocations. It can stand at the top of an Application Page, as a form or a report does,
+their allocations. It can stand at the top of a Web Page, as a form or a report does,
 or sit in a content area of a Web Page; both shells style it.
 
 Give it a **Rows source** and a **Bars source**: each is the alias of a published report
@@ -620,10 +627,9 @@ component configuration, .NET endpoints, and browser demo server independently o
 
 Report sources can come from appsettings or published nodes; select choices can come from
 resources or published lists. Data sources have builders for SQLite, SQL Server, PostgreSQL
-and Oracle, and an editor Test action. The Block Application Page still uses invariant content,
-one form per page and page navigation; Web Pages vary by culture and can hold several
-independent forms. Culture variants for Block Application Pages, dialog forms, cascading choices,
-and row-specific report action visibility remain later work (see the
+and Oracle, and an editor Test action. Web Pages vary by culture and can hold several
+independent forms. Dialog forms, cascading choices and row-specific report action visibility
+remain later work (see the
 [design's work breakdown](design-blocks-and-data-sources.md#5-work-breakdown)).
 
 Optional PostgreSQL/Oracle provider tests live in `tests/UmbracoAppHost.ProviderTests`.

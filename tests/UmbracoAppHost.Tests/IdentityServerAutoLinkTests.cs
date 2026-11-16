@@ -27,7 +27,7 @@ namespace UmbracoAppHost.Tests;
 public sealed class IdentityServerAutoLinkTests
 {
     [Fact]
-    public async Task OpenID_preserves_Umbraco_creation_linking_callbacks_and_disabled_account_checks()
+    public async Task OpenID_requires_backoffice_creation_opt_in_and_preserves_member_creation_and_linked_accounts()
     {
         using var identity = new TestIdentityServer();
         var observedClaims = new List<string?>();
@@ -97,10 +97,28 @@ public sealed class IdentityServerAutoLinkTests
         Assert.DoesNotContain(schemes, scheme => scheme.Name is "Umbraco.Windows" or "UmbracoMembers.Windows" or "Negotiate");
         var backofficeOptions = site.Services.GetRequiredService<IOptionsMonitor<BackOfficeExternalLoginProviderOptions>>().Get("Umbraco.Native");
         var memberOptions = site.Services.GetRequiredService<IOptionsMonitor<MemberExternalLoginProviderOptions>>().Get("UmbracoMembers.Native");
-        Assert.True(backofficeOptions.AutoLinkOptions.AutoLinkExternalAccount);
+        Assert.False(backofficeOptions.AutoLinkOptions.AutoLinkExternalAccount);
         Assert.True(backofficeOptions.AutoLinkOptions.AllowManualLinking);
         Assert.Empty(backofficeOptions.AutoLinkOptions.DefaultUserGroups);
         Assert.True(memberOptions.AutoLinkOptions.AutoLinkExternalAccount);
+
+        // A new Windows/OIDC identity must not silently create a backoffice user.
+        const string unprovisionedSubject = "S-1-5-21-100-200-300-9100";
+        const string unprovisionedEmail = "unprovisioned@native.example.invalid";
+        Assert.False((await SignIn(site, identity, "backoffice", unprovisionedSubject, unprovisionedEmail))
+            .GetProperty("succeeded").GetBoolean());
+        Assert.Null(site.Services.GetRequiredService<IUserService>().GetByEmail(unprovisionedEmail));
+        Assert.Empty(site.Services.GetRequiredService<IExternalLoginWithKeyService>()
+            .Find("Umbraco.Native", unprovisionedSubject));
+        Assert.Empty(observedClaims);
+
+        // Explicit opt-in retains Umbraco's native creation and linking behavior. Members
+        // need no override; their first-sign-in creation remains enabled by default.
+        backofficeOptions.AutoLinkOptions = new ExternalSignInAutoLinkOptions(
+            autoLinkExternalAccount: true, defaultUserGroups: [], allowManualLinking: true)
+        {
+            OnAutoLinking = (_, info) => observedClaims.Add(info.Principal.FindFirst("department")?.Value),
+        };
 
         foreach (var audience in new[] { "backoffice", "member" })
         {

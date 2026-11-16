@@ -27,6 +27,68 @@ public sealed class BackOfficeSsoHttpTests
     private const string Password = "Local-test-only-Fallback91!";
 
     [Fact]
+    public async Task An_unlinked_sso_account_can_finish_the_native_password_login()
+    {
+        await using var site = await TestSite.StartAsync(new TestSiteOptions
+        {
+            Application = typeof(Program).Assembly,
+            EnvironmentName = "Production",
+            VirtualPath = Prefix,
+            AdminPassword = Password,
+            FirstBootGroup = "Settings",
+            Settings =
+            {
+                ["IdentityServer:Enabled"] = "true",
+                ["IdentityServer:BackOfficeAutoLink:AutoLinkExternalAccount"] = "false",
+                ["Accounts:SeedCurrentWindowsUserAsAdministrator"] = "false",
+            },
+        }, TestContext.Current.CancellationToken);
+        using var browser = new HttpClient(new HttpClientHandler
+        {
+            UseDefaultCredentials = true, AllowAutoRedirect = false, CookieContainer = new CookieContainer(),
+        }) { BaseAddress = site.Address };
+        var callback = new Uri(site.Address, Prefix + "/umbraco/oauth_complete").ToString();
+        var verifier = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+        var challenge = WebEncoders.Base64UrlEncode(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)));
+        var authorize = QueryHelpers.AddQueryString(Api + "/authorize", new Dictionary<string, string?>
+        {
+            ["client_id"] = Constants.OAuthClientIds.BackOffice, ["redirect_uri"] = callback,
+            ["response_type"] = "code", ["code_challenge"] = challenge, ["code_challenge_method"] = "S256",
+            ["identity_provider"] = "Umbraco.Domain", ["state"] = "fallback-state+value",
+        });
+        var location = new Uri(site.Address, authorize);
+        var visited = new List<string>();
+        for (var hop = 0; hop < 10 && location.AbsolutePath != Prefix + "/umbraco/login"; hop++)
+        {
+            visited.Add(location.AbsolutePath);
+            using var response = await browser.GetAsync(location, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+            location = new Uri(site.Address, response.Headers.Location!);
+        }
+        Assert.Contains(Prefix + "/connect/authorize", visited);
+        Assert.Contains(Prefix + "/signin-oidc/backoffice", visited);
+        Assert.Equal(Prefix + "/umbraco/login", location.AbsolutePath);
+
+        // Umbraco's unlinked-account fallback still contains the external provider. Opening
+        // that password form must switch its continuation to local auth, retaining PKCE/state.
+        using var fallback = await browser.GetAsync(location, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Redirect, fallback.StatusCode);
+        var localForm = new Uri(site.Address, fallback.Headers.Location!);
+        Assert.Equal(location.AbsolutePath, localForm.AbsolutePath);
+        var continuation = QueryHelpers.ParseQuery(localForm.Query)["ReturnUrl"].ToString();
+        var parameters = QueryHelpers.ParseQuery(new Uri(site.Address, continuation).Query);
+        Assert.False(parameters.ContainsKey("identity_provider"));
+        Assert.Equal(challenge, parameters["code_challenge"].ToString());
+        Assert.Equal("fallback-state+value", parameters["state"].ToString());
+        using var form = await browser.GetAsync(localForm, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, form.StatusCode);
+        Assert.Contains("<umb-auth", await form.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        using var login = await browser.PostAsJsonAsync(Api + "/login", new { username = "Admin", password = Password }, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        await CompleteAuthorization(browser, continuation, callback, verifier);
+    }
+
+    [Fact]
     public async Task Discovery_outage_falls_back_to_native_password_and_two_factor_login_without_repeating_sso()
     {
         var metadata = new UnavailableMetadata();

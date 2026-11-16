@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using Microsoft.AspNetCore.Mvc;
 using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Cms.Infrastructure.Manifest;
 using Umbraco.Cms.Core.Configuration.Models;
@@ -33,6 +34,7 @@ public static class SsoExtensions
         builder.Services.AddScoped<SiteVisitor>();
         builder.Services.AddScoped<ApplicationAccessPolicy>();
         builder.Services.AddSingleton<IPackageManifestReader, SsoPackageManifestReader>();
+        builder.Services.Configure<MvcOptions>(options => options.Filters.Add(new BackOfficeLocalLoginFilter()));
 
         // Provider registration happens while services are being built, so the sections are read directly here.
         var identityServer = configuration.GetSection(IdentityServerSettings.SectionName).Get<IdentityServerSettings>() ?? new IdentityServerSettings();
