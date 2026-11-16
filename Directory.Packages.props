@@ -17,6 +17,7 @@
     <PackageVersion Include="AurorisNet.IdentityServer" Version="1.1.1" />
     <PackageVersion Include="Umbraco.Cms.DevelopmentMode.Backoffice" Version="18.3.1" />
     <PackageVersion Include="Umbraco.Community.UmbNav" Version="5.0.3" />
+    <PackageVersion Include="Umbraco.Community.BlockPreview" Version="6.3.0" />
     <PackageVersion Include="uSync" Version="18.3.1" />
   </ItemGroup>
 </Project>

@@ -20,7 +20,6 @@ test('custom views render with the running host’s installed Umbraco modules', 
         '4Wing/4WingDiagrams/wwwroot/App_Plugins/FourWing.Diagrams/block-preview.js',
         '4Wing/4WingTelephoneDirectory/wwwroot/App_Plugins/FourWing.TelephoneDirectory/block-preview.js',
         '4Wing/4WingFileRepository/wwwroot/App_Plugins/FourWing.FileRepository/block-preview.js',
-        'UmbracoAppHost/src/UmbracoAppHost/wwwroot/App_Plugins/BlockPreviews.Host/block-preview.js',
     ];
     for (const path of scripts) {
         const response = await fetch(`${origin}/${path.split('/wwwroot/')[1]}`);
@@ -65,7 +64,6 @@ test('custom views render with the running host’s installed Umbraco modules', 
         ['four-wing-diagram-preview', 'fourWingDiagram', {}],
         ['four-wing-telephone-preview', 'fourWingTelephoneDirectory', { view: 'positions', scope: 'unit', filter: 'Operations' }],
         ['four-wing-repository-preview', 'fourWingFileRepository', {}],
-        ['app-host-demo-preview', 'umbBlockGridDemoHeadlineBlock', { headline: 'Heading' }],
     ];
     for (const [tag, alias, content, settings = {}] of samples) {
         const element = dom.window.document.createElement(tag);

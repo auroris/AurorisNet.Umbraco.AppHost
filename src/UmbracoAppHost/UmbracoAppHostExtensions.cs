@@ -92,6 +92,7 @@ public static class UmbracoAppHostExtensions
         Action<AppBlocksBuilder>? configureConnections = null)
     {
         SharedViews.Configure(builder.Services);
+        BlockPreviews.Configure(builder.Services);
         // Umbraco initializes publication state before uSync imports, so installation needs a
         // default language. Further languages and their settings come from the saved export.
         builder.Services.Configure<InstallDefaultDataSettings>(Umbraco.Cms.Core.Constants.Configuration.NamedOptions.InstallDefaultData.Languages,

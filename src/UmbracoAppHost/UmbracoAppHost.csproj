@@ -15,6 +15,7 @@
     <!-- App_Plugins and the login images must sit at the site root, not under /_content/UmbracoAppHost/. -->
     <StaticWebAssetBasePath>/</StaticWebAssetBasePath>
     <Description>A shared base for Umbraco sites: single sign-on and account policy, application blocks and Interactive Reports, website and application themes, virtual-path hosting, and the workarounds for upstream Umbraco gaps.</Description>
+    <PackageIcon>icon.png</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -45,6 +46,7 @@
     <PackageReference Include="AurorisNet.IdentityServer" />
     <PackageReference Include="Umbraco.Cms.DevelopmentMode.Backoffice" />
     <PackageReference Include="Umbraco.Community.UmbNav" />
+    <PackageReference Include="Umbraco.Community.BlockPreview" />
     <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" />
     <PackageReference Include="uSync" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
@@ -75,6 +77,8 @@
     <Content Update="**\*.cshtml" CopyToPublishDirectory="Never" />
     <Content Update="appsettings-schema*.json;umbraco-package-schema.json" CopyToPublishDirectory="Never" CopyToOutputDirectory="Never" />
     <Content Update="Hosting\defaults.json" CopyToPublishDirectory="Never" />
+    <!-- The package icon, ready for when the library ships as a NuGet package; the SVG beside it is the editable source. -->
+    <None Include="../../docs/images/icon.png" Pack="true" PackagePath="/" Visible="false" />
   </ItemGroup>
 
   <!-- Visual Studio only schedules projects listed in its solution. The source dependencies

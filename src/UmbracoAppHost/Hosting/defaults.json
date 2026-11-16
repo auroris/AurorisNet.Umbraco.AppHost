@@ -115,6 +115,12 @@
     "DefaultTake": 20,
     "MaxTake": 50
   },
+  "BlockPreview": {
+    "BlockGrid": { "Enabled": true, "Stylesheets": ["/dist/css/site.css"] },
+    "BlockList": { "Enabled": true, "Stylesheets": ["/dist/css/site.css"] },
+    "RichText": { "Enabled": true, "Stylesheets": ["/dist/css/site.css"] },
+    "SingleBlock": { "Enabled": true, "Stylesheets": ["/dist/css/site.css"] }
+  },
   "AppBlocks": {
     "IncludeBackOfficeReports": true
   },

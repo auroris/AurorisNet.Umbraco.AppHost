@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect width="128" height="128" rx="26" fill="#1e293b"/>
+  <!-- Solid house silhouette with three blocks cut out -->
+  <path d="M64 26L20 64h12v34a6 6 0 0 0 6 6h52a6 6 0 0 0 6-6V64h12z" fill="#fff"/>
+  <rect x="56" y="58" width="16" height="16" rx="3" fill="#1e293b"/>
+  <rect x="42" y="80" width="16" height="16" rx="3" fill="#1e293b"/>
+  <rect x="70" y="80" width="16" height="16" rx="3" fill="#1e293b"/>
+</svg>

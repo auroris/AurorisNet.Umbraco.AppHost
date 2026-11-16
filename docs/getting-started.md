@@ -32,6 +32,9 @@ NuGet package. Its version is pinned beside `Umbraco.Cms` in `Directory.Packages
 Umbraco version must fall within the package's supported range. No local checkout of that package is required.
 `AurorisNet.Umbraco.DisableTelemetry` is pinned there too and registers automatically through
 Umbraco's composers; see [Telemetry](../README.md#telemetry).
+`Umbraco.Community.BlockPreview` supplies Razor block previews while AppBlocks keeps its
+specialised authoring views. See [Block previews](block-previews.md) for model requirements,
+theme styles and configuration.
 The required people-search and account-lookup code is the site's own, in
 `src/UmbracoAppHost/DirectoryAccounts/Lookup/`.
 Later builds reuse the frontend outputs until their sources change.

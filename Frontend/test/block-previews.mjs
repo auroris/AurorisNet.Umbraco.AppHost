@@ -9,7 +9,7 @@ import { appBlockTypes } from '../../../AppBlocks/src/AppBlocks/wwwroot/App_Plug
 
 const repos = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 // These pure layouts already have the required preview: Umbraco's own card and editable areas.
-const nativeLayouts = new Set(['appFullWidth', 'appThreeColumns', 'blockTwoColumn1', 'blockTwoColumn2', 'blockTwoColumn3', 'umbBlockGridDemoTwoColumnLayoutBlock']);
+const nativeLayouts = new Set(['appFullWidth', 'appThreeColumns', 'blockTwoColumn1', 'blockTwoColumn2', 'blockTwoColumn3']);
 const owners = [
     ['AppBlocks/src/AppBlocks', 'Schema'], ['AppBlocks/src/AppBlocks.InteractiveReports', 'Schema'],
     ['AppBlocks/src/AppBlocks.Documents', 'Schema'], ['UmbracoAppHost/src/UmbracoAppHost', 'uSync'],
@@ -21,6 +21,9 @@ async function files(directory, suffix) {
     return (await Promise.all(entries.map(entry => entry.isDirectory() ? files(resolve(directory, entry.name), suffix) : entry.name.endsWith(suffix) ? [resolve(directory, entry.name)] : []))).flat();
 }
 test('every owned element offered by the block editors has a preview in its owning library', async () => {
+    // Conventional host partials now render through Umbraco.Community.BlockPreview.
+    const razorAliases = new Set((await files(resolve(repos, 'UmbracoAppHost/src/UmbracoAppHost/Views/Partials/blockgrid/Components'), '.cshtml'))
+        .map(path => path.split(/[\\/]/).at(-1).replace(/\.cshtml$/, '')));
     const allTypes = new Map();
     const configs = [];
     const previewAliases = new Set();
@@ -48,7 +51,7 @@ test('every owned element offered by the block editors has a preview in its owni
                 const nestedType = appBlockTypes.find(item => item.alias === alias);
                 if (nestedType) assert.equal(nestedType.key, type.getAttribute('Key'), `Nested preview identity differs: ${alias}`);
                 if (doc.querySelector('Info > IsElement')?.textContent === 'true' && !['appColumnsSettings', 'appRegionSettings', 'fourWingMediaPresentation'].includes(alias)) {
-                    assert(aliases.has(alias) || nativeLayouts.has(alias), `${project} does not preview ${alias}`);
+                    assert(aliases.has(alias) || nativeLayouts.has(alias) || razorAliases.has(alias), `${project} does not preview ${alias}`);
                 }
             }
             const config = doc.querySelector('DataType > Config')?.textContent;
@@ -58,7 +61,7 @@ test('every owned element offered by the block editors has a preview in its owni
     for (const config of configs) for (const block of config.blocks ?? []) {
         const alias = allTypes.get(block.contentElementTypeKey);
         assert(alias, `Unknown configured type ${block.contentElementTypeKey}`);
-        assert(previewAliases.has(alias) || nativeLayouts.has(alias), `Configured block has no preview: ${alias}`);
+        assert(previewAliases.has(alias) || nativeLayouts.has(alias) || razorAliases.has(alias), `Configured block has no preview: ${alias}`);
         if (nativeLayouts.has(alias)) assert(block.areas?.length > 0, `Native layout has no configured areas: ${alias}`);
     }
 });
