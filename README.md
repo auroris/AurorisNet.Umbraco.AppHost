@@ -158,14 +158,14 @@ without this checkout. Sites need only the ASP.NET Core 10 runtime. Their settin
 uSync folder sit outside `app/` and survive updates. Upgrade Umbraco and plugins in this checkout,
 verify them in the reference, then update the sites; their database upgrades run at the next start.
 
-AppBlocks, Interactive Reports, IdentityServer and Pressroom remain independent sibling checkouts; the build
-compiles their libraries and published sites carry the resulting assemblies. IdentityServer supplies
-`IdentityServer.Core` for the embedded OpenID Connect server, with its `ActiveDirectory` dependency.
+AppBlocks and its companions build from the sibling `..\AppBlocks` checkout; `AppBlocksRoot`
+overrides its location. IdentityServer, Interactive Reports and Pressroom.Client restore from
+AurorisNet NuGet packages, and published sites carry their assemblies and assets. The
+`AurorisNet.IdentityServer` package supplies the embedded OpenID Connect server and its
+`AurorisNet.ActiveDirectory` dependency.
 The people-picker lookup code is in `src/UmbracoAppHost/DirectoryAccounts/Lookup/`; it is compiled locally
 and needs no separate directory project.
-The default locations are `..\AppBlocks`, `..\Interactive-Reports`, `..\IdentityServer` and `..\Pressroom`;
-`AppBlocksRoot`, `InteractiveReportsRoot`, `IdentityServerRoot` and `PressroomRoot` override them. No separate
-IdentityServer process or deployed sibling checkout is needed. The public frontend is built once and includes
+The identity server runs inside the host. The public frontend is built once and includes
 both shells, with Razor templates targeting Umbraco 18 directly. A branded site brings its theme as
 a library of its own; see [Themes](docs/design-blocks-and-data-sources.md#1-themes).
 
@@ -384,7 +384,7 @@ How the pieces fit:
 - `IdentityServerExtensions.cs` registers the OpenID Connect handler for each audience
   (`/signin-oidc/backoffice` and `/signin-oidc/member`). It passes the validated principal
   to Umbraco unchanged. Umbraco handles account creation, linking, sign-in and two-factor checks.
-- `src/UmbracoAppHost/IdentityServer/` adapts the sibling `IdentityServer.Core` library with
+- `src/UmbracoAppHost/IdentityServer/` adapts the `AurorisNet.IdentityServer` package with
   a separate OpenIddict service container and exact client/callback validation. The same client
   code serves embedded and remote identity servers.
 - `SsoRefusal.cs` and `BackOfficeSsoFallback.cs` return protocol failures to the native
@@ -588,8 +588,8 @@ the login screen.
 
 ### Embedded identity server
 
-The platform hosts the generic `IdentityServer.Core` library from the sibling IdentityServer
-checkout in the same process. It serves `/connect/authorize` and `/connect/token`, authenticating
+The platform hosts the `AurorisNet.IdentityServer` NuGet package in the same process.
+It serves `/connect/authorize` and `/connect/token`, authenticating
 with Windows Integrated Authentication (Kerberos or NTLM on Kestrel, IIS Windows Authentication
 in IIS). The shared library owns claims, token issuance and key storage; the adapter in
 `src/UmbracoAppHost/IdentityServer/` supplies the site's client policy and local-login fallback.
@@ -1018,8 +1018,8 @@ Existing single-server settings migrate to the collection; removing every config
 Pressroom disabled even when configuration-file defaults exist. Before settings are saved,
 `AppBlocks:Documents:Pressroom:*`, or legacy `Pressroom:*` settings, provide a PDF default.
 Documents owns the shared `IDocumentOutputService` gateway used by companions, including its
-stream/print-receipt results and printer-failure handling. It uses `Pressroom.Client` without
-installing a browser runtime; `PressroomRoot` can override the source dependency location.
+stream/print-receipt results and printer-failure handling. It uses the `AurorisNet.Pressroom.Client`
+NuGet package, which communicates with the Pressroom server without installing a browser runtime.
 
 `/api/paper-reports/{node-key}` rechecks Public Access and the data source's rules, renders the
 selected template, embeds stylesheets and assets, and streams the PDF. A paper report always
@@ -1364,11 +1364,10 @@ JavaScript exception. They also exercise an existing path base as supplied by an
 The initial-refresh fix also applies at the root. Token values remain in
 HTTP-only cookies; the HTML contains only their presence and is not cached. `BackOfficePaths`
 includes the package build in the asset hash so a deployment replaces cached, unpatched modules. WebSocket upgrades
-and report endpoints are excluded from HTML rewriting. The login-script patch targets Umbraco
-18.3.1 and must be checked alongside these browser tests when upgrading Umbraco. The package
-uses one branch per exact Umbraco version and adds a local revision, such as `18.3.1.1`.
-AppHost pins the published package in `Directory.Packages.props`; update it alongside `Umbraco.Cms`
-when upgrading. Building AppHost does not require a checkout of the fix repository.
+and report endpoints are excluded from HTML rewriting. Package version `18.3.1.2` supports
+Umbraco 17.5.0 through 18.3.1. AppHost pins the published package in `Directory.Packages.props`;
+when upgrading `Umbraco.Cms`, check that it falls within the package's supported range and run
+the browser tests. Building AppHost does not require a checkout of the fix repository.
 
 The Playwright suite lives in `UmbracoApplicationVirtualPathFix` and uses plain Umbraco without
 AppHost, AppBlocks or IdentityServer. AppHost's existing `WelcomeReportTests` cover its report's
@@ -1380,9 +1379,12 @@ HTTPS; the browser test uses native login and HTTP. The asset symptom is also re
 
 ## Telemetry
 
-Umbraco posts a daily report to telemetry.umbraco.com from a recurring background job. Its
-lowest level, Minimal, still sends the site identifier; there is no off switch. The base's
-`Overrides/DisableTelemetryComposer` removes the job's registration before the container is built
-and fails boot if the registration is not found, so an upgrade that changes how the job is
-registered cannot quietly turn telemetry back on. The Gravatar lookup that earlier versions
-made for backoffice avatars is gone in 18: avatars are either an uploaded file or nothing.
+The base references [AurorisNet.Umbraco.DisableTelemetry](https://www.nuget.org/packages/AurorisNet.Umbraco.DisableTelemetry),
+with its version pinned in `Directory.Packages.props`. Umbraco discovers the package's composer
+automatically. It removes the recurring telemetry job, completes installer reporting locally,
+and replaces remote news fetching with the dashboard's built-in resource links.
+
+Umbraco's Minimal telemetry level still sends a site identifier on its own; the package removes
+the job that sends it. The package tolerates an already absent job. Compatibility checks belong
+to the package's supported Umbraco versions and tests. Backoffice avatars in Umbraco 18 are either
+an uploaded file or nothing.

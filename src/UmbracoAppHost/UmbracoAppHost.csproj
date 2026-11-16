@@ -12,7 +12,6 @@
     <!-- Let MSBuild check browser sources and dependencies outside the VS solution. -->
     <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
     <AppBlocksRoot Condition="'$(AppBlocksRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\AppBlocks</AppBlocksRoot>
-    <IdentityServerRoot Condition="'$(IdentityServerRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\IdentityServer</IdentityServerRoot>
     <!-- App_Plugins and the login images must sit at the site root, not under /_content/UmbracoAppHost/. -->
     <StaticWebAssetBasePath>/</StaticWebAssetBasePath>
     <Description>A shared base for Umbraco sites: single sign-on and account policy, application blocks and Interactive Reports, website and application themes, virtual-path hosting, and the workarounds for upstream Umbraco gaps.</Description>
@@ -42,6 +41,8 @@
     <!-- Common to every site built on the base; a site gets these transitively. -->
     <PackageReference Include="Umbraco.Cms" />
     <PackageReference Include="AurorisNet.Umbraco.ApplicationVirtualPathFix" />
+    <PackageReference Include="AurorisNet.Umbraco.DisableTelemetry" />
+    <PackageReference Include="AurorisNet.IdentityServer" />
     <PackageReference Include="Umbraco.Cms.DevelopmentMode.Backoffice" />
     <PackageReference Include="Umbraco.Community.UmbNav" />
     <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" />
@@ -54,8 +55,6 @@
     <!-- AppBlocks owns forms/data sources; its optional companion supplies interactive reports. -->
     <ProjectReference Include="$(AppBlocksRoot)\src\AppBlocks\AppBlocks.csproj" />
     <ProjectReference Include="$(AppBlocksRoot)\src\AppBlocks.InteractiveReports\AppBlocks.InteractiveReports.csproj" />
-    <!-- The built-in server and Negotiate package come from the sibling core library; picker lookup code is local. -->
-    <ProjectReference Include="$(IdentityServerRoot)\IdentityServer.Core\IdentityServer.Core.csproj" />
     <ProjectReference Include="$(AppBlocksRoot)\src\AppBlocks.Documents\AppBlocks.Documents.csproj" />
   </ItemGroup>
 

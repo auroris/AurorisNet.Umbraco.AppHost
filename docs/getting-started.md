@@ -7,9 +7,9 @@ The solution has two application projects:
 | `src/UmbracoAppHost` | The reusable library: Umbraco, uSync export, views, browser assets, authentication, forms and reports |
 | `src/UmbracoAppHost.Web` | The website launcher, using the same startup calls as any other host |
 
-The tests are separate. Interactive Reports, IdentityServer.Core and Pressroom.Client remain
-independent dependencies; their source projects build through project references without being
-listed separately in this solution. People-picker directory lookups are copied into this repository.
+The tests are separate. AppBlocks and its companions build through project references without
+being listed separately in this solution. IdentityServer, Interactive Reports and Pressroom.Client
+restore from AurorisNet NuGet packages. People-picker directory lookups live in this repository.
 
 ## Open the solution and press Play
 
@@ -17,22 +17,21 @@ Open `UmbracoAppHost.slnx` in Visual Studio and use the **Website** launch profi
 `http://localhost:5080/`. If Visual Studio remembers another startup selection, choose
 **Website** once from the Play dropdown.
 
-The first build restores and builds both the frontend and Interactive Reports' browser assets
-automatically. Building from source requires the .NET 10 SDK, Node 20 or newer, and four sibling
-checkouts next to this repository's folder:
+The first build restores and builds the host and AppBlocks frontends automatically. Interactive
+Reports' NuGet package includes its browser assets. Building requires the .NET 10 SDK, Node 20
+or newer, and the AppBlocks checkout next to this repository's folder:
 
 | Checkout | Provides |
 |---|---|
 | `..\AppBlocks` | Forms and data sources, plus the `AppBlocks.InteractiveReports` and `AppBlocks.Documents` companions. |
-| `..\Interactive-Reports` | Interactive Reports, compiled through `AppBlocks.InteractiveReports` with its browser assets |
-| `..\IdentityServer` | `IdentityServer.Core` for the built-in identity server, including its `ActiveDirectory` dependency. |
-| `..\Pressroom` | `Pressroom.Client`, used by `AppBlocks.Documents` for paper-report rendering. |
 
-To build against checkouts elsewhere, pass their folders as MSBuild properties, for example
-`dotnet build -p:AppBlocksRoot=D:\src\AppBlocks -p:InteractiveReportsRoot=D:\src\Interactive-Reports -p:IdentityServerRoot=D:\src\IdentityServer -p:PressroomRoot=D:\src\Pressroom`.
+To build against AppBlocks elsewhere, pass its folder as an MSBuild property:
+`dotnet build -p:AppBlocksRoot=D:\src\AppBlocks`.
 The backoffice virtual-path fixes come from the `AurorisNet.Umbraco.ApplicationVirtualPathFix`
-NuGet package. Its version is pinned beside `Umbraco.Cms` in `Directory.Packages.props` and must
-target the same Umbraco version; no local checkout of that package is required.
+NuGet package. Its version is pinned beside `Umbraco.Cms` in `Directory.Packages.props`; the
+Umbraco version must fall within the package's supported range. No local checkout of that package is required.
+`AurorisNet.Umbraco.DisableTelemetry` is pinned there too and registers automatically through
+Umbraco's composers; see [Telemetry](../README.md#telemetry).
 The required people-search and account-lookup code is the site's own, in
 `src/UmbracoAppHost/DirectoryAccounts/Lookup/`.
 Later builds reuse the frontend outputs until their sources change.
@@ -201,7 +200,7 @@ through its project references and are not added.
 
 Create `Views/_ViewImports.cshtml` when setting up the project and commit it with the host.
 Copy the complete file from `src/UmbracoAppHost/Views/_ViewImports.cshtml` in this checkout,
-including its `@inject` declarations. From the new host repository, with sibling checkouts:
+including its `@inject` declarations. From the new host repository, with the UmbracoAppHost and AppBlocks checkouts available:
 
 ```powershell
 New-Item -ItemType Directory -Force src/MyHost.Web/Views | Out-Null
@@ -301,17 +300,15 @@ umbraco-package-schema.json
 
 ### Build and press Play
 
-The library's project file finds AppBlocks, Interactive Reports, IdentityServer and Pressroom in
-sibling checkouts next to the UmbracoAppHost checkout (`..\AppBlocks`, `..\Interactive-Reports`,
-`..\IdentityServer`, `..\Pressroom`). When they are elsewhere, pass their folders to every build:
+The library's project file finds AppBlocks in `..\AppBlocks` next to the UmbracoAppHost checkout.
+When it is elsewhere, pass its folder to every build:
 
 ```powershell
-dotnet build src\MyHost.Web -p:InteractiveReportsRoot=D:\src\Interactive-Reports
+dotnet build src\MyHost.Web -p:AppBlocksRoot=D:\src\AppBlocks
 ```
 
-`AppBlocksRoot`, `IdentityServerRoot` and `PressroomRoot` do the same for the other three. Visual Studio passes no
-such properties; set them as environment variables before starting it, or keep the checkouts side
-by side.
+For Visual Studio, set `AppBlocksRoot` as an environment variable before starting it, or keep
+the checkouts side by side. The other libraries restore from NuGet.
 
 Press Play, or run `dotnet run --project src\MyHost.Web`. The first start creates the instance
 folder, installs Umbraco and imports the working uSync folder. Sign in at `/umbraco/` as `admin`
@@ -348,7 +345,7 @@ stale copy in the project folder never reaches a site.
 
 Nothing upstream is merged or migrated in the host; it is replaced:
 
-1. Pull the UmbracoAppHost checkout, and its siblings when they changed, and rebuild the host.
+1. Pull the UmbracoAppHost and AppBlocks checkouts when they changed, and rebuild the host.
    Code, browser assets and the library's export arrive through the project reference, and the
    views the library ships are rewritten at the next start.
 2. From the UmbracoAppHost checkout, run `.\refresh-definitions.ps1 -Instance <repository>\instance`.
@@ -396,8 +393,8 @@ pwsh -File ./new-site.ps1 -Project <repository>\src\MyHost.Web\MyHost.Web.csproj
 ```
 
 `-Assembly` names the application's file when it is not the project's name with `.dll`, and
-`-MsBuildProperties '-p:InteractiveReportsRoot=D:\src\Interactive-Reports'` passes the sibling
-checkouts' folders to the publish. Because the host turns the samples off, the site's uSync folder
+`-MsBuildProperties '-p:AppBlocksRoot=D:\src\AppBlocks'` passes the AppBlocks checkout's folder
+to the publish. Because the host turns the samples off, the site's uSync folder
 starts empty and its first start fills it from both exports. The copy of `new-site.ps1` inside the
 build folder creates more sites from it, on any machine with a copy of the folder. Update a site with
 `update-site.ps1 -Site <site> -Project <project file>`, or with `-Build` and a newer build of the

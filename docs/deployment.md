@@ -87,7 +87,7 @@ configuration to `artifacts/builds/<timestamp>-<commit>/` and creates the site f
 application, `instance.json` holds a fresh site identity, image signing key and administrator
 password, and `uSync/` receives the complete saved export. The first start installs Umbraco and
 imports that folder. Publishing needs the .NET 10 SDK, Node/npm, PowerShell 7 and the sibling
-`InteractiveReports` and `IdentityServer` checkouts (see [Getting started](getting-started.md));
+`AppBlocks` checkout (see [Getting started](getting-started.md));
 a site needs only the ASP.NET Core 10 runtime.
 
 A build folder is self-contained. `build.json` records the build id, Umbraco version, source
@@ -103,8 +103,8 @@ describes. `-Assembly <file>` names its application when that is not the project
 into the source project if it is missing, so Visual Studio can resolve the shared Razor types
 and injected services. Commit this file with the host; existing imports are preserved.
 `-MsBuildProperties` passes MSBuild properties to `dotnet publish`, for example
-`-MsBuildProperties '-p:InteractiveReportsRoot=D:\src\Interactive-Reports'` when the sibling
-checkouts are elsewhere; they come after the script's own, so `-p:Configuration=Debug` replaces
+`-MsBuildProperties '-p:AppBlocksRoot=D:\src\AppBlocks'` when AppBlocks is elsewhere;
+they come after the script's own, so `-p:Configuration=Debug` replaces
 the Release configuration. The three apply only when the script publishes, not with `-Build` or
 inside a build folder. The build's `app/Views/` holds this checkout's copies of the views the
 library ships, as a start would write them, whatever the project folder held; otherwise a site's
@@ -235,4 +235,4 @@ paper report as HTML as the administrator, changes a library view and dictionary
 arrive, then resets the instance and boots it again. The temporary folder keeps the project and
 the host's output of each start. `test-sites.ps1` and `test-downstream.ps1` take
 `-MsBuildProperties`, for example
-`-MsBuildProperties '-p:InteractiveReportsRoot=D:\src\Interactive-Reports'`.
+`-MsBuildProperties '-p:AppBlocksRoot=D:\src\AppBlocks'`.
