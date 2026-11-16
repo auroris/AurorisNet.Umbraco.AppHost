@@ -143,6 +143,21 @@ The PowerShell launcher is for Kestrel; IIS manages its own process lifetime. Th
 holds a lock under either host, preventing concurrent starts and updates while it
 is running. Media and databases remain outside the application's physical path.
 
+When using the embedded Windows identity server, enable Anonymous and Windows Authentication
+on the IIS application, then run the shared helper from an elevated PowerShell on the server:
+
+```powershell
+.\deployment\configure-iis-authentication.ps1 -Site '4Wing' -ApplicationPath '/WComptDoA'
+```
+
+Use your IIS site and application path (`/` for a root application). The helper leaves Windows
+authentication enabled for SSO, but disables IIS Windows challenges under `umbraco`, where
+Umbraco owns authentication. Otherwise a normal unauthenticated backoffice API response after
+logout also receives `Negotiate`/`NTLM` headers and opens a Windows Security dialog. The helper
+retains the ASP.NET Core handler at that child configuration path so the requests still reach
+Umbraco. It is safe to rerun and supports `-WhatIf`. These settings live in IIS configuration
+and survive application-file updates; the helper is included in newly published builds.
+
 To choose or reset the administrator password, set `UmbracoAppHost:AdminPassword` in
 `app/appsettings.json` and save. The running site applies it without an IIS restart.
 A valid value also unlocks the account, resets failed login attempts and removes its two-factor
