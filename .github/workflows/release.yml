@@ -52,7 +52,8 @@ jobs:
   release:
     name: Test and publish
     runs-on: windows-latest
-    timeout-minutes: 30
+    # The tests take about eleven minutes on a developer's machine.
+    timeout-minutes: 60
     permissions:
       contents: write
       id-token: write

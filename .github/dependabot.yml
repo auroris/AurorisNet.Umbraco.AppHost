@@ -7,6 +7,17 @@ updates:
     directory: /
     schedule:
       interval: daily
+    ignore:
+      # These packages follow the .NET version the projects target, so a new major version waits for that upgrade.
+      - dependency-name: "Microsoft.Extensions.*"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "Microsoft.AspNetCore.*"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "Microsoft.Data.Sqlite"
+        update-types:
+          - "version-update:semver-major"
     groups:
       # AppBlocks and the Umbraco release it pins are the dependency this library follows. Umbraco, uSync and the
       # AurorisNet packages for that release must move together, because the build checks that the library and AppBlocks

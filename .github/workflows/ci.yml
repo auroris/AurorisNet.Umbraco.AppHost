@@ -26,7 +26,8 @@ jobs:
   test:
     name: Test
     runs-on: windows-latest
-    timeout-minutes: 30
+    # The tests take about eleven minutes on a developer's machine.
+    timeout-minutes: 60
     env:
       # Build against the published AppBlocks, BreakGlass and IdentityServer packages, which the package then depends on,
       # instead of sibling checkouts. The build fails until those packages are on nuget.org.
