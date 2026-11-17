@@ -5,8 +5,8 @@
   <PropertyGroup Condition="'$(MSBuildProjectName)' == 'UmbracoAppHost' or '$(MSBuildProjectName)' == 'UmbracoAppHost.Testing'">
     <Version>1.0.0-alpha.1</Version>
     <Authors>auroris</Authors>
-    <PackageProjectUrl>https://github.com/auroris/UmbracoAppHost</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/auroris/UmbracoAppHost</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/auroris/AurorisNet.Umbraco.AppHost</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/auroris/AurorisNet.Umbraco.AppHost</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <!-- Reuse needs written permission, so the license travels as the file itself rather than an SPDX expression. -->
     <PackageLicenseFile>LICENSE</PackageLicenseFile>

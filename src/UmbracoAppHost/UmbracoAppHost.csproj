@@ -11,7 +11,7 @@
     <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
     <!-- Let MSBuild check browser sources and dependencies outside the VS solution. -->
     <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
-    <AppBlocksRoot Condition="'$(AppBlocksRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\AppBlocks</AppBlocksRoot>
+    <AppBlocksRoot Condition="'$(AppBlocksRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\AurorisNet.Umbraco.AppBlocks</AppBlocksRoot>
     <!-- Break-glass access builds from the sibling checkout until its package is on nuget.org. Then set
          UseBreakGlassSource to false here and uncomment its version in Directory.Packages.props. -->
     <BreakGlassRoot Condition="'$(BreakGlassRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\AurorisNet.Umbraco.BreakGlass</BreakGlassRoot>
