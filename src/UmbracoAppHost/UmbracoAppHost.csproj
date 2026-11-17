@@ -107,7 +107,7 @@
     <!-- A published site carries only its own Views folder and editor schema files; the library's
          views are embedded, and every project directory receives its own generated schema copies. -->
     <Content Update="**\*.cshtml" CopyToPublishDirectory="Never" />
-    <Content Update="appsettings-schema*.json;umbraco-package-schema.json" CopyToPublishDirectory="Never" CopyToOutputDirectory="Never" />
+    <Content Update="appsettings-schema*.json;umbraco-package-schema.json" CopyToPublishDirectory="Never" CopyToOutputDirectory="Never" Pack="false" />
     <Content Update="Hosting\defaults.json" CopyToPublishDirectory="Never" />
     <!-- The package icon, ready for when the library ships as a NuGet package; the SVG beside it is the editable source. -->
     <None Include="../../docs/images/icon.png" Pack="true" PackagePath="/" Visible="false" />

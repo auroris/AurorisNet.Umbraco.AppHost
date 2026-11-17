@@ -138,6 +138,7 @@
     "RetentionDays": 30
   },
   "BreakGlass": {
+    "AdminUserName": "admin",
     "AdminEmail": "admin@localhost.local"
   }
 }

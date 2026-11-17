@@ -110,7 +110,7 @@ left out it follows `DebugFlow`.
 `Enabled` and `BackOfficeEnabled` settings to be true. Restart after changing login flows
 or provider settings. See the [authentication settings](../README.md#never-locked-out) for this
 host's defaults, and the package's
-[behavior reference](../../AurorisNet.Umbraco.IdentityServer.SSO/docs/BEHAVIOR.md#backoffice-login)
+[behavior reference](../../AurorisNet.Umbraco.IdentityServer.SSO/README.md#sign-in-flows)
 for provider configuration and logout behavior.
 
 For emergency access on a deployed site, set `Umbraco:CMS:Hosting:Debug` to `true` and

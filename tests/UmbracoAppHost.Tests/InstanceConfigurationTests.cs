@@ -37,7 +37,7 @@ public sealed class InstanceConfigurationTests
     {
         var settings = BreakGlassSettingsFor();
         Assert.Null(settings.AdminPassword);
-        Assert.Equal("admin", settings.GetAdminUserName(usernameIsEmail: false));
+        Assert.Equal("admin", settings.GetAdminUserName());
         Assert.Equal("admin@localhost.local", settings.GetAdminEmail());
         Assert.True(settings.IsDebugSignInActive(hostingDebug: true));
         Assert.False(settings.IsDebugSignInActive(hostingDebug: false));
@@ -51,7 +51,7 @@ public sealed class InstanceConfigurationTests
             .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.json"), optional: false).Build()
             .AsEnumerable().ToDictionary());
         Assert.Equal("", settings.AdminPassword);
-        Assert.Equal("admin", settings.GetAdminUserName(usernameIsEmail: false));
+        Assert.Equal("admin", settings.GetAdminUserName());
         Assert.Equal("admin@localhost.local", settings.GetAdminEmail());
         Assert.True(settings.IsDebugSignInActive(hostingDebug: true));
     }
@@ -61,7 +61,7 @@ public sealed class InstanceConfigurationTests
     {
         // The host's settings come after the library's defaults, which use the BreakGlass names.
         var cleared = BreakGlassSettingsFor(new Dictionary<string, string?> { ["UmbracoAppHost:AdminUserName"] = "", ["UmbracoAppHost:AdminEmail"] = "" });
-        Assert.Null(cleared.GetAdminUserName(usernameIsEmail: false));
+        Assert.Null(cleared.GetAdminUserName());
         Assert.Null(cleared.GetAdminEmail());
 
         var older = BreakGlassSettingsFor(new() { [BreakGlassSettings.AdminPasswordKey] = "Newer-name-in-defaults91!" },

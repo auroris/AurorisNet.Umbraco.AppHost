@@ -69,8 +69,7 @@ public sealed partial class TestSite : IAsyncDisposable
         InstanceRoot = app.Services.GetRequiredService<AppHostInstance>().Root;
         DataRoot = app.Configuration["UmbracoAppHost:DataRoot"]!;
         USyncFolder = Path.GetFullPath(app.Configuration["uSync:Settings:RootFolder"]!, app.Environment.ContentRootPath);
-        AdminUserName = app.Services.GetRequiredService<IOptionsMonitor<BreakGlassSettings>>().CurrentValue
-                .GetAdminUserName(app.Services.GetRequiredService<IOptionsMonitor<Umbraco.Cms.Core.Configuration.Models.SecuritySettings>>().CurrentValue.UsernameIsEmail)
+        AdminUserName = app.Services.GetRequiredService<IOptionsMonitor<BreakGlassSettings>>().CurrentValue.GetAdminUserName()
             // Without a configured name the administrator keeps the unattended install's, which is its email.
             ?? app.Configuration["Umbraco:CMS:Unattended:UnattendedUserEmail"] ?? "";
     }

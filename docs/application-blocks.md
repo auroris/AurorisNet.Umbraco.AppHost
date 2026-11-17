@@ -105,6 +105,34 @@ The saved **Website authoring** page beneath **Website theme demo** demonstrates
 overview/support page, inherited navigation, two-column content, and a guide filter implemented
 with the page's CSS and JavaScript fields.
 
+### Language fallback
+
+A site shows a page in every language whose Umbraco language names a **Fall back to** language,
+using the fallback language's content where a translation is missing. The saved export sets French
+to fall back to English, so a French address serves the French page where one is published and the
+English page where it is not. A site that adds Spanish with English as its fallback gets the same
+behavior for Spanish. The default language is served as published.
+
+Under a domain assigned to such a language, `CultureFallback` (namespace `UmbracoAppHost.Website`)
+routes pages by these rules:
+
+- A page published in the language keeps its own URL segment and content.
+- A page published only in the fallback language is served at its fallback segment, with the
+  fallback content, while the domain and the interface stay in the requested language. A page
+  beneath an ancestor published only in English is reachable the same way.
+- When that segment is already held by a translated sibling, the page takes the language code as a
+  suffix: `orders` becomes `orders-en`, then `orders-en-2` if another sibling holds `orders-en`.
+
+Navigation in the language lists the pages these routes serve. Property reads in the language use
+Umbraco's language fallback by default, so a value missing in French comes from English; a read
+that names its own `Fallback` keeps it. A fallback language that itself falls back continues the
+chain in its configured order. Drafts stay unpublished in every language, and a page published in
+none of the chain's languages returns 404. In preview, navigation keeps Umbraco's own filtering.
+
+The rules follow the language settings: change **Fall back to** in **Settings > Languages** and the
+routes, navigation and values follow on the next request. `AddUmbracoAppHost` registers the URL
+provider, content finder, navigation filter and value fallback.
+
 ## Authoring a Web Page
 
 1. Create a Web Page.

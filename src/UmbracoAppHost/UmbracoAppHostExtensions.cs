@@ -81,8 +81,8 @@ public static class UmbracoAppHostExtensions
     /// <summary>
     /// Adds the shared services: single sign-on and the account policy, accounts created from the
     /// directory, Interactive Reports with Umbraco-backed authorization and the built-in audit
-    /// reports, configured accounts, the older setting names of break-glass access, and virtual-path
-    /// hosting.
+    /// reports, configured accounts, the older setting names of break-glass access, virtual-path
+    /// hosting, and each language's configured fallback for pages and values missing in its culture.
     /// On first boot the working uSync folder receives the library's export, without its sample content when
     /// <c>UmbracoAppHost:Samples</c> is false, then the host's own export from <c>UmbracoAppHost:HostExport</c>.
     /// Call it after <c>AddComposers()</c> so account provisioning runs after uSync's startup import.
@@ -156,6 +156,7 @@ public static class UmbracoAppHostExtensions
         // The authored menu with its visitor tokens replaced, once per request.
         builder.Services.AddScoped<UmbracoAppHost.Website.SiteMenu>();
         builder.AddNotificationAsyncHandler<RoutingRequestNotification, UmbracoAppHost.Website.WebsiteTemplateInheritance>();
+        AddCultureFallback(builder);
 
         // Use separate usernames for local login, including hosts using the IUmbracoBuilder entry point.
         builder.Services.Configure<SecuritySettings>(security =>
@@ -165,6 +166,40 @@ public static class UmbracoAppHostExtensions
         // sign-in. This host's older setting names still feed them.
         builder.AddBreakGlassCompatibility(configuration);
         return builder;
+    }
+
+    /// <summary>
+    /// A culture whose language falls back to another serves that language's pages and values where its own are
+    /// missing: under the culture's URLs, in its navigation and in property reads. See <see cref="Website.CultureFallback"/>.
+    /// </summary>
+    private static void AddCultureFallback(IUmbracoBuilder builder)
+    {
+        if (builder.Services.Any(service => service.ServiceType == typeof(Website.CultureFallback))) return;
+        // The value fallback depends on the language settings alone: Umbraco's content cache needs it to build content.
+        builder.Services.AddSingleton<Website.LanguageFallbacks>();
+        builder.Services.AddSingleton<Website.CultureFallback>();
+        builder.AddNotificationHandler<LanguageCacheRefresherNotification, Website.LanguageFallbacksRefresh>();
+        Decorate<Umbraco.Cms.Core.Models.PublishedContent.IPublishedValueFallback>(builder.Services, (native, services) =>
+            new Website.CultureValueFallback(native, services.GetRequiredService<Website.LanguageFallbacks>()));
+        Decorate<Umbraco.Cms.Core.Services.Navigation.IPublishedContentStatusFilteringService>(builder.Services, (native, services) =>
+            new Website.CultureFallbackStatusFilter(native, services.GetRequiredService<Website.CultureFallback>(),
+                services.GetRequiredService<Umbraco.Cms.Core.Services.IPreviewService>(),
+                services.GetRequiredService<Umbraco.Cms.Core.PublishedCache.IPublishedContentCache>()));
+        builder.UrlProviders().InsertBefore<Umbraco.Cms.Core.Routing.DefaultUrlProvider, Website.CultureFallbackUrlProvider>();
+        builder.ContentFinders().InsertAfter<Umbraco.Cms.Core.Routing.ContentFinderByUrl, Website.CultureFallbackContentFinder>();
+    }
+
+    /// <summary>Wraps the last registration of <typeparamref name="T"/>, keeping its lifetime.</summary>
+    private static void Decorate<T>(IServiceCollection services, Func<T, IServiceProvider, T> decorate) where T : class
+    {
+        var registration = services.Last(service => service.ServiceType == typeof(T) && !service.IsKeyedService);
+        services.Remove(registration);
+        services.Add(ServiceDescriptor.Describe(typeof(T), provider =>
+        {
+            var native = registration.ImplementationInstance ?? registration.ImplementationFactory?.Invoke(provider)
+                ?? ActivatorUtilities.CreateInstance(provider, registration.ImplementationType!);
+            return decorate((T)native, provider);
+        }, registration.Lifetime));
     }
 
     /// <summary>

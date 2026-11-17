@@ -108,7 +108,8 @@ the standard `Umbraco:CMS:InstallDefaultData:Languages` settings.
 The saved export assigns no domains and its pages have English content only. `/` serves the first
 root page by sort order, which is the Sample Application; uSync imports siblings in no fixed order,
 so keep the sort orders when adding root pages. Assign domains to a Web Site to publish its
-language variants at their own addresses.
+language variants at their own addresses. A French address then serves English content where a
+page has no French translation ([language fallback](docs/application-blocks.md#language-fallback)).
 Existing sites keep their content and domain assignments until an editor changes them or imports an export.
 
 **Web Site and Web Page authoring.** A Web Site can be the public root for an application
@@ -291,7 +292,7 @@ contact email `admin@localhost.local`. Other accounts keep their existing userna
 
 Recovery comes from the [`AurorisNet.Umbraco.BreakGlass`](../AurorisNet.Umbraco.BreakGlass/README.md)
 package, which reads its own `BreakGlass` settings section; its
-[behavior and security notes](../AurorisNet.Umbraco.BreakGlass/docs/BEHAVIOR.md) cover the details.
+[behavior and security notes](../AurorisNet.Umbraco.BreakGlass/README.md#security) cover the details.
 
 Set `BreakGlass:AdminPassword` in the website's `appsettings.json` to choose or reset
 the original administrator's password. Saving the file applies it to a running site without
@@ -326,7 +327,7 @@ package reads:
 or unavailable. `Form` shows local sign-in, `IdentityServer` always redirects, and `Debug` shows
 local sign-in without a redirect. `DebugFlow` applies while Umbraco debug mode is enabled; set
 it to `Form` for real password checks during development, or `null` to use `DefaultFlow`. The
-package's [login reference](../AurorisNet.Umbraco.IdentityServer.SSO/docs/BEHAVIOR.md#backoffice-login)
+package's [login reference](../AurorisNet.Umbraco.IdentityServer.SSO/README.md#sign-in-flows)
 describes each flow, the startup checks, and how a failed SSO attempt returns to the password
 form with the authorization request intact. Restart after changing login flows or SSO settings.
 
@@ -362,7 +363,7 @@ package, which `AddUmbracoAppHost` registers with `AddSingleSignOn`. It offers l
 authentication beside one OpenID Connect provider for the backoffice and for members: the
 embedded IdentityServer that this site hosts and that authenticates Windows accounts, or an
 external identity server named by `IdentityServer:Authority`. Its
-[behavior reference](../AurorisNet.Umbraco.IdentityServer.SSO/docs/BEHAVIOR.md) covers the
+[behavior reference](../AurorisNet.Umbraco.IdentityServer.SSO/README.md) covers the
 protocol, the password fallback, the embedded server's clients, claims and keys, IIS, and
 troubleshooting. This section describes what this host adds and the defaults it supplies.
 
@@ -407,7 +408,7 @@ Umbraco's native external-login managers create and link accounts. Backoffice au
 auto-linking are disabled by default: provision the user and link its directory identity before
 SSO, or let an existing user link the provider after local sign-in. Member auto-creation and
 auto-linking remain enabled. The package's
-[account reference](../AurorisNet.Umbraco.IdentityServer.SSO/docs/BEHAVIOR.md#accounts) lists the
+[account reference](../AurorisNet.Umbraco.IdentityServer.SSO/README.md#who-gets-an-account) lists the
 `BackOfficeAutoLink` and `MemberAutoLink` settings and the hooks a host can add.
 
 Local passwords and password recovery use Umbraco's account-management flow. Accounts created
@@ -533,7 +534,7 @@ Delete in the Users and Members sections retires an account that has signed in, 
 a Windows identity, instead of removing it: its username becomes the Windows SID, its email an
 address at `retired.invalid`, and it is disabled, while its name and history stay on everything
 it authored. A new person can then take the username and email. The package's
-[retirement reference](../AurorisNet.Umbraco.IdentityServer.SSO/docs/BEHAVIOR.md#retirement)
+[retirement reference](../AurorisNet.Umbraco.IdentityServer.SSO/README.md#who-gets-an-account)
 describes what changes and how to restore an account. `Accounts:RetireDeletedUsers` and
 `RetireDeletedMembers`, both `true` here, switch it off; a change applies without a restart.
 
@@ -565,7 +566,7 @@ The site hosts the `AurorisNet.IdentityServer` server in its own process through
 serves `/connect/authorize` and `/connect/token` and authenticates Windows accounts. The site's
 own provider is one of its clients; other applications are listed in
 `EmbeddedIdentityServer:Clients`. The package's
-[embedded server reference](../AurorisNet.Umbraco.IdentityServer.SSO/docs/BEHAVIOR.md#embedded-identity-server)
+[embedded server reference](../AurorisNet.Umbraco.IdentityServer.SSO/docs/EMBEDDED-SERVER.md)
 covers discovery, clients, claims, keys, its separation from Umbraco's own server, and
 troubleshooting.
 

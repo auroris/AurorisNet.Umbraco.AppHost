@@ -161,7 +161,7 @@ once the package is published. It keeps Windows authentication for SSO and switc
 challenges off under `umbraco`, where Umbraco owns authentication, so a backoffice API response
 after logout opens no Windows Security dialog. It can run again safely and supports `-WhatIf`.
 The settings live in IIS configuration and survive application updates. The package's
-[IIS notes](../../AurorisNet.Umbraco.IdentityServer.SSO/docs/BEHAVIOR.md#iis) explain each change.
+[IIS notes](../../AurorisNet.Umbraco.IdentityServer.SSO/docs/EMBEDDED-SERVER.md#iis-windows-authentication) explain each change.
 
 To choose or reset the administrator password, set `BreakGlass:AdminPassword` (or the older
 `UmbracoAppHost:AdminPassword`) in `app/appsettings.json` and save. The running site applies it without an IIS restart.
