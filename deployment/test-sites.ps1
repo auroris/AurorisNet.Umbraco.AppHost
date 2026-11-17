@@ -24,7 +24,7 @@ foreach ($name in @('first', 'second')) {
     $assembly = (Read-JsonFile (Join-Path $site '.apphost/instance.json')).assembly
     Assert-True ($assembly -eq 'UmbracoAppHost.Web.dll') "The site records $assembly as its application, not the reference launcher."
     $settings = Read-JsonFile (Join-Path $site instance.json)
-    # Without a sign-in provider an anonymous request sees the Sample Application's own sign-in page instead of a challenge.
+    # Without a sign-in provider an anonymous request to a signed-in page sees the member sign-in form instead of a challenge.
     $settings.IdentityServer = @{ Enabled = $false }
     $settings.Accounts.SeedCurrentWindowsUserAsAdministrator = $false
     $settings.Umbraco.CMS.Global.UseHttps = $false
@@ -51,7 +51,9 @@ foreach ($name in @('first', 'second')) {
         } while ([DateTime]::UtcNow -lt $deadline)
         Assert-True ($response -and $response.StatusCode -eq 200) "$name home did not render. Logs: $site/app/umbraco/Logs"
         Assert-True ($response.Content -match $expectedTitle) "$name imported content missing."
-        Assert-True ($response.Content -match 'loginModel.Username') "$name did not offer the member sign-in form."
+        # The Sample Application's home is public; its Orders form uses the Signed-in page template.
+        $signIn = Invoke-WebRequest "http://127.0.0.1:$port/orders-form/" -SkipHttpErrorCheck
+        Assert-True ($signIn.StatusCode -eq 200 -and $signIn.Content -match 'loginModel.Username') "$name did not offer the member sign-in form on /orders-form/."
         foreach ($path in @('/dist/scripts/site.js', '/dist/css/app.css', '/api/reports/ui/ir.js')) {
             $asset = Invoke-WebRequest "http://127.0.0.1:$port$path" -SkipHttpErrorCheck
             Assert-True ($asset.StatusCode -eq 200 -and $asset.RawContentLength -gt 100) "Published asset missing: $path"
@@ -62,7 +64,7 @@ foreach ($name in @('first', 'second')) {
         Assert-True (Test-Path (Join-Path $site data/Umbraco.sqlite.db)) 'Database was not created outside app/.'
         # The first boot's import publishes the Orders data source, whose validation opens the sample database; a host
         # without the samples creates none, which test-downstream.ps1 checks.
-        Assert-True (Test-Path (Join-Path $site data/App_Data/ReportsSample.sqlite.db)) 'The import did not validate the Orders data source against its sample database.'
+        Assert-True (Test-Path (Join-Path $site data/ReportsSample.sqlite.db)) 'The import did not validate the Orders data source against its sample database.'
         $locked = $false
         try { $probe = [IO.File]::Open((Join-Path $site '.apphost/run.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None); $probe.Dispose() }
         catch [IO.IOException] { $locked = $true }
@@ -93,7 +95,7 @@ $preserved['app/appsettings.json'] = Get-AppFileHash $appSettingsPath
 $unknown = Join-Path $site app/Views/InstanceCreated.cshtml
 Set-Content $unknown '@* authored in Umbraco *@'
 # A shared definition edited on the site is refreshed; site content and site-added definitions are kept.
-$sharedDefinition = Join-Path $site 'uSync/ContentTypes/apppage.config'
+$sharedDefinition = Join-Path $site 'uSync/ContentTypes/webpage.config'
 Add-Content $sharedDefinition '<!-- edited on the site -->'
 $siteContent = Join-Path $site 'uSync/Content/sample-application.config'
 Add-Content $siteContent '<!-- edited on the site -->'
@@ -108,7 +110,7 @@ foreach ($stale in $staleDefinitions) { Assert-True (Test-Path $stale) 'Update -
 & (Join-Path $scripts update-site.ps1) -Site $site -Build $published.Root
 foreach ($path in $preserved.Keys) { Assert-True ((Get-AppFileHash (Join-Path $site $path)) -eq $preserved[$path]) "Update changed $path" }
 Assert-True (Test-Path $unknown) 'Update lost an Umbraco-authored template.'
-Assert-True ((Get-BinaryHash $sharedDefinition) -eq (Get-BinaryHash (Join-Path $published.Root 'app/uSync/ContentTypes/apppage.config'))) 'Update did not refresh a shared uSync definition.'
+Assert-True ((Get-BinaryHash $sharedDefinition) -eq (Get-BinaryHash (Join-Path $published.Root 'app/uSync/ContentTypes/webpage.config'))) 'Update did not refresh a shared uSync definition.'
 Assert-True ((Get-Content $siteContent -Raw) -like '*edited on the site*') 'Update overwrote site content.'
 Assert-True (Test-Path $siteDefinition) 'Update removed a site-added definition.'
 foreach ($stale in $staleDefinitions) { Assert-True (!(Test-Path $stale)) "Update left a stale copy of an AppBlocks definition: $stale" }

@@ -136,6 +136,9 @@ Set-Content -LiteralPath (Join-Path $export 'Content/downstream-rows.config') -E
     <alias>
       <Value><![CDATA[downstream.rows]]></Value>
     </alias>
+    <access>
+      <Value><![CDATA[Not public]]></Value>
+    </access>
     <connection>
       <Value><![CDATA[UmbracoDb]]></Value>
     </connection>
@@ -243,7 +246,7 @@ try {
         $sample = Invoke-WebRequest "$base$path" -SkipHttpErrorCheck -TimeoutSec 30
         Assert-True ($sample.StatusCode -eq 404) "$path answered $($sample.StatusCode): the sample content was imported."
     }
-    Assert-True (!(Test-Path -LiteralPath (Join-Path $instance 'data/App_Data/ReportsSample.sqlite.db'))) 'The sample orders database was created.'
+    Assert-True (!(Test-Path -LiteralPath (Join-Path $instance 'data/ReportsSample.sqlite.db'))) 'The sample orders database was created.'
     foreach ($file in $hostContent) { Assert-True (Test-Path -LiteralPath (Join-Path $working "Content/$file")) "The host's Content/$file is not in the working uSync folder." }
     Assert-True (Test-Path -LiteralPath (Join-Path $working 'Templates/downstreamreport.config')) "The host's template registration is not in the working uSync folder."
     Assert-True (!(Test-Path -LiteralPath (Join-Path $working 'Content/sample-application.config'))) 'The working uSync folder holds the sample content.'

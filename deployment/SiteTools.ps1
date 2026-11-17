@@ -132,7 +132,10 @@ function Publish-Reference([string] $RepositoryRoot, [string] $Project, [string]
     Write-Host "Publishing $([IO.Path]::GetFileName($Project)) to $root"
     # Build output goes to the console, not into this function's return value. The caller's properties come last so
     # that they win, the configuration included.
-    Invoke-Checked dotnet (@('publish', $Project, '-p:Configuration=Release', '-o', (Join-Path $root app), '--nologo') + @($MsBuildProperties | Where-Object { $_ })) | Out-Host
+    # One node: AppBlocks.Documents and AppBlocks.InteractiveReports ask AppBlocks for its publish assets without the
+    # Configuration property, so the publish evaluates AppBlocks twice. When Configuration is Debug, the default, both
+    # write the same compressed files under obj\Debug, and on parallel nodes one reads a file the other is writing.
+    Invoke-Checked dotnet (@('publish', $Project, '-p:Configuration=Release', '-o', (Join-Path $root app), '--nologo', '-m:1') + @($MsBuildProperties | Where-Object { $_ })) | Out-Host
     if (!(Test-Path -LiteralPath (Join-Path $root "app/$Assembly") -PathType Leaf)) {
         throw "The published application has no $Assembly. Pass -Assembly with the file name of the project's output assembly."
     }
