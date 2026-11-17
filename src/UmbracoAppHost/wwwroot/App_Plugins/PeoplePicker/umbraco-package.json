@@ -1,0 +1,21 @@
+{
+  "id": "PeoplePicker",
+  "name": "PeoplePicker",
+  "version": "0.1.0",
+  "extensions": [
+    {
+      "type": "blockEditorCustomView",
+      "alias": "AppHost.PeoplePicker.Preview",
+      "name": "People picker preview",
+      "element": "/App_Plugins/PeoplePicker/people-preview.js",
+      "forContentTypeAlias": "appPeoplePicker",
+      "forBlockEditor": "block-grid"
+    },
+    {
+      "type": "appEntryPoint",
+      "alias": "AppHost.PeoplePicker.NestedPreview",
+      "name": "Nested person picker preview",
+      "js": "/App_Plugins/PeoplePicker/people-preview.js"
+    }
+  ]
+}

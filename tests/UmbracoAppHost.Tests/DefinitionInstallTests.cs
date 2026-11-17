@@ -25,7 +25,8 @@ public sealed class DefinitionInstallTests
     private static readonly Guid ApplicationGrid = Guid.Parse("97b36051-4abe-e750-6667-9cb7ee6a9a99");
 
     private static IEnumerable<XElement> SchemaDefinitions(string kind) =>
-        new[] { typeof(AppBlocksExtensions).Assembly, typeof(InteractiveReportsExtensions).Assembly, typeof(AppBlocksDocumentsExtensions).Assembly }
+        new[] { typeof(AppBlocksExtensions).Assembly, typeof(InteractiveReportsExtensions).Assembly, typeof(AppBlocksDocumentsExtensions).Assembly,
+            typeof(UmbracoAppHost.PeoplePicker.PeoplePickerBlock).Assembly }
             .SelectMany(assembly => new AppBlocksSchema(assembly).Definitions(kind));
 
     /// <summary>Looks at the site when uSync reaches the first item it imports.</summary>

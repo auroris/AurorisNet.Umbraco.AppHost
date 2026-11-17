@@ -122,6 +122,53 @@ has the project file, settings and update routine.
 - **A testing package** that boots a host on Kestrel with a new database. See
   [Test a host](docs/getting-started.md#test-a-host).
 
+## People picker
+
+The **People picker** (`appPeoplePicker`) is a form companion supplied by AppHost. Add it inside
+a form on a Website page and bind its identity and name settings to writable text fields. It
+places a search button beside the name field and opens a separate search window. The picker
+ships its editor schema, preview, JavaScript and styles with the host.
+
+The published block sets the search OU (or explicitly permits the whole domain), whether to
+include child OUs, search and returned LDAP attributes, account filters, optional member group
+names and backoffice group aliases. Empty group lists admit anyone who can access the page,
+including anonymous visitors on public pages. Otherwise either group list may admit the caller;
+no linked Windows SID is required. These settings apply to both search and selection and cannot
+be overridden by browser query parameters.
+
+Map returned attributes with one `attribute=formField` pair per line. Each picker owns distinct
+writable text fields in its containing form. An optional `mappedField=readOnlyMirrorField`
+fallback allows manual input when the directory supplies no value; the form resource must load
+the mirror with the directory's value, separately from the typed fallback. Compact-uppercase
+fields remove whitespace and uppercase their input. Manual entry can be disabled per picker.
+
+`GET /api/people-picker/{page}/{block}?s=...` searches; `?sid=...` validates a selection within the
+same scope. Both responses prohibit caching. The popup uses the validated response for its field
+values. At save, AppBlocks' `IFormSubmissionProcessor` hook runs the shared `PeoplePickerService`
+again for every new or changed SID. Unchanged saved identities keep their stored directory-owned
+fields during an outage, while configured fallback fields remain editable when their mirrors
+are empty. Search results and application contact caches do not authorize a new saved identity.
+
+Cached selection is off by default. Opting in permits recent validated people during directory
+outages, isolated by page, picker and all settings, with a configured age of 1–1440 minutes and
+a process-wide limit of 2,000 people. A live rejection removes that cached identity. The cache
+does not survive restarts. Directory calls use the Windows process identity, bounded result
+counts and the block's 1–15 second LDAP client/server timeout; live lookup requires a reachable
+domain. Search terms and person records are not logged by the picker.
+
+Applications can register `IPeoplePickerSelectionObserver` to store canonical contact data after
+save-time validation. They can also check `PeoplePickerService.WasValidated` in their resource
+to prevent a changed SID from bypassing the form processor. `IPeoplePickerDirectory` is the
+replaceable directory boundary used by tests. The shared types are in `UmbracoAppHost.PeoplePicker`.
+Application-specific LDAP filters and attribute mappings belong in the application's block
+configuration; no global directory filter is registered.
+
+Run the focused server tests with
+`dotnet test --project tests/UmbracoAppHost.Tests/UmbracoAppHost.Tests.csproj --filter-class UmbracoAppHost.Tests.PeoplePickerTests --no-progress`.
+The browser checks run with `node --test tests/ui/people-picker.browser.test.mjs`, using Playwright
+installed by `npm ci` in the sibling `AurorisNet.InteractiveReports` checkout. Override that folder
+with `INTERACTIVE_REPORTS_ROOT` and the browser executable with `BROWSER_PATH` if necessary.
+
 ## Settings
 
 The library reads its own settings from the `UmbracoAppHost` section and from `InstanceRoot`.

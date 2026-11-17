@@ -29,6 +29,8 @@ using AppBlocks.Tabular;
 using UmbracoAppHost.Hosting;
 using uSync.BackOffice;
 using uSync.BackOffice.Configuration;
+using UmbracoAppHost.PeoplePicker;
+using AppBlocks.Setup;
 
 namespace UmbracoAppHost;
 
@@ -148,6 +150,16 @@ public static class UmbracoAppHostExtensions
             .AddNotificationAsyncHandler<uSyncImportStartingNotification, AppBlocksDefinitionImport>()
             .AddNotificationAsyncHandler<uSyncImportingItemNotification, AppBlocksDefinitionImport>();
         builder.Services.AddSingleton<AppBlocksDefinitions>();
+        builder.Services.AddSingleton(new AppBlocksSchema(typeof(PeoplePickerBlock).Assembly));
+        builder.PackageMigrationPlans().Add<PeoplePickerMigrationPlan>();
+        builder.Services.AddSingleton<IAppBlockPlugin, PeoplePickerBlock>();
+        builder.Services.TryAddSingleton<TimeProvider>(TimeProvider.System);
+        builder.Services.TryAddSingleton<IPeoplePickerDirectory, PeoplePickerDirectory>();
+        builder.Services.AddSingleton<PeoplePickerCache>();
+        builder.Services.AddScoped<PeoplePickerService>();
+        builder.Services.AddScoped<IFormSubmissionProcessor>(services => services.GetRequiredService<PeoplePickerService>());
+        builder.AddAppBlocks(blocks => blocks.AllowInBlockGrid("Website: Page blocks", PeoplePickerBlock.AliasName,
+            areaKey: "0e6e5195-507c-9d44-8190-67d27a227fa3"));
         AddDirectoryAccountSettings(builder.Services, configuration);
 
         builder.AddAppBlocksDocuments();

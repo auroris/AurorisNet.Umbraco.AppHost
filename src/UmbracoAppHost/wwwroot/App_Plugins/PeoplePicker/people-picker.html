@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Find a person</title>
+    <link rel="stylesheet" href="people-picker.css">
+</head>
+<body class="app-directory-page">
+    <main class="app-directory-window">
+        <header>
+            <h1>Find a person</h1>
+            <p>Search by display name, then select the person.</p>
+        </header>
+        <form data-search-form>
+            <label for="person-query">Name</label>
+            <div class="app-directory-search">
+                <input id="person-query" type="search" autocomplete="off" maxlength="256" aria-describedby="search-help">
+                <button type="submit">Search</button>
+            </div>
+            <p id="search-help">Enter at least 2 characters.</p>
+        </form>
+        <p data-search-status role="status" aria-live="polite"></p>
+        <ul data-results aria-label="Matching people"></ul>
+        <footer><button type="button" data-cancel>Cancel</button></footer>
+    </main>
+    <script type="module">
+        import { mountPeopleSearch } from './people-picker.js';
+        mountPeopleSearch();
+    </script>
+</body>
+</html>

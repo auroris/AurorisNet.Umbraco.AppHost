@@ -103,6 +103,7 @@
     <EmbeddedResource Include="Sample\Schema\**\*.sql" />
     <None Remove="Sample\Schema\**\*.sql" />
     <EmbeddedResource Include="Views\**\*.cshtml" />
+    <EmbeddedResource Include="Schema\ContentTypes\*.config" />
     <Content Remove="wwwroot/dist/**/*" />
     <!-- A published site carries only its own Views folder and editor schema files; the library's
          views are embedded, and every project directory receives its own generated schema copies. -->

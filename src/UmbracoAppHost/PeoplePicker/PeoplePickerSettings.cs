@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Umbraco.Cms.Core.Models.PublishedContent;
 using IdentityServer.Directory;
@@ -37,7 +38,9 @@ public sealed record PeoplePickerSettings
     private static readonly Regex AttributeName = new("^[A-Za-z][A-Za-z0-9-]{0,63}$", RegexOptions.CultureInvariant);
     private static readonly Regex FieldName = new("^[A-Za-z][A-Za-z0-9_]{0,99}$", RegexOptions.CultureInvariant);
 
-    public static PeoplePickerSettings Read(IPublishedElement element) => Read(alias => element.Value(alias)?.ToString() ?? "");
+    // Umbraco converts an absent integer to 0 and an absent checkbox to false. Read the authored
+    // value so omitted settings use our defaults while explicitly saved 0/false stays explicit.
+    public static PeoplePickerSettings Read(IPublishedElement element) => Read(alias => element.GetProperty(alias)?.GetSourceValue()?.ToString() ?? "");
     public static PeoplePickerSettings Read(JsonElement block)
     {
         var values = block.TryGetProperty("values", out var properties) && properties.ValueKind == JsonValueKind.Array
@@ -99,6 +102,7 @@ public sealed record PeoplePickerSettings
     }
 
     public string DistinguishedName => SearchRoot.StartsWith("LDAP://", StringComparison.OrdinalIgnoreCase) ? SearchRoot[7..] : SearchRoot;
+    [JsonIgnore]
     public string Fingerprint => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(this))));
     public string[] Properties => new[] { "displayName", "mail", "sAMAccountName", "givenName", "objectSid", "objectGUID", "userAccountControl" }
         .Concat(SearchAttributes).Concat(ReturnedAttributes).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
