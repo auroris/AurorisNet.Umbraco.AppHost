@@ -8,7 +8,7 @@
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.15" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Oracle.ManagedDataAccess.Core" Version="23.26.400" />
-    <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.15" />
+    <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="11.0.0" />
     <PackageVersion Include="Umbraco.Cms" Version="18.3.1" />
     <!-- Keep Umbraco within the fix package's supported version range. -->
     <PackageVersion Include="AurorisNet.Umbraco.ApplicationVirtualPathFix" Version="18.3.1.2" />
