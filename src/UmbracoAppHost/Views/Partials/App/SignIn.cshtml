@@ -1,6 +1,7 @@
 @inherits UmbracoViewPage
 @using Umbraco.Cms.Web.Common.Models
 @using Umbraco.Cms.Web.Website.Controllers
+@using IdentityServer.Sso
 @{
     await Visitor.ResolveAsync();
     Context.Response.Headers.CacheControl = "no-cache, no-store";

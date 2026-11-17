@@ -12,8 +12,22 @@
     <!-- Let MSBuild check browser sources and dependencies outside the VS solution. -->
     <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
     <AppBlocksRoot Condition="'$(AppBlocksRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\AppBlocks</AppBlocksRoot>
+    <!-- Break-glass access builds from the sibling checkout until its package is on nuget.org. Then set
+         UseBreakGlassSource to false here and uncomment its version in Directory.Packages.props. -->
+    <BreakGlassRoot Condition="'$(BreakGlassRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\AurorisNet.Umbraco.BreakGlass</BreakGlassRoot>
+    <UseBreakGlassSource Condition="'$(UseBreakGlassSource)' == ''">true</UseBreakGlassSource>
+    <!-- Single sign-on builds from the sibling checkout until its package is on nuget.org. Then set
+         UseIdentityServerSsoSource to false here and uncomment its version in Directory.Packages.props. -->
+    <IdentityServerSsoRoot Condition="'$(IdentityServerSsoRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\AurorisNet.Umbraco.IdentityServer.SSO</IdentityServerSsoRoot>
+    <UseIdentityServerSsoSource Condition="'$(UseIdentityServerSsoSource)' == ''">true</UseIdentityServerSsoSource>
+    <!-- Add from directory builds from the sibling checkout until its package is on nuget.org. Then set
+         UseIdentityServerDirectorySource to false here and uncomment its version in Directory.Packages.props. -->
+    <IdentityServerDirectoryRoot Condition="'$(IdentityServerDirectoryRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\AurorisNet.Umbraco.IdentityServer.Directory</IdentityServerDirectoryRoot>
+    <UseIdentityServerDirectorySource Condition="'$(UseIdentityServerDirectorySource)' == ''">true</UseIdentityServerDirectorySource>
     <!-- App_Plugins and the login images must sit at the site root, not under /_content/UmbracoAppHost/. -->
     <StaticWebAssetBasePath>/</StaticWebAssetBasePath>
+    <PackageId>AurorisNet.Umbraco.AppHost</PackageId>
+    <Title>Umbraco App Host</Title>
     <Description>A shared base for Umbraco sites: single sign-on and account policy, application blocks and Interactive Reports, website and application themes, virtual-path hosting, and the workarounds for upstream Umbraco gaps.</Description>
     <PackageIcon>icon.png</PackageIcon>
   </PropertyGroup>
@@ -43,14 +57,12 @@
     <PackageReference Include="Umbraco.Cms" />
     <PackageReference Include="AurorisNet.Umbraco.ApplicationVirtualPathFix" />
     <PackageReference Include="AurorisNet.Umbraco.DisableTelemetry" />
-    <PackageReference Include="AurorisNet.IdentityServer" />
     <PackageReference Include="Umbraco.Cms.DevelopmentMode.Backoffice" />
     <PackageReference Include="Umbraco.Community.UmbNav" />
     <PackageReference Include="Umbraco.Community.BlockPreview" />
     <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" />
     <PackageReference Include="uSync" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
   </ItemGroup>
 
   <ItemGroup>
@@ -58,6 +70,26 @@
     <ProjectReference Include="$(AppBlocksRoot)\src\AppBlocks\AppBlocks.csproj" />
     <ProjectReference Include="$(AppBlocksRoot)\src\AppBlocks.InteractiveReports\AppBlocks.InteractiveReports.csproj" />
     <ProjectReference Include="$(AppBlocksRoot)\src\AppBlocks.Documents\AppBlocks.Documents.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The configured administrator password and debug sign-in, which register through the package's own composer. -->
+    <ProjectReference Include="$(BreakGlassRoot)\src\AurorisNet.Umbraco.BreakGlass.csproj" Condition="'$(UseBreakGlassSource)' == 'true'" />
+    <PackageReference Include="AurorisNet.Umbraco.BreakGlass" Condition="'$(UseBreakGlassSource)' != 'true'" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Single sign-on, the embedded identity server and the account policy, which AddUmbracoAppHost registers. They
+         bring AurorisNet.IdentityServer and the OpenID Connect handler with them. -->
+    <ProjectReference Include="$(IdentityServerSsoRoot)\src\AurorisNet.Umbraco.IdentityServer.SSO.csproj" Condition="'$(UseIdentityServerSsoSource)' == 'true'" />
+    <PackageReference Include="AurorisNet.Umbraco.IdentityServer.SSO" Condition="'$(UseIdentityServerSsoSource)' != 'true'" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Add from directory for users and members, which registers through the package's own composer. It brings the
+         AurorisNet.IdentityServer.Directory people lookup, which the people picker uses too. -->
+    <ProjectReference Include="$(IdentityServerDirectoryRoot)\src\AurorisNet.Umbraco.IdentityServer.Directory.csproj" Condition="'$(UseIdentityServerDirectorySource)' == 'true'" />
+    <PackageReference Include="AurorisNet.Umbraco.IdentityServer.Directory" Condition="'$(UseIdentityServerDirectorySource)' != 'true'" />
   </ItemGroup>
 
   <ItemGroup>

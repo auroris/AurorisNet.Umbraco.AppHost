@@ -15,11 +15,14 @@ public sealed class TestSiteOptions
 
     /// <summary>
     /// The host project's folder, which holds its <c>appsettings.json</c>, <c>uSync/</c> export, <c>Views/</c> and
-    /// <c>Schema/</c>; when null, <see cref="TestSite.FindProjectFolder"/> finds it from the application's location.
+    /// <c>Schema/</c>; when null, <see cref="TestSite.FindProjectFolder(Assembly)"/> finds it from the application's location.
     /// </summary>
     public string? ProjectFolder { get; init; }
 
-    /// <summary>The host's <c>IUmbracoAppHost</c>; when null, <see cref="TestSite.FindHost"/> finds it in the application.</summary>
+    /// <summary>
+    /// The host's <c>IUmbracoAppHost</c>; when null, the application's <c>Program</c> class if it implements the
+    /// interface, or else the one class of the application that does.
+    /// </summary>
     public Type? Host { get; init; }
 
     /// <summary>The content root and the parent of the instance folder; a new temporary folder, deleted with the site, when null.</summary>

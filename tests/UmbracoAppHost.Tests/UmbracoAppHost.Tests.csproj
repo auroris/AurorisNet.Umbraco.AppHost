@@ -14,5 +14,6 @@
     <ProjectReference Include="../UmbracoAppHost.Testing/UmbracoAppHost.Testing.csproj" />
     <Using Include="Xunit" />
     <Using Include="UmbracoAppHost.Testing" />
+    <Using Include="AppBlocks.Testing" />
   </ItemGroup>
 </Project>

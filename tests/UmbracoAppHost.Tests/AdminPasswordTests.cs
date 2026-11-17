@@ -15,12 +15,17 @@ using Umbraco.Cms.Core.Models;
 using Umbraco.Cms.Core.Routing;
 using Umbraco.Cms.Core.Security;
 using Umbraco.Cms.Core.Services;
+using BreakGlass;
 using UmbracoAppHost.Authentication;
 using File = System.IO.File;
 using TestTwoFactorProvider = UmbracoAppHost.Tests.BackOfficeSsoHttpTests.TestTwoFactorProvider;
 
 namespace UmbracoAppHost.Tests;
 
+/// <summary>
+/// The BreakGlass package's configured password as this host composes it, set through the older
+/// <c>UmbracoAppHost:AdminPassword</c> name that sites keep using, and changed by saving the file.
+/// </summary>
 [Collection("Umbraco hosts")]
 public sealed class AdminPasswordTests
 {
@@ -39,7 +44,8 @@ public sealed class AdminPasswordTests
         await using (var site = await StartApp(root, log))
         {
             var app = site.App;
-            Assert.Equal(FirstPassword, app.Configuration[ConfiguredAdminPassword.ConfigurationKey]);
+            Assert.Equal(FirstPassword, app.Configuration[BreakGlassCompatibility.LegacyAdminPasswordKey]);
+            Assert.Equal(FirstPassword, app.Services.GetRequiredService<IOptionsMonitor<BreakGlassSettings>>().CurrentValue.AdminPassword);
             await WaitUntil(() => Task.FromResult(app.Services.GetRequiredService<IRuntimeState>().Level == RuntimeLevel.Run));
             await WaitUntil(() => AcceptsPassword(app, FirstPassword), log);
             Assert.False(await AcceptsPassword(app, InstalledPassword));
@@ -201,7 +207,7 @@ public sealed class AdminPasswordTests
     {
         await WriteSettings(root, password, title);
         // A password left out of the file falls back to the launcher's empty one.
-        await WaitUntil(() => Task.FromResult((app.Configuration[ConfiguredAdminPassword.ConfigurationKey] ?? "") == (password ?? "")
+        await WaitUntil(() => Task.FromResult((app.Configuration[BreakGlassCompatibility.LegacyAdminPasswordKey] ?? "") == (password ?? "")
             && app.Configuration["UmbracoAppHost:Title"] == title));
         // Allow the queued notification (including a duplicate file-system event) to finish.
         await Task.Delay(750);

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.Services;
+using AppBlocks.Testing;
 using File = System.IO.File;
 
 namespace UmbracoAppHost.Testing;

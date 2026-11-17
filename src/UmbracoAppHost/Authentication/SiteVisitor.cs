@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using Umbraco.Cms.Core.Security;
 using Umbraco.Cms.Core.Services;
 using AppBlocks.Authentication;
+using IdentityServer.Sso;
 
 namespace UmbracoAppHost.Authentication;
 

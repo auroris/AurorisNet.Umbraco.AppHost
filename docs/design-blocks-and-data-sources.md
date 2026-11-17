@@ -389,14 +389,16 @@ breakdown. Sign-in corrections:
   The embedded identity server registers the Negotiate handler, whose
   options throw when IIS reports Windows Authentication disabled; the handler's startup filter
   builds those options as the site starts, so the site did not start, and every request would
-  have built them again. `WindowsAuthenticationAvailability` now reads the server's report: the
+  have built them again. `WindowsAuthenticationAvailability` (since 2026-11-16 in the
+  `AurorisNet.Umbraco.IdentityServer.SSO` package) now reads the server's report: the
   throwing post-configuration is skipped, the handler is swapped for one that answers "not
   authenticated", the login screens
   omit the embedded identity server and start nothing
   automatically, `/connect/authorize` refuses with `access_denied`, and the startup log says
   why. An external identity server stays available. `AnonymousHostingTests` covers it with a
   stub of the service IIS registers.
-- The configured administrator password (`UmbracoAppHost:AdminPassword`) also removes the
+- The configured administrator password (`UmbracoAppHost:AdminPassword`, since 2026-11-16
+  `BreakGlass:AdminPassword` in the `AurorisNet.Umbraco.BreakGlass` package) also removes the
   administrator's two-factor enrolment, as the owner's break-glass rule requires, beside the
   lockout and failed-attempt reset; `AdminPasswordTests` covers it.
 - Verified rather than changed: a failed SSO attempt lands on Umbraco's standalone login page,

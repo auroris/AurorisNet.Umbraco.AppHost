@@ -9,12 +9,16 @@
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Oracle.ManagedDataAccess.Core" Version="23.26.400" />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.15" />
-    <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.15" />
     <PackageVersion Include="Umbraco.Cms" Version="18.3.1" />
     <!-- Keep Umbraco within the fix package's supported version range. -->
     <PackageVersion Include="AurorisNet.Umbraco.ApplicationVirtualPathFix" Version="18.3.1.2" />
     <PackageVersion Include="AurorisNet.Umbraco.DisableTelemetry" Version="18.3.1.1" />
-    <PackageVersion Include="AurorisNet.IdentityServer" Version="1.1.1" />
+    <!-- Used once UseBreakGlassSource is false in src/UmbracoAppHost/UmbracoAppHost.csproj, after the package is published. -->
+    <!-- <PackageVersion Include="AurorisNet.Umbraco.BreakGlass" Version="1.0.0" /> -->
+    <!-- Used once UseIdentityServerSsoSource is false in src/UmbracoAppHost/UmbracoAppHost.csproj, after the package is published. -->
+    <!-- <PackageVersion Include="AurorisNet.Umbraco.IdentityServer.SSO" Version="1.0.0" /> -->
+    <!-- Used once UseIdentityServerDirectorySource is false in src/UmbracoAppHost/UmbracoAppHost.csproj, after the package is published. -->
+    <!-- <PackageVersion Include="AurorisNet.Umbraco.IdentityServer.Directory" Version="1.0.0" /> -->
     <PackageVersion Include="Umbraco.Cms.DevelopmentMode.Backoffice" Version="18.3.1" />
     <PackageVersion Include="Umbraco.Community.UmbNav" Version="5.0.3" />
     <PackageVersion Include="Umbraco.Community.BlockPreview" Version="6.3.0" />

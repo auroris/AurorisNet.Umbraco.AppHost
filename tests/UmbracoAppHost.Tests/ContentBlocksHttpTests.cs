@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.DependencyInjection;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.Services;
-using UmbracoAppHost.Authentication;
+using IdentityServer.Sso;
 using AppBlocks.Blocks;
 
 namespace UmbracoAppHost.Tests;

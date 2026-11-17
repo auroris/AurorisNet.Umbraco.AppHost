@@ -8,7 +8,9 @@ The solution has two application projects:
 | `src/UmbracoAppHost.Web` | The website launcher, using the same startup calls as any other host |
 
 The tests are separate. AppBlocks and its companions build through project references without
-being listed separately in this solution. IdentityServer, Interactive Reports and Pressroom.Client
+being listed separately in this solution, as do break-glass access and single sign-on from the
+sibling `AurorisNet.Umbraco.BreakGlass` and `AurorisNet.Umbraco.IdentityServer.SSO` checkouts
+until their packages are published. IdentityServer, Interactive Reports and Pressroom.Client
 restore from AurorisNet NuGet packages. People-picker directory lookups live in this repository.
 
 ## Open the solution and press Play
@@ -46,9 +48,12 @@ nonempty password. `appsettings.Development.json` enables `Umbraco:CMS:Hosting:D
 and the configured debug login flow accepts any nonempty password for an existing account.
 
 Startup configures the built-in administrator (ID `-1`) with username `admin` and email
-`admin@localhost.local`, including in existing databases. `UmbracoAppHost:AdminUserName`
-and `UmbracoAppHost:AdminEmail` in the website's `appsettings.json` define those values
+`admin@localhost.local`, including in existing databases. `BreakGlass:AdminUserName`
+and `BreakGlass:AdminEmail` in the website's `appsettings.json` define those values
 and also apply on file saves. Set either to an empty string to stop managing that field.
+The [`AurorisNet.Umbraco.BreakGlass`](../../AurorisNet.Umbraco.BreakGlass/README.md) package does this
+work. The older names `UmbracoAppHost:AdminUserName`, `UmbracoAppHost:AdminEmail` and
+`UmbracoAppHost:AdminPassword`, which the reference website still uses, keep working.
 
 Outside debug mode, the default shows the login form and requires the real password.
 For a new instance, the random generated password is in `reference/instance.json`, under
@@ -56,10 +61,10 @@ For a new instance, the random generated password is in `reference/instance.json
 you configure a replacement.
 
 To choose or reset the administrator password, open the website's `appsettings.json`,
-enter it under `UmbracoAppHost:AdminPassword`, and save:
+enter it under `BreakGlass:AdminPassword`, and save:
 
 ```json
-"UmbracoAppHost": {
+"BreakGlass": {
   "AdminUserName": "admin",
   "AdminEmail": "admin@localhost.local",
   "AdminPassword": "Your chosen password here"
@@ -82,7 +87,9 @@ password and lockout state remain and the application log explains what to corre
 a corrected value to try again.
 The password itself is not written to the log.
 
-The same `appsettings.json` defines the default login flow:
+The same `appsettings.json` defines the default login flow, which the
+[`AurorisNet.Umbraco.IdentityServer.SSO`](../../AurorisNet.Umbraco.IdentityServer.SSO/README.md)
+package reads:
 
 ```json
 "BackOfficeLogin": {
@@ -96,10 +103,14 @@ configured identity server and falls back to local sign-in if it is disabled or 
 `DefaultFlow` only while `Umbraco:CMS:Hosting:Debug` is true; set it to `Form` to require
 real passwords during development, or `null` to use `DefaultFlow`. `Debug` outside debug
 mode falls back to `Form`. Debug bypasses password, account lockout and two-factor checks for
-an existing backoffice account, accepting any nonempty password.
+an existing backoffice account, accepting any nonempty password. That bypass is the BreakGlass
+package's debug sign-in: `BreakGlass:DebugSignIn` set to `true` or `false` decides it directly, and
+left out it follows `DebugFlow`.
 `IdentityServer` attempts automatic sign-in and requires the provider's
 `Enabled` and `BackOfficeEnabled` settings to be true. Restart after changing login flows
-or provider settings. See the [authentication settings](../README.md#never-locked-out)
+or provider settings. See the [authentication settings](../README.md#never-locked-out) for this
+host's defaults, and the package's
+[behavior reference](../../AurorisNet.Umbraco.IdentityServer.SSO/docs/BEHAVIOR.md#backoffice-login)
 for provider configuration and logout behavior.
 
 For emergency access on a deployed site, set `Umbraco:CMS:Hosting:Debug` to `true` and
@@ -405,11 +416,14 @@ same project. See [Deployment](deployment.md).
 
 ## Test a host
 
-`tests/UmbracoAppHost.Testing` boots a host the way its `Program.cs` does, on a free port with a
-fresh database and instance folder under a temporary directory, and waits for the unattended
-install. It signs in members and backoffice users, drives forms and reports over HTTP, and reads
-a saved uSync export. The library has no test-framework dependency, so any runner works; failures
-are thrown as `TestSiteException`.
+`tests/UmbracoAppHost.Testing`, packed as `AurorisNet.Umbraco.AppHost.Testing`, boots a host the
+way its `Program.cs` does, on a free port with a fresh database and instance folder under a
+temporary directory, and waits for the unattended install. It signs in members and backoffice
+users and hands out clients that drive forms, attachments, tabular rows and reports over HTTP.
+The clients and `TestSiteException` come from AppBlocks' `AurorisNet.Umbraco.AppBlocks.Testing`
+package (namespace `AppBlocks.Testing`), which the testing package depends on. Neither package
+references a test framework, and failures are thrown as `TestSiteException`; both are proven
+with xUnit v2 and v3.
 
 `TestSite.StartAsync` takes the host project's own files from its folder, which it finds by
 walking up from the host assembly's location in the test output: the first folder that holds
@@ -419,7 +433,8 @@ walking up from the host assembly's location in the test output: the first folde
 
 - reads `appsettings.json` and `appsettings.<EnvironmentName>.json` (`Development` unless
   `TestSiteOptions.EnvironmentName` says otherwise) just before the content root's, so environment
-  variables still override them. The project's `UmbracoAppHost:AdminPassword` is ignored, so the
+  variables still override them. The project's `BreakGlass:AdminPassword`, or its older name
+  `UmbracoAppHost:AdminPassword`, is ignored, so the
   administrator keeps `TestSiteOptions.AdminPassword`. The site's own settings come after: the
   instance folder, the Umbraco database, HTTPS and uSync's startup import and export.
   `TestSiteOptions.Settings` comes last. Any other setting, such as a connection string in the
@@ -433,6 +448,10 @@ walking up from the host assembly's location in the test output: the first folde
   class in the host's assembly that implements it (`TestSiteOptions.Host` names another), through
   `AddUmbracoAppHost<THost>` and `UseUmbracoAppHostAsync<THost>`. The host's `RunAsync` never runs.
 
+A project whose settings declare `Kestrel:Endpoints` or `Urls` replaces the free loopback port:
+the site binds the configured address, and with more than one address the start fails. Override
+those settings through `TestSiteOptions.Settings`.
+
 The unattended install and uSync's first-boot import take most of a new site's time, so a test
 process does them once for each set of options and gives every site its own copy, which is deleted
 with the site. What a test changes stays in its copy. A site that names `TestSiteOptions.Root` or
@@ -442,7 +461,10 @@ import depends on also needs `UseInstallSnapshot = false`.
 
 Add `public partial class Program { }` at the end of the host's `Program.cs` so tests can name its
 assembly; a host with registrations of its own already has it, as `IUmbracoAppHost`. The test
-project references the host and the library:
+project references the host and the testing package, at the same version as
+`AurorisNet.Umbraco.AppHost`. `TestSite` applies the host's registrations through the library's
+generic methods, and a start with a testing package of another version fails with a message
+naming the mismatch.
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
@@ -456,11 +478,26 @@ project references the host and the library:
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="xunit.v3" Version="4.0.2" />
+    <PackageReference Include="AurorisNet.Umbraco.AppHost.Testing" Version="1.0.0-alpha.1" />
     <ProjectReference Include="..\MyHost\MyHost.csproj" />
-    <ProjectReference Include="C:\path\to\UmbracoAppHost\tests\UmbracoAppHost.Testing\UmbracoAppHost.Testing.csproj" />
+    <Using Include="Xunit" />
+    <Using Include="UmbracoAppHost.Testing" />
+    <Using Include="AppBlocks.Testing" />
   </ItemGroup>
 </Project>
 ```
+
+A host that builds the library from a sibling checkout references the testing project instead.
+It brings `AppBlocks.Testing` from `$(AppBlocksRoot)`, which defaults to the `AppBlocks` checkout
+beside this repository:
+
+```xml
+<ProjectReference Include="C:\path\to\UmbracoAppHost\tests\UmbracoAppHost.Testing\UmbracoAppHost.Testing.csproj" />
+```
+
+Move the host and its tests to packages in one change. A project reference to
+`UmbracoAppHost.csproj` beside a package reference to the testing package brings
+`UmbracoAppHost.dll` from both.
 
 Use the .NET 10 SDK and select Microsoft Testing Platform in the repository's `global.json`
 (merge the `test` property into the file if it already contains SDK settings):
@@ -477,6 +514,9 @@ Run `dotnet test` from the solution directory, or use `dotnet test --project pat
 for one project. xUnit v3 supplies the test runner and Visual Studio Test Explorer integration.
 The host defaults exclude `xunit.*` assemblies from Umbraco's plugin discovery: xUnit ships
 runner-only dependencies beside the test executable that are not application dependencies.
+For another runner, add its assembly prefixes through `TestSiteOptions.Settings` at an index of
+10 or more, such as `Umbraco:CMS:TypeFinder:AdditionalAssemblyExclusionEntries:10`; lower
+indices replace the host's own entries.
 
 Browser regression tests for virtual-path hosting live in the separate
 `UmbracoApplicationVirtualPathFix` repository. That suite owns the Playwright dependency and
@@ -534,13 +574,18 @@ public sealed class OrdersTests(SiteFixture fixture) : IClassFixture<SiteFixture
 connections after the host's, and for test-only endpoints after `UseUmbracoAppHostAsync`.
 `site.ProjectFolder` is the folder the site was booted from, for reading other project files. `SignInManagementApiAsync` returns a client with a management API
 token, `site.Attachments(browser, page, block)` drives an Attachments block's files the way its
-runtime does (list, upload, download, replace, remove, with the record's key in the query),
+runtime does (list, upload, download, rename, remove, with the record's key in the query),
 `site.Tabular(browser, page, block)` lists a Tabular form block's rows and saves a batch of
 changes the same way (`ListAsync(query)`, then `SaveAsync(changes, query, submissionKey)` with
 the list's token, answering with the rows or the failing change's `Index` and `Errors`), and
-`USyncExport.ContentByAlias` reads a key from an export without a running site.
+`site.DownloadPaperReportAsync(browser, node, query)` downloads a paper report. The same clients
+work against any running site: `new FormsClient(client, pathBase, page, form)` and the other
+`AppBlocks.Testing` clients take an `HttpClient` and the site's virtual path.
+
 Umbraco keeps some state in static fields, which starting and disposing a site reset, so a test
-process runs one site at a time: put every class that starts one in the same collection.
+process runs one site at a time. `TestSite.StartAsync` throws `TestSiteException` while another
+site of the process is running. Put every class that starts one in the same collection, and run
+that collection without parallelization.
 
 ## Leftover folders from the project simplification
 

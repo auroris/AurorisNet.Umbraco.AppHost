@@ -1,0 +1,17 @@
+<Project>
+  <!-- Package metadata for the two packages this repository ships: AurorisNet.Umbraco.AppHost and
+       AurorisNet.Umbraco.AppHost.Testing. They always carry the same version, because the testing package
+       applies the host's registrations by reflection. The other projects build exactly as before. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'UmbracoAppHost' or '$(MSBuildProjectName)' == 'UmbracoAppHost.Testing'">
+    <Version>1.0.0-alpha.1</Version>
+    <Authors>auroris</Authors>
+    <PackageProjectUrl>https://github.com/auroris/UmbracoAppHost</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/auroris/UmbracoAppHost</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <!-- Reuse needs written permission, so the license travels as the file itself rather than an SPDX expression. -->
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'UmbracoAppHost' or '$(MSBuildProjectName)' == 'UmbracoAppHost.Testing'">
+    <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
+</Project>

@@ -84,8 +84,8 @@ content root unless `UmbracoAppHost:ProjectRoot` names another folder), is copie
 the working folder after the library's on first boot, for every path the library does not ship.
 Edit website titles in the backoffice or the saved export; the former `UmbracoAppHost:Title`
 setting no longer changes content.
-`Authentication/ConfiguredAccounts.cs` provisions configured accounts and groups, which are
-outside this export. AppBlocks uses Umbraco’s tracked package migrations for its own definitions;
+The single sign-on package's `ConfiguredAccounts` provisions configured accounts and groups, which are
+outside this export, and `Hosting/ConfiguredGroupsBeforeImport.cs` creates the groups before uSync imports. AppBlocks uses Umbraco’s tracked package migrations for its own definitions;
 the host does not add a separate schema or content migration runner. The sample database is
 initialized on first use. AppBlocks supplies the rendering, access and publishing-validation code.
 
@@ -159,10 +159,18 @@ uSync folder sit outside `app/` and survive updates. Upgrade Umbraco and plugins
 verify them in the reference, then update the sites; their database upgrades run at the next start.
 
 AppBlocks and its companions build from the sibling `..\AppBlocks` checkout; `AppBlocksRoot`
-overrides its location. IdentityServer, Interactive Reports and Pressroom.Client restore from
+overrides its location. Break-glass access builds from the sibling `..\AurorisNet.Umbraco.BreakGlass`
+checkout, which `BreakGlassRoot` overrides, until its package is published; then
+`UseBreakGlassSource=false` restores `AurorisNet.Umbraco.BreakGlass` from NuGet instead. Single sign-on
+builds the same way from the sibling `..\AurorisNet.Umbraco.IdentityServer.SSO` checkout, which
+`IdentityServerSsoRoot` overrides, until `UseIdentityServerSsoSource=false` restores
+`AurorisNet.Umbraco.IdentityServer.SSO` instead. IdentityServer, Interactive Reports and Pressroom.Client restore from
 AurorisNet NuGet packages, and published sites carry their assemblies and assets. The
 `AurorisNet.IdentityServer` package supplies the embedded OpenID Connect server and its
-`AurorisNet.ActiveDirectory` dependency.
+`AurorisNet.ActiveDirectory` dependency, and comes with the single sign-on package. The library's own package id is `AurorisNet.Umbraco.AppHost`, and AppBlocks' are
+`AurorisNet.Umbraco.AppBlocks`, `AurorisNet.Umbraco.AppBlocks.InteractiveReports` and `AurorisNet.Umbraco.AppBlocks.Documents`.
+Host tests use `AurorisNet.Umbraco.AppHost.Testing` and the endpoint clients of `AurorisNet.Umbraco.AppBlocks.Testing`
+(see [Test a host](docs/getting-started.md#test-a-host)). Only the package ids carry the prefix, the assemblies, namespaces and settings keep their names.
 The people-picker lookup code is in `src/UmbracoAppHost/DirectoryAccounts/Lookup/`; it is compiled locally
 and needs no separate directory project.
 The identity server runs inside the host. The public frontend is built once and includes
@@ -281,7 +289,11 @@ Local backoffice sign-in uses the account's username. The shared default
 email fields. The built-in administrator (ID `-1`) is configured as username `admin`, with
 contact email `admin@localhost.local`. Other accounts keep their existing usernames.
 
-Set `UmbracoAppHost:AdminPassword` in the website's `appsettings.json` to choose or reset
+Recovery comes from the [`AurorisNet.Umbraco.BreakGlass`](../AurorisNet.Umbraco.BreakGlass/README.md)
+package, which reads its own `BreakGlass` settings section; its
+[behavior and security notes](../AurorisNet.Umbraco.BreakGlass/docs/BEHAVIOR.md) cover the details.
+
+Set `BreakGlass:AdminPassword` in the website's `appsettings.json` to choose or reset
 the original administrator's password. Saving the file applies it to a running site without
 an IIS restart; startup also applies it to new and existing databases. A valid configured
 password unlocks that account, clears failed login attempts and removes its two-factor
@@ -290,11 +302,18 @@ nothing stands between it and the account, so remove the setting before enrollin
 administrator in two-factor authentication again. Empty, missing, or rejected passwords leave
 its password, lockout state and enrolment alone. New instances receive a random generated
 password, recorded under `Umbraco:CMS:Unattended` in `instance.json`; existing passwords are
-retained when no password is configured. `AdminUserName` and `AdminEmail` control the administrator's
-identity on startup and configuration reload. Set either to an empty string to manage
-that field independently in Users.
+retained when no password is configured. `BreakGlass:AdminUserName` and `BreakGlass:AdminEmail` control the
+administrator's identity on startup and configuration reload; they default to `admin` and
+`admin@localhost.local`. Set either to an empty string to manage that field independently in Users.
 
-The website's `appsettings.json` defines the initial login flow:
+The older names `UmbracoAppHost:AdminPassword`, `UmbracoAppHost:AdminUserName` and
+`UmbracoAppHost:AdminEmail` still work, so existing sites need no changes. When both names are
+set, the one in the later configuration source wins, and within one file the `BreakGlass` name
+does: a site's `appsettings.json` with the old names still overrides the library's defaults.
+
+The website's `appsettings.json` defines the initial login flow, which the
+[`AurorisNet.Umbraco.IdentityServer.SSO`](../AurorisNet.Umbraco.IdentityServer.SSO/README.md)
+package reads:
 
 ```json
 "BackOfficeLogin": {
@@ -303,35 +322,27 @@ The website's `appsettings.json` defines the initial login flow:
 }
 ```
 
-| Flow | Behavior |
-|---|---|
-| `Auto` | Prefer the configured identity server; show local sign-in when it is disabled or the SSO attempt fails. |
-| `Form` | Show local sign-in and require the account's real password. |
-| `IdentityServer` | Attempt automatic sign-in through the enabled backoffice identity server provider. |
-| `Debug` | Development and emergency recovery: accept any nonempty password for an existing account and bypass account lockout and two-factor checks, while `Umbraco:CMS:Hosting:Debug` is true. |
+`Auto` redirects to the configured identity server and shows local sign-in when it is disabled
+or unavailable. `Form` shows local sign-in, `IdentityServer` always redirects, and `Debug` shows
+local sign-in without a redirect. `DebugFlow` applies while Umbraco debug mode is enabled; set
+it to `Form` for real password checks during development, or `null` to use `DefaultFlow`. The
+package's [login reference](../AurorisNet.Umbraco.IdentityServer.SSO/docs/BEHAVIOR.md#backoffice-login)
+describes each flow, the startup checks, and how a failed SSO attempt returns to the password
+form with the authorization request intact. Restart after changing login flows or SSO settings.
 
-`DefaultFlow` defaults to `Auto`. `DebugFlow` overrides it while Umbraco debug mode is
-enabled; set it to `Form` for real password checks during development, or `null` to use
-`DefaultFlow`. A `Debug` selection outside debug mode uses `Form`. Unknown flows and
-explicit `IdentityServer` selections whose backoffice provider is disabled fail startup with a configuration error.
-Restart after changing login flows or SSO settings. Enabled SSO providers remain available
-as buttons; automatic selection applies to the initial sign-in, while Umbraco offers its
-provider selection after logout or session timeout. `DenyLocalLogin` still controls whether
-an SSO provider hides the local form; leave it `false` to retain password fallback.
-
-Discovery failures and errors returned by the identity server open the native password form,
-preserving the authorization request and its two-factor requirements. A failed attempt does not
-automatically retry SSO. If an external server becomes unreachable after the browser has left
-this site, the browser cannot return the error to us; `/umbraco/logout` opens provider selection
-without another automatic attempt. This path also works beneath a configured virtual path.
+In this host the `Debug` flow also decides break-glass debug sign-in, which is
+`BreakGlass:DebugSignIn` in the BreakGlass package. Set it to `true` or `false` to decide
+directly; left out, as in existing sites, it follows the flow above: on when the flow selected for
+debug mode is `Debug`, off otherwise. Either way it works only while `Umbraco:CMS:Hosting:Debug` is
+true. Saving the file applies a change to `BreakGlass:DebugSignIn` without a restart.
 
 The reference website's Development settings enable Umbraco debug mode. With Visual
 Studio's **Website** profile and the defaults above, sign in as `admin` with any nonempty
 password. The account must exist; Debug bypasses its password, lockout and two-factor checks.
 
 Debug also provides emergency backoffice access on a deployed site. Set
-`Umbraco:CMS:Hosting:Debug` to `true` and `BackOfficeLogin:DebugFlow` to `Debug`, then restart
-the application. Sign in to the existing account with any nonempty password, repair the
+`Umbraco:CMS:Hosting:Debug` to `true`, and `BackOfficeLogin:DebugFlow` to `Debug` unless the site
+sets `BreakGlass:DebugSignIn`, then restart the application. Sign in to the existing account with any nonempty password, repair the
 credentials or two-factor setup in **Users**, and restore the normal settings and restart.
 The hosting environment name does not control this: the same settings work in Production.
 Recovery records the successful login and lifts the account's lockout, because Umbraco signs a
@@ -345,26 +356,25 @@ For development with embedded IdentityServer SSO, set
 
 ## Single sign-on
 
-The supported authentication mechanisms are:
-
-- **Local forms authentication**: Umbraco's built-in username/password login, including its
-  lockout and two-factor flows. The optional development Debug mode described above remains available.
-- **Embedded IdentityServer SSO**: `IdentityServer` with an empty `Authority` (the default)
-  uses the generic `IdentityServer.Core` hosted by this site. It authenticates Windows accounts
-  at `/connect/authorize` and returns an OpenID Connect login to Umbraco.
-- **Remote IdentityServer SSO**: `IdentityServer` with an `Authority` uses another OpenID
-  Connect identity server. The remote server performs authentication.
-
-Embedded and remote SSO use the same provider registration and Umbraco account-linking flow.
-There is no direct Windows login provider. Windows Integrated Authentication is used inside the
-embedded identity server; it is not a separate Umbraco authentication mechanism.
+Single sign-on comes from the
+[`AurorisNet.Umbraco.IdentityServer.SSO`](../AurorisNet.Umbraco.IdentityServer.SSO/README.md)
+package, which `AddUmbracoAppHost` registers with `AddSingleSignOn`. It offers local forms
+authentication beside one OpenID Connect provider for the backoffice and for members: the
+embedded IdentityServer that this site hosts and that authenticates Windows accounts, or an
+external identity server named by `IdentityServer:Authority`. Its
+[behavior reference](../AurorisNet.Umbraco.IdentityServer.SSO/docs/BEHAVIOR.md) covers the
+protocol, the password fallback, the embedded server's clients, claims and keys, IIS, and
+troubleshooting. This section describes what this host adds and the defaults it supplies.
 
 When a page needs member sign-in, it first tries the configured identity server automatically.
 Failed attempts return to Umbraco's built-in member username/password form, preserving the
 original page and query parameters. The local form also offers an explicit SSO retry; adding
 `?sso-local=1` to a login page selects it directly. Public pages remain public. When no identity
 server is enabled for members, the local form and any other configured provider buttons are
-shown immediately. Umbraco's Public Access is the baseline: a page it protects admits the members it
+shown immediately. The sign-in view is this host's `Views/Partials/App/SignIn.cshtml`, which
+starts the package's `MemberLoginController`.
+
+Umbraco's Public Access is the baseline: a page it protects admits the members it
 names and a backoffice user who may edit the page (Umbraco's **Update** permission on it, within
 their start nodes), and nobody else, so any other backoffice user who needs that page signs in there
 with a member account it names. The editor rule is this host's own, `Authentication/EditorPageAdmission.cs`,
@@ -379,79 +389,65 @@ edit, so the editor signs the member out first. The account menu uses the member
 endpoints evaluate member access first too. Sign-out ends both application sessions. See
 [Application forms and report blocks](docs/application-blocks.md).
 
-How the pieces fit:
+What this host adds around the package:
 
-- `IdentityServerExtensions.cs` registers the OpenID Connect handler for each audience
-  (`/signin-oidc/backoffice` and `/signin-oidc/member`). It passes the validated principal
-  to Umbraco unchanged. Umbraco handles account creation, linking, sign-in and two-factor checks.
-- `src/UmbracoAppHost/IdentityServer/` adapts the `AurorisNet.IdentityServer` package with
-  a separate OpenIddict service container and exact client/callback validation. The same client
-  code serves embedded and remote identity servers.
-- `SsoRefusal.cs` and `BackOfficeSsoFallback.cs` return protocol failures to the native
-  local login flow. They do not replace Umbraco's account-linking decisions.
-- `SsoProviders.cs` generates the backoffice `authProvider` manifest from the configured
-  provider name. Manual linking follows `IdentityServer:BackOfficeAutoLink:AllowManualLinking`.
+- `Authentication/SiteVisitor.cs` resolves who is signed in for the views, the account menu and
+  the automatic member sign-in, from the package's provider catalog.
+- `Authentication/EditorPageAdmission.cs` is the editor rule above, and
+  `Authentication/ApplicationAccountController.cs` the account menu's sign-out.
+- `Reports/ReportAdministratorsGroup.cs` creates the **Interactive Report Administrators** group,
+  and `Hosting/ConfiguredGroupsBeforeImport.cs` creates the configured groups before a uSync
+  import, so the export's group pickers find them.
+- `Hosting/defaults.json` supplies the defaults in the tables below, which replace the package's
+  own.
 
 ### Who gets an account
 
-OpenID Connect uses Umbraco's native external-login managers. Backoffice auto-creation and
+Umbraco's native external-login managers create and link accounts. Backoffice auto-creation and
 auto-linking are disabled by default: provision the user and link its directory identity before
 SSO, or let an existing user link the provider after local sign-in. Member auto-creation and
-auto-linking remain enabled. Umbraco finds a stored provider
-link first; when auto-linking is explicitly enabled, it can match an existing account by email or create a
-new account from the provider's email and name claims. Missing required claims are handled by
-Umbraco. The host does not rewrite the principal or apply a custom provisioning veto before
-Umbraco receives it.
-
-Manual linking and unlinking remain available in the backoffice. Hosts can customize the
-standard named `BackOfficeExternalLoginProviderOptions` and `MemberExternalLoginProviderOptions`,
-including `OnAutoLinking` and `OnExternalLogin`, through Umbraco's normal options pipeline.
-See [Umbraco's external login provider options](https://apidocs.umbraco.com/v18/csharp/api/Umbraco.Cms.Api.Management.Security.ExternalSignInAutoLinkOptions.html).
-
-| `IdentityServer:BackOfficeAutoLink` setting | Meaning |
-|---|---|
-| `AutoLinkExternalAccount` | Enable native account creation and linking on first login; defaults to `false`. Already-linked accounts can still sign in. |
-| `AllowManualLinking` | Allow users to link and unlink the provider in Umbraco; defaults to `true`. |
-| `DefaultUserGroups` | User group **aliases** for newly created users. Defaults to empty, so auto-creation grants no backoffice groups. |
-| `DefaultCulture` | Culture for new users; unset uses Umbraco's configured default. |
-
-| `IdentityServer:MemberAutoLink` setting | Meaning |
-|---|---|
-| `AutoLinkExternalAccount` | Enable native member creation and linking; defaults to `true`. |
-| `DefaultIsApproved` | Approval of new members; defaults to `true`. |
-| `DefaultMemberTypeAlias` | Type for new members; defaults to `Member`. |
-| `DefaultMemberGroups` | Groups for newly created members; defaults to empty. |
-| `DefaultCulture` | Culture for new members; unset uses Umbraco's default. |
-| `ExternalOnly` | Use Umbraco's lightweight external-member storage; defaults to `false`. |
-
-Groups are managed in Umbraco unless a host explicitly supplies native callbacks to map claims.
-The legacy `Accounts:BackOfficeUsersManagedBy`, `MembersManagedBy`,
-`ActiveDirectoryGroupPattern` and `LinkByUserNameOnFirstSignIn` settings apply only to
-explicit callers of the optional `AccountProvisioning` helper; they do not control OpenID
-sign-in. Directory pickers still let administrators create and link accounts explicitly.
+auto-linking remain enabled. The package's
+[account reference](../AurorisNet.Umbraco.IdentityServer.SSO/docs/BEHAVIOR.md#accounts) lists the
+`BackOfficeAutoLink` and `MemberAutoLink` settings and the hooks a host can add.
 
 Local passwords and password recovery use Umbraco's account-management flow. Accounts created
 by directory import or the configured roster receive generated passwords; administrators can
 set or reset them in **Users** and **Members**. OpenID sign-in does not replace existing passwords.
 
-| `Accounts` setting | Meaning |
+The `Accounts` section is shared: the package reads the roster and retirement keys, and this host
+reads the report keys. This host's defaults:
+
+| `Accounts` setting | This host's default and meaning |
 |---|---|
-| `EnsureMemberGroups`, `EnsureUserGroups` | Groups created when missing; user groups initially get the Content section. |
-| `EnsureBackOfficeUsers` | Users created when missing (`Email`, `Name`, `UserGroups`). |
-| `EnsureMembers` | Members created when missing (`Email`, `Name`, `MemberGroups`). |
-| `ReportAdministratorUserGroups` | Backoffice groups whose users administer Interactive Reports, besides Umbraco's `admin` group and AppBlocks' **Interactive Reports Administrator** group (`interactiveReportsAdministrator`), which always do. The defaults name `admin` and this host's own **Interactive Report Administrators** group (`interactiveReportAdministrators`), which `ConfiguredAccounts` creates. |
-| `AllowAnonymousReportBlocks` | `false` by default: every report needs an account. `true` lets an anonymous visitor read report blocks on pages Umbraco Public Access leaves open, as AppBlocks allows; see [Interactive Reports](#interactive-reports). |
-| `MemberTypeAlias` | Type for directory-created and roster members. Native OpenID creation uses `MemberAutoLink:DefaultMemberTypeAlias`. |
-| `RetireDeletedUsers`, `RetireDeletedMembers` | Retire used accounts instead of removing them; both default to `true`. |
+| `EnsureMemberGroups` | `Report Users` and `Users`, created when missing. |
+| `EnsureUserGroups`, `EnsureBackOfficeUsers`, `EnsureMembers` | Empty. Groups and accounts created when missing; see the package's [settings](../AurorisNet.Umbraco.IdentityServer.SSO/README.md#settings). |
+| `MemberTypeAlias` | `Member`, the type for directory-created and roster members. Native OpenID creation uses `IdentityServer:MemberAutoLink:DefaultMemberTypeAlias`. |
+| `RetireDeletedUsers`, `RetireDeletedMembers` | `true`. Delete retires an account that has signed in; see [Retiring accounts](#retiring-accounts). |
+| `SeedCurrentWindowsUserAsAdministrator` | `false`. |
+| `ReportAdministratorUserGroups` | `admin` and `interactiveReportAdministrators`. Backoffice groups whose users administer Interactive Reports, besides Umbraco's `admin` group and AppBlocks' **Interactive Reports Administrator** group (`interactiveReportsAdministrator`), which always do. This host creates its own **Interactive Report Administrators** group (`interactiveReportAdministrators`) at startup. |
+| `AllowAnonymousReportBlocks` | `false`: every report needs an account. `true` lets an anonymous visitor read report blocks on pages Umbraco Public Access leaves open, as AppBlocks allows; see [Interactive Reports](#interactive-reports). |
+
+The `BackOfficeUsersManagedBy`, `MembersManagedBy`, `ActiveDirectoryGroupPattern` and
+`LinkByUserNameOnFirstSignIn` settings apply only to explicit callers of the package's
+`AccountProvisioning` service; they do not control OpenID sign-in. Directory pickers still let
+administrators create and link accounts explicitly.
 
 ### Creating accounts from the directory
 
-Application code can use `IDirectoryLookup.SearchUsersAsync` with a per-call `IDirectoryUserFilter`
-to request additional attributes, add a trusted LDAP assertion and filter returned accounts.
-`DirectorySearchMode.DisplayName` matches search terms against `displayName` alone; the default
-`AddressBook` mode retains the standard account-picker search. Requested extra attributes are in
-`DirectoryUser.Attributes`. A single-account `FindUserAsync` call can request them through its
-`additionalAttributes` argument. These options do not change the backoffice picker or other callers.
+Accounts come from the directory through the
+[`AurorisNet.Umbraco.IdentityServer.Directory`](https://github.com/auroris/AurorisNet.Umbraco.IdentityServer.Directory)
+package, which registers itself through its composer. Its README documents the management API,
+every setting and the extension points; this section covers what an UmbracoAppHost site gets.
+
+The people lookup underneath is `IDirectoryLookup` from the `AurorisNet.IdentityServer.Directory`
+package (namespace `IdentityServer.Directory`), which application code can use too.
+`SearchUsersAsync` with a per-call `IDirectoryUserFilter` requests additional attributes, adds a
+trusted LDAP assertion and filters the returned accounts. `DirectorySearchMode.DisplayName`
+matches search terms against `displayName` alone; the default `AddressBook` mode keeps the
+standard account-picker search. The requested attributes are in `DirectoryUser.Attributes`, which
+is null when a call requested none. A single-account `FindUserAsync` call requests them through
+its `additionalAttributes` argument. These options apply to that call alone, so the backoffice
+dialog and other callers keep their own searches.
 
 The Users section's list of users and the Members section's list of members have an **Add from
 directory…** button beside Umbraco's own. It opens a dialog that searches the directory as you
@@ -475,7 +471,7 @@ again. Nothing is created, and the dialog says what to do, when the person alrea
 of that kind (linked to their SID, or retired under it) or another account holds the username or
 email. The audit log records each creation.
 
-The dialog uses this site's management API, which a script with a backoffice token can call too.
+The dialog uses the package's management API, which a script with a backoffice token can call too.
 The user endpoints need access to the Users section and the member endpoints to the Members
 section, as Umbraco's own do:
 
@@ -483,7 +479,7 @@ section, as Umbraco's own do:
 |---|---|---|
 | `GET /umbraco/management/api/v1/directory/users/search`, `.../members/search` | `query`, `take` (default 20, at most 50) | `results` (`sid`, `accountName`, `userName`, `displayName`, `email`, `department`, `title`, `enabled`) and `existing`, the accounts by SID (`kind`, `key`, `username`, `state`: `active`, `disabled` or `retired`) |
 | `POST /umbraco/management/api/v1/directory/users` | `sid`, `userGroupKeys` | 201 with `key`, `username`, `name`, `email`; 409 when the person or the name already has an account |
-| `POST /umbraco/management/api/v1/directory/members` | `sid`, `memberTypeAlias` (empty means `Accounts:MemberTypeAlias`), `memberGroupNames` | As for users |
+| `POST /umbraco/management/api/v1/directory/members` | `sid`, `memberTypeAlias` (empty means `Directory:MemberTypeAlias`, which the site fills from `Accounts:MemberTypeAlias`), `memberGroupNames` | As for users |
 
 A search the directory refuses, such as a term shorter than two characters, answers 400 with the
 reason; a directory that cannot be reached answers 503, and the dialog shows both. Searches cover
@@ -496,8 +492,7 @@ never stops a site from starting.
 
 - **Active Directory, queried by the site**, when it signs in through its embedded identity server
   (`IdentityServer:Authority` empty). The site queries the domain as its process account, through
-  the site's own lookup in `DirectoryAccounts/Lookup`,
-  under the `Directory` section's `UserRootGlobal`. In IIS the application pool identity therefore
+  the `AurorisNet.IdentityServer.Directory` lookup, under the `Directory` section's `UserRootGlobal`. In IIS the application pool identity therefore
   needs read access to the directory there; `ApplicationPoolIdentity` has it on a domain-joined server.
 - **The external identity server's directory API** (`{Authority}/directory/users`) when
   `IdentityServer:Authority` is set. The site sends `IdentityServer:DirectoryApiKey`, one of the
@@ -512,157 +507,75 @@ never stops a site from starting.
   display name is the full name or the account name. `Directory:UseLocalAccounts` set to `true`
   forces this; `false` forbids it.
 
+`Directory:Source` set to `ActiveDirectory`, `IdentityServer` or `LocalAccounts` picks that source
+outright; its default, `Auto`, decides as described above.
+
 | `Directory` setting | Meaning |
 |---|---|
 | `UserRootGlobal` | The LDAP path searched for people, such as `LDAP://OU=People,DC=example,DC=invalid`. Empty, the default, searches the whole domain. |
 | `UserRoot` | The lookup's local-scope root; account creation uses `UserRootGlobal`. |
 | `GlobalSearchMinLength`, `GlobalSearchSizeLimitBuffer`, `DefaultTake`, `MaxTake` | The people-lookup limits, defaulting to 2, 20, 20 and 50. |
-| `UseLocalAccounts` | Search the computer's local accounts instead of a directory. Unset decides as described above. |
+| `Source` | `Auto`, the default, or the source to use: `ActiveDirectory`, `IdentityServer` or `LocalAccounts`. |
+| `UseLocalAccounts` | With `Auto`: search the computer's local accounts instead of a directory. Unset decides as described above. |
+| `IdentityServerAuthority` | The identity server whose directory API is searched. Filled from `IdentityServer:Authority`. |
+| `IdentityServerApiKey` | The key sent to that API. Filled from `IdentityServer:DirectoryApiKey`. |
+| `IdentityServerAcceptAnyServerCertificate` | Accept any certificate from that server. Filled from `IdentityServer:AcceptAnyServerCertificate`. |
+| `BackOfficeLoginProvider`, `MemberLoginProvider` | The schemes a new account's SID is linked under. Filled from the IdentityServer sign-in's scheme names, `Umbraco.<Name>` and `UmbracoMembers.<Name>`. |
+| `MemberTypeAlias` | The member type of a member created without one. Filled from `Accounts:MemberTypeAlias`. |
+
+The site fills each setting marked "Filled from" only when the `Directory` section leaves it
+unset, so a value set there takes precedence. Leave them out of the `Directory` section to have
+the dialog follow the sign-in settings.
 
 ### Retiring accounts
 
-Deleting an account would take the person's name off everything that refers to it, and Umbraco
-refuses to delete a backoffice user who has signed in, because audit trails and content
-versions refer to it. Delete in the Users and Members sections therefore retires an account that
-has signed in, or is linked to a Windows identity, instead of removing it:
-
-- Its username becomes the Windows SID it was linked to (`S-1-5-21-...`), or `retired-` and the
-  account key when it had none, and its email becomes that username at `retired.invalid`, a
-  domain reserved never to deliver.
-- It is disabled, its external logins remain attached and its sessions end: its backoffice tokens
-  are revoked and its security stamp changes.
-- Its name, groups, start nodes, permissions and history stay, so pages, versions and audit
-  entries still name the person. An audit entry records the username and email it had.
-
-The backoffice reports the delete as done and keeps the account, disabled, under its new
-username. Its external links still lead to the disabled account, so Umbraco's native login
-checks refuse it instead of auto-creating a replacement for the same identity. A new person
-with a different identity can use the freed username and email. To restore the retired person,
-enable the account and give it back its username and email; its existing link remains usable.
-
-Accounts that never signed in and were never linked are still deleted, the built-in
-administrator is never retired, and Umbraco's own checks still apply: nobody deletes
-themselves. Set `RetireDeletedUsers` or `RetireDeletedMembers` to `false` to turn retirement
-off; Delete then behaves as in Umbraco, refusing a user who has signed in and deleting a member
-outright. A change applies without a restart.
+Delete in the Users and Members sections retires an account that has signed in, or is linked to
+a Windows identity, instead of removing it: its username becomes the Windows SID, its email an
+address at `retired.invalid`, and it is disabled, while its name and history stay on everything
+it authored. A new person can then take the username and email. The package's
+[retirement reference](../AurorisNet.Umbraco.IdentityServer.SSO/docs/BEHAVIOR.md#retirement)
+describes what changes and how to restore an account. `Accounts:RetireDeletedUsers` and
+`RetireDeletedMembers`, both `true` here, switch it off; a change applies without a restart.
 
 ### Identity server provider
 
-| `IdentityServer` setting | Meaning |
-|---|---|
-| `Enabled`, `BackOfficeEnabled`, `MemberEnabled` | Offer the provider at all, and to which audience. |
-| `Name` | Button label, `Domain` in the shared defaults. Its letters and digits also form the scheme names (`Domain` gives `Umbraco.Domain` and `UmbracoMembers.Domain`). Existing installations must explicitly retain their original name in instance settings so stored external-login links continue to match. |
-| `Authority` | Empty (the default) signs in through this site's [embedded identity server](#embedded-identity-server), which must then be enabled; startup fails with a configuration error otherwise. Any other value is the address of an external identity server, which must list this site's host among its `Hosts`. |
-| `ClientId`, `ClientSecret` | The OpenID Connect client registration, `umbraco-backoffice` by default. With the embedded server the site registers this client itself; leave the secret empty, which makes it a public client protected by PKCE, as client and server run in the same process. |
-| `Scopes` | Defaults to `openid profile email roles`. |
-| `CallbackPath` | Path prefix for the callbacks; added to Umbraco's reserved paths automatically. |
-| `RequireHttpsMetadata` | External identity server only: off only for one on a trusted intranet without TLS. The embedded server's metadata is read in process. |
-| `AcceptAnyServerCertificate` | Skip certificate validation on the back-channel calls, which with the embedded server is the site calling its own token endpoint. Development or an isolated intranet with a self-signed certificate only. |
-| `DirectoryApiKey` | External identity server only: the key the site sends in the `X-Api-Key` header when it searches the server's directory API to [create accounts from the directory](#creating-accounts-from-the-directory); one of the server's `Directory:ApiKeys`. Empty authenticates as the site's own Windows identity, which the server must then admit. |
-| `DenyLocalLogin` | Hide the local backoffice form; leave `false` to retain password fallback. |
-
-An external identity server may be anywhere the browser and this site can reach, including an
-HTTP-only sub-application such as `https://host/IdentityServer`; the authority then includes
-that path and no rewrite rule is needed in front of it. The client returns by GET with
-`SameSite=Lax` cookies, so it does not depend on cross-site cookies and works even when
-this site is served over plain HTTP (the backoffice itself still requires HTTPS); the
-correlation and nonce cookies are marked `Secure` only over HTTPS for the same reason.
-
-The claims the site reads: `sub` (the stable identity key; a Windows SID for the embedded server), `name`, the Windows account name, `email`, and one role per directory group.
-That is what OpenIddict-WindowsAuth and the embedded identity server issue; another OpenID
-Connect server works if it sends the same.
-
-In IIS, a site that signs in through its embedded identity server authenticates people itself,
-so it needs **Windows Authentication** and **Anonymous Authentication** both enabled (see
-[Embedded identity server](#embedded-identity-server)). With Anonymous Authentication only,
-Windows authentication is unavailable to the site: it says so in the log at startup, the login
-screens omit the embedded identity server, nothing starts
-automatically, and people sign in with a username and password, or through an external
-identity server (`IdentityServer:Authority`), which authenticates them itself and needs no
-Windows Authentication here. Other applications cannot sign in through such a site's embedded
-server: its authorize endpoint refuses them with `access_denied`.
-
 The library defaults turn the provider on against the embedded identity server, and sites
-created by `new-site.ps1` inherit that default. Set `IdentityServer:Authority` and the client
-settings in a site's `instance.json` to use an external identity server instead, or set
+created by `new-site.ps1` inherit them:
+
+| `IdentityServer` setting | This host's default |
+|---|---|
+| `Enabled`, `BackOfficeEnabled`, `MemberEnabled` | `true` |
+| `Name` | `Domain`, giving the schemes `Umbraco.Domain` and `UmbracoMembers.Domain`. Existing installations must keep their original name in instance settings so stored external-login links continue to match. |
+| `Authority` | Empty: sign in through this site's [embedded identity server](#embedded-identity-server). |
+| `ClientId`, `ClientSecret` | `umbraco-backoffice`, with no secret. With the embedded server the site registers this client itself as a public client protected by PKCE. |
+| `BackOfficeAutoLink` | `AutoLinkExternalAccount` `false`, `AllowManualLinking` `true`, no default groups. |
+| `MemberAutoLink` | `AutoLinkExternalAccount` `true`, `DefaultIsApproved` `true`, `DefaultMemberTypeAlias` `Member`. |
+| `CallbackPath`, `RequireHttpsMetadata`, `AcceptAnyServerCertificate`, `DenyLocalLogin` | `/signin-oidc`, `true`, `false`, `false`. |
+| `DirectoryApiKey` | Empty. External identity server only: the key the site sends in the `X-Api-Key` header when it searches the server's directory API to [create accounts from the directory](#creating-accounts-from-the-directory); one of the server's `Directory:ApiKeys`. Empty authenticates as the site's own Windows identity, which the server must then admit. |
+
+Set `IdentityServer:Authority` and the client settings in a site's `instance.json` to use an
+external identity server instead, which must list this site's host among its `Hosts`, or set
 `IdentityServer:Enabled` to false to offer no single sign-on. Only enabled providers appear on
-the login screen.
+the login screen. The package's [settings](../AurorisNet.Umbraco.IdentityServer.SSO/README.md#settings)
+describe every key.
 
 ### Embedded identity server
 
-The platform hosts the `AurorisNet.IdentityServer` NuGet package in the same process.
-It serves `/connect/authorize` and `/connect/token`, authenticating
-with Windows Integrated Authentication (Kerberos or NTLM on Kestrel, IIS Windows Authentication
-in IIS). The shared library owns claims, token issuance and key storage; the adapter in
-`src/UmbracoAppHost/IdentityServer/` supplies the site's client policy and local-login fallback.
-The site's own identity server provider is one of its clients; other applications are configured
-in `EmbeddedIdentityServer`. The client-side `IdentityServer` settings remain separate.
+The site hosts the `AurorisNet.IdentityServer` server in its own process through the package. It
+serves `/connect/authorize` and `/connect/token` and authenticates Windows accounts. The site's
+own provider is one of its clients; other applications are listed in
+`EmbeddedIdentityServer:Clients`. The package's
+[embedded server reference](../AurorisNet.Umbraco.IdentityServer.SSO/docs/BEHAVIOR.md#embedded-identity-server)
+covers discovery, clients, claims, keys, its separation from Umbraco's own server, and
+troubleshooting.
 
-Applications discover it at `/.well-known/openid-configuration` (under the virtual path, if the
-site has one), which lists `/connect/authorize` and `/connect/token` as the authorization and token
-endpoints, and `/.well-known/jwks` as the signing keys. The issuer is the address the request
-used: scheme, host and virtual path, the way Umbraco's own OpenIddict endpoints work under every
-host name a site answers to, so an application must use the same address the site is published
-under. Behind a reverse proxy, configure forwarded headers so the site sees its public address.
-Discovery and signing keys belong to the shared server. Umbraco's own authentication options,
-keys, endpoints and database stay separate.
-
-| `EmbeddedIdentityServer` setting | Meaning |
+| `EmbeddedIdentityServer` setting | This host's default |
 |---|---|
-| `Enabled` | Serve `/connect/authorize` and `/connect/token`. On by default. Off removes both endpoints; the identity server provider then needs an external `Authority`. |
-| `Clients` | Other applications allowed to sign in: `ClientId`, `ClientSecret` (empty for a public client), `DisplayName`, `RedirectUris`, `PostLogoutRedirectUris`. Read at startup; removing an entry and restarting revokes client access. No client records are added to Umbraco. |
-| `Groups` | Case-insensitive .NET regular expressions matched against direct AD group names, without the domain prefix. Empty or missing sends no roles, following IdentityServer.Core. Local machine accounts have no directory roles. |
-| `PersistKeys` | Keep signing and encryption keys across restarts (default). Off generates new keys at every start, invalidating previously issued tokens and outstanding authorization codes. |
-| `DataPath` | Directory for the shared server's key files. Defaults to `data/keys/identity-server/` in the instance folder; relative paths use the content root. |
-| `AccessTokenLifetime`, `IdentityTokenLifetime`, `AuthorizationCodeLifetime` | Token lifetimes for this server's clients (defaults one hour, one hour and five minutes, as in OpenIddict-WindowsAuth). They configure only the shared server; Umbraco's token lifetimes do not change. |
-
-To let another application sign in, add it to the site's `instance.json` (or the host's
-`appsettings.json`) and restart:
-
-```json
-"EmbeddedIdentityServer": {
-  "Clients": [
-    {
-      "ClientId": "reports-portal",
-      "ClientSecret": "a long random secret",
-      "RedirectUris": [ "https://reports.example/signin-oidc" ]
-    }
-  ],
-  "Groups": [ "^Report ", "^Domain Admins$" ]
-}
-```
-
-The application then uses this site's address as its authority, the authorization code flow
-(`response_type=code`) with PKCE (`S256`; required of every client), and the scopes `openid`,
-`profile`, `email` and `roles`. Redirect addresses must match exactly: no wildcards, and no
-host-only matching as in OpenIddict-WindowsAuth's `Hosts`. A client with a secret authenticates
-with it at the token endpoint; one without is public. There are no refresh tokens (requests for
-`offline_access` are refused), no userinfo endpoint and no sign-out endpoint: a Windows sign-in
-has no session to end, and `PostLogoutRedirectUris` are recorded for completeness only. Client
-ids that belong to Umbraco (`umbraco-back-office`, `umbraco-member`, `umbraco-swagger`,
-`umbraco-postman`) or to this site (`IdentityServer:ClientId`) are rejected at startup, as are
-regular expressions that do not compile and redirect addresses that are not absolute.
-
-The claims, by requested scope, are those of OpenIddict-WindowsAuth, under the long .NET claim
-types its clients read:
-
-| Scope | Claims |
-|---|---|
-| `openid` | `sub`, the Windows SID (always present), and `http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name`, the display name from Active Directory or the account name |
-| `profile` | `.../windowsaccountname` (`DOMAIN\user`), plus `.../givenname` and `.../surname` and `.../homephone` when the directory has them |
-| `email` | `.../emailaddress`, the directory email or `user@localhost` |
-| `roles` | `http://schemas.microsoft.com/ws/2008/06/identity/claims/role`, one per group selected by `Groups`, without the domain prefix |
-
-Every claim goes into both the identity token and the access token. IdentityServer.Core reads
-**direct AD memberships**, without expanding nested groups; local machine accounts have no roles.
-The profile scope also includes the home phone claim when supplied by Active Directory. Narrow
-`Groups` to keep tokens small; the shared server logs large role sets and token responses.
-
-IdentityServer.Core persists 2048-bit RSA signing and encryption keys as `signing-key.bin` and
-`encryption-key.bin` in `DataPath`, protected with Windows machine DPAPI. Restrict that folder's
-permissions to the service account and administrators. Preserve it across deployments on the same
-machine; copying it to another machine does not migrate the keys. Unreadable keys fail startup.
-`reset.ps1` deletes the default key directory with the rest of `data/`.
+| `Enabled` | `true` |
+| `Clients`, `Groups` | Empty: no other applications, and no roles in tokens. |
+| `PersistKeys` | `true` |
+| `DataPath` | Empty, which this host resolves to `keys/identity-server/` in the instance's data folder (`UmbracoAppHost:DataRoot`), where earlier releases kept the keys. `reset.ps1` deletes it with the rest of `data/`. |
+| `AccessTokenLifetime`, `IdentityTokenLifetime`, `AuthorizationCodeLifetime` | One hour, one hour and five minutes, as in OpenIddict-WindowsAuth. |
 
 **Upgrading from the former built-in server:** this starts a new set of keys, so previously issued
 tokens and outstanding codes need a fresh sign-in, and external clients must refresh cached JWKS.
@@ -673,46 +586,11 @@ clients need roles, and review any rules relying on nested or local Windows grou
 `Clients`, exact `RedirectUris`, secrets, PKCE, enabled flags and token lifetimes remain supported.
 Old embedded-client database records cannot use Umbraco's own protocol endpoints.
 
-When this site signs in through its own server, it redeems the authorization code by calling
-its own `/connect/token` over HTTP at the address the browser used, as any client would. The
-server must therefore reach its own public host name: DNS, IIS bindings, firewalls and proxies
-must allow that loopback call, and `AcceptAnyServerCertificate` covers a certificate the server
-itself does not trust. The issuer and signing keys are taken from the server in the same process
-rather than downloaded, so a forged Host header can never point the sign-in at someone else's
-server. The site's client may return only to its enabled backoffice/member callback at the exact
-scheme, host, port and virtual path used for that request; no host names are registered in a database.
-Restricting `AllowedHosts` to the site's real host names is still good practice.
-
-The two servers stay apart. Umbraco's clients are refused at `/connect/`, this server's clients
-are refused at Umbraco's own authorize and token endpoints, and access tokens issued here are
-refused by Umbraco's APIs: they are meant for other applications. Umbraco's grant types, PKCE
-requirement, token formats and lifetimes are unchanged.
-
-In IIS, enable both **Windows Authentication** and **Anonymous Authentication** for the site:
-the token and discovery endpoints must answer without a Windows challenge, and the authorize
-endpoint issues its own challenge when nothing has authenticated yet. On Kestrel the Negotiate
-handler does the exchange itself. With Anonymous Authentication only, the endpoints stay
-reachable but every authorization request is refused with `access_denied`, the login screens
-fall back to username and password, and the startup log says why.
-
-Troubleshooting:
-
-- **The browser keeps prompting for credentials, or `/connect/authorize` answers 401 forever.**
-  Browsers send Windows credentials silently only to sites in the Local Intranet zone (Edge,
-  Chrome) or listed in `network.negotiate-auth.trusted-uris` (Firefox). Negotiate needs HTTP/1.1,
-  which browsers fall back to by themselves. In IIS, check that Windows Authentication is enabled.
-- **`/connect/authorize` fails with a server error in IIS mentioning `IConnectionItemsFeature`.**
-  Windows Authentication is off for the site, so the Negotiate handler tries to do the exchange
-  itself, which only Kestrel supports.
-- **A domain account signs in with NTLM instead of Kerberos.** The host name has no SPN for the
-  account the application pool runs as: `setspn -S HTTP/host.domain DOMAIN\account`. NTLM still
-  works, and is normal for local accounts.
-- **`invalid_request` naming the client id or the redirect address.** The client is not
-  registered here, uses an endpoint that is not its own, or sent a redirect address that is not
-  registered exactly. The log names which check failed.
-- **Sign-in through the site's own server ends in an error after `/signin-oidc/...`.** The site
-  could not reach its own token endpoint at the address the browser used; see the loopback call
-  above. The log records the failure.
+In IIS, enable both **Windows Authentication** and **Anonymous Authentication** for the site and
+run the package's IIS helper; [Deployment](docs/deployment.md#create-a-site) has the steps. With
+Anonymous Authentication only, the site logs that Windows authentication is unavailable, the
+login screens omit the embedded identity server, and people sign in with a username and
+password or through an external identity server.
 
 ## Login screen and backoffice
 

@@ -137,8 +137,7 @@
     "AllowedExtensions": [],
     "RetentionDays": 30
   },
-  "UmbracoAppHost": {
-    "AdminUserName": "admin",
+  "BreakGlass": {
     "AdminEmail": "admin@localhost.local"
   }
 }

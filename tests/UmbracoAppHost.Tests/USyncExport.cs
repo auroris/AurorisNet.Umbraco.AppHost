@@ -1,9 +1,9 @@
 using System.Xml.Linq;
 
-namespace UmbracoAppHost.Testing;
+namespace UmbracoAppHost.Tests;
 
 /// <summary>Reads a saved uSync export without a running site.</summary>
-public static class USyncExport
+internal static class USyncExport
 {
     /// <summary>Every content node of the export, from <c>Content/*.config</c> under <paramref name="folder"/>.</summary>
     public static IReadOnlyList<USyncContentItem> Content(string folder)
@@ -46,7 +46,7 @@ public static class USyncExport
 /// A content node of a saved uSync export. <see cref="Path"/> is the export's path of node names, such
 /// as <c>/SampleApplication/OrdersForm</c>; <see cref="File"/> is the <c>.config</c> file it was read from.
 /// </summary>
-public sealed record USyncContentItem(Guid Key, string Alias, string Name, string ContentType, Guid ParentKey, string Path, string File)
+internal sealed record USyncContentItem(Guid Key, string Alias, string Name, string ContentType, Guid ParentKey, string Path, string File)
 {
     /// <summary>The property's saved value, CDATA included, or null when the node does not have the property.</summary>
     public string? Property(string alias) => XElement.Load(File).Element("Properties")?.Element(alias)?.Element("Value")?.Value;

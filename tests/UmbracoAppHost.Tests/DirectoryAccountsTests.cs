@@ -9,8 +9,11 @@ using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.Models;
 using Umbraco.Cms.Core.Services;
 using Umbraco.Cms.Core.Services.OperationStatus;
+using IdentityServer.Sso;
+using DirectoryAccounts;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using UmbracoAppHost.Authentication;
-using UmbracoAppHost.DirectoryAccounts;
 
 namespace UmbracoAppHost.Tests;
 
@@ -246,141 +249,97 @@ public sealed class DirectoryAccountsTests(AccountsTestHost host) : IClassFixtur
 }
 
 /// <summary>
-/// The client for an external identity server's directory API, against a fake server that answers
-/// as the identity server does: camelCase records, problem details for a refusal or an outage.
+/// The Add from directory package reads the <c>Directory</c> section; the host fills it from the
+/// identity server, scheme and member type settings its sites already have.
 /// </summary>
-public sealed class DirectoryAccountsExternalClientTests
+public sealed class DirectoryAccountSettingsMappingTests
 {
     private const string Authority = "https://login.example/IdentityServer";
     private const string Key = "a-test-key-of-24-chars!!";
 
-    private const string People = """
-        [
-          {"sid":"S-1-5-21-10-20-30-1001","guid":"6f1c0f3e-5d9a-4c2b-9a6e-2b4a7f3d0c01","accountName":"DOMAIN\\Test.User","userName":"Test.User",
-           "displayName":"Test User","givenName":"Test","surname":"User","email":"test.user@example.invalid","telephone":null,"mobile":null,"fax":null,
-           "office":null,"title":"Test Role","department":"Test Team","employeeId":null,"enabled":true},
-          {"sid":"S-1-5-21-10-20-30-1002","guid":"6f1c0f3e-5d9a-4c2b-9a6e-2b4a7f3d0c02","accountName":"DOMAIN\\Test.Old","userName":"Test.Old",
-           "displayName":"Test Old","givenName":null,"surname":null,"email":null,"telephone":null,"mobile":null,"fax":null,
-           "office":null,"title":null,"department":null,"employeeId":null,"enabled":false}
-        ]
-        """;
-
     [Fact]
-    public async Task A_search_asks_the_whole_directory_with_the_key_and_keeps_enabled_people()
+    public void The_directory_settings_come_from_IdentityServer_and_Accounts()
     {
-        var server = new FakeServer(_ => Answer(HttpStatusCode.OK, People));
-        var people = await Client(server, Key).SearchAsync("test user", 20, TestContext.Current.CancellationToken);
-
-        var person = Assert.Single(people);
-        Assert.Equal("S-1-5-21-10-20-30-1001", person.Sid);
-        Assert.Equal("DOMAIN\\Test.User", person.AccountName);
-        Assert.Equal("Test.User", person.UserName);
-        Assert.Equal("Test User", person.DisplayName);
-        Assert.Equal("test.user@example.invalid", person.Email);
-        Assert.Equal("Test Team", person.Department);
-        Assert.Equal("Test Role", person.Title);
-        var request = Assert.Single(server.Requests);
-        Assert.Equal(HttpMethod.Get, request.Method);
-        Assert.Equal($"{Authority}/directory/users?query=test%20user&take=20&scope=global&includeDisabled=true", request.RequestUri!.AbsoluteUri);
-        Assert.Equal(Key, Assert.Single(request.Headers.GetValues(IdentityServerAccountDirectory.ApiKeyHeader)));
-    }
-
-    [Fact]
-    public async Task A_lookup_reads_the_detail_and_treats_404_as_nobody()
-    {
-        const string detail = """
-            {"groups":["Test Team Users","Report Users"],"sid":"S-1-5-21-10-20-30-1001","guid":"6f1c0f3e-5d9a-4c2b-9a6e-2b4a7f3d0c01",
-             "accountName":"DOMAIN\\Test.User","userName":"Test.User","displayName":"Test User","email":null,"enabled":true}
-            """;
-        var server = new FakeServer(request => request.RequestUri!.AbsolutePath.EndsWith("-1001", StringComparison.Ordinal)
-            ? Answer(HttpStatusCode.OK, detail)
-            : new HttpResponseMessage(HttpStatusCode.NotFound));
-        var directory = Client(server, apiKey: null);
-
-        var person = await directory.FindAsync("S-1-5-21-10-20-30-1001", TestContext.Current.CancellationToken);
-        Assert.NotNull(person);
-        Assert.Equal("DOMAIN\\Test.User", person.AccountName);
-        Assert.Null(person.Email);
-        Assert.Equal(new[] { "Test Team Users", "Report Users" }, person.Groups);
-        Assert.Null(await directory.FindAsync("S-1-5-21-10-20-30-1009", TestContext.Current.CancellationToken));
-        Assert.Equal($"{Authority}/directory/users/S-1-5-21-10-20-30-1001", server.Requests[0].RequestUri!.AbsoluteUri);
-        // Without a key the site authenticates as itself, so no key header is sent.
-        Assert.All(server.Requests, request => Assert.False(request.Headers.Contains(IdentityServerAccountDirectory.ApiKeyHeader)));
-        await Assert.ThrowsAsync<DirectoryQueryException>(() => directory.FindAsync("DOMAIN\\Test.User", TestContext.Current.CancellationToken));
-        Assert.Equal(2, server.Requests.Count);
-    }
-
-    [Fact]
-    public async Task Refusals_and_outages_become_the_shared_exceptions()
-    {
-        var refused = Client(new FakeServer(_ => Answer(HttpStatusCode.BadRequest,
-            """{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"The directory request was refused.","status":400,"detail":"scope must be local or global."}""")), Key);
-        Assert.Equal("scope must be local or global.", (await Assert.ThrowsAsync<DirectoryQueryException>(() => refused.SearchAsync("test", 20, TestContext.Current.CancellationToken))).Message);
-
-        var down = Client(new FakeServer(_ => Answer(HttpStatusCode.ServiceUnavailable,
-            """{"title":"The directory is unavailable.","status":503,"detail":"Active Directory could not be queried: The server is not operational."}""")), Key);
-        var outage = await Assert.ThrowsAsync<DirectoryUnavailableException>(() => down.SearchAsync("test", 20, TestContext.Current.CancellationToken));
-        Assert.Contains("The server is not operational.", outage.Message);
-        await Assert.ThrowsAsync<DirectoryUnavailableException>(() => down.FindAsync("S-1-5-21-10-20-30-1001", TestContext.Current.CancellationToken));
-
-        var wrongKey = Client(new FakeServer(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)), Key);
-        Assert.Contains("IdentityServer:DirectoryApiKey", (await Assert.ThrowsAsync<DirectoryUnavailableException>(() => wrongKey.SearchAsync("test", 20, TestContext.Current.CancellationToken))).Message);
-
-        var unreachable = Client(new FakeServer(_ => throw new HttpRequestException("No such host is known.")), Key);
-        Assert.Contains("No such host is known.", (await Assert.ThrowsAsync<DirectoryUnavailableException>(() => unreachable.SearchAsync("test", 20, TestContext.Current.CancellationToken))).Message);
-
-        var garbled = Client(new FakeServer(_ => Answer(HttpStatusCode.OK, "<html>Sign in</html>")), Key);
-        await Assert.ThrowsAsync<DirectoryUnavailableException>(() => garbled.SearchAsync("test", 20, TestContext.Current.CancellationToken));
-
-        // A term that is too short never reaches the server.
-        var server = new FakeServer(_ => Answer(HttpStatusCode.OK, "[]"));
-        await Assert.ThrowsAsync<DirectoryQueryException>(() => Client(server, Key).SearchAsync("b", 20, TestContext.Current.CancellationToken));
-        Assert.Empty(server.Requests);
-    }
-
-    [Fact]
-    public void The_handler_uses_the_sites_Windows_identity_only_without_a_key()
-    {
-        using var withKey = Assert.IsType<HttpClientHandler>(IdentityServerAccountDirectory.CreateHandler(new IdentityServerSettings { DirectoryApiKey = Key }));
-        Assert.False(withKey.UseDefaultCredentials);
-        Assert.Null(withKey.ServerCertificateCustomValidationCallback);
-        using var withoutKey = Assert.IsType<HttpClientHandler>(IdentityServerAccountDirectory.CreateHandler(new IdentityServerSettings { AcceptAnyServerCertificate = true }));
-        Assert.True(withoutKey.UseDefaultCredentials);
-        Assert.NotNull(withoutKey.ServerCertificateCustomValidationCallback);
-    }
-
-    [Fact]
-    public void The_source_follows_the_identity_server_and_the_local_accounts_setting()
-    {
-        var embedded = new IdentityServerSettings();
-        var external = new IdentityServerSettings { Authority = Authority };
-        Assert.Equal(AccountDirectorySource.LocalAccounts, AccountDirectorySettings.Choose(new AccountDirectorySettings { UseLocalAccounts = true }, external));
-        Assert.Equal(AccountDirectorySource.IdentityServer, AccountDirectorySettings.Choose(new AccountDirectorySettings(), external));
-        Assert.Equal(AccountDirectorySource.ActiveDirectory, AccountDirectorySettings.Choose(new AccountDirectorySettings { UseLocalAccounts = false }, embedded));
-        Assert.Equal(AccountDirectorySettings.IsOutsideDomain ? AccountDirectorySource.LocalAccounts : AccountDirectorySource.ActiveDirectory,
-            AccountDirectorySettings.Choose(new AccountDirectorySettings(), embedded));
-    }
-
-    private static IdentityServerAccountDirectory Client(FakeServer server, string? apiKey)
-        => new(new FakeHttpClientFactory(server), Microsoft.Extensions.Options.Options.Create(new IdentityServerSettings { Authority = Authority, DirectoryApiKey = apiKey }));
-
-    private static HttpResponseMessage Answer(HttpStatusCode status, string json)
-        => new(status) { Content = new StringContent(json, Encoding.UTF8, status == HttpStatusCode.OK ? "application/json" : "application/problem+json") };
-
-    /// <summary>Answers every request through a function and keeps the requests for inspection.</summary>
-    private sealed class FakeServer(Func<HttpRequestMessage, HttpResponseMessage> answer) : HttpMessageHandler
-    {
-        public List<HttpRequestMessage> Requests { get; } = [];
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        using var services = Services(new()
         {
-            Requests.Add(request);
-            return Task.FromResult(answer(request));
-        }
+            ["IdentityServer:Authority"] = Authority,
+            ["IdentityServer:DirectoryApiKey"] = Key,
+            ["IdentityServer:AcceptAnyServerCertificate"] = "true",
+            ["IdentityServer:Name"] = "Corp Login",
+            ["Accounts:MemberTypeAlias"] = "staffMember",
+        });
+        var settings = services.GetRequiredService<IOptions<AccountDirectorySettings>>().Value;
+
+        Assert.Equal(Authority, settings.IdentityServerAuthority);
+        Assert.Equal(Key, settings.IdentityServerApiKey);
+        Assert.True(settings.IdentityServerAcceptAnyServerCertificate);
+        Assert.Equal("Umbraco.CorpLogin", settings.BackOfficeLoginProvider);
+        Assert.Equal("UmbracoMembers.CorpLogin", settings.MemberLoginProvider);
+        Assert.Equal("staffMember", settings.MemberTypeAlias);
+        Assert.Equal(AccountDirectorySource.IdentityServer, AccountDirectorySettings.Choose(settings));
+        Assert.IsType<AppHostRetiredAccountPolicy>(services.GetRequiredService<IRetiredAccountPolicy>());
+        Assert.IsType<AppHostSignInLinkPolicy>(services.GetRequiredService<ISignInLinkPolicy>());
     }
 
-    private sealed class FakeHttpClientFactory(HttpMessageHandler handler) : IHttpClientFactory
+    [Fact]
+    public void The_embedded_identity_server_leaves_the_choice_to_the_domain_and_the_local_accounts_setting()
     {
-        public HttpClient CreateClient(string name) => new(handler, disposeHandler: false);
+        using var services = Services(new());
+        var settings = services.GetRequiredService<IOptions<AccountDirectorySettings>>().Value;
+
+        Assert.Equal("", settings.IdentityServerAuthority);
+        Assert.Equal("Umbraco.IdentityServer", settings.BackOfficeLoginProvider);
+        Assert.Equal("Member", settings.MemberTypeAlias);
+        Assert.Equal(AccountDirectorySettings.IsOutsideDomain ? AccountDirectorySource.LocalAccounts : AccountDirectorySource.ActiveDirectory,
+            AccountDirectorySettings.Choose(settings));
+    }
+
+    [Fact]
+    public void A_value_in_the_Directory_section_wins()
+    {
+        using var services = Services(new()
+        {
+            ["IdentityServer:Authority"] = Authority,
+            ["IdentityServer:DirectoryApiKey"] = Key,
+            ["IdentityServer:Name"] = "Corp Login",
+            ["Accounts:MemberTypeAlias"] = "staffMember",
+            ["Directory:IdentityServerAuthority"] = "https://directory.example/IdentityServer",
+            ["Directory:IdentityServerApiKey"] = "",
+            ["Directory:MemberLoginProvider"] = "UmbracoMembers.Other",
+            ["Directory:MemberTypeAlias"] = "contractor",
+        });
+        var settings = services.GetRequiredService<IOptions<AccountDirectorySettings>>().Value;
+
+        Assert.Equal("https://directory.example/IdentityServer", settings.IdentityServerAuthority);
+        Assert.Equal("", settings.IdentityServerApiKey);
+        Assert.Equal("Umbraco.CorpLogin", settings.BackOfficeLoginProvider);
+        Assert.Equal("UmbracoMembers.Other", settings.MemberLoginProvider);
+        Assert.Equal("contractor", settings.MemberTypeAlias);
+    }
+
+    [Fact]
+    public void The_retired_account_advice_follows_matching_by_name()
+    {
+        var matching = new AppHostRetiredAccountPolicy(Options.Create(new AccountsSettings()));
+        Assert.Contains("enable that member in Members and give it back its username and email", matching.RestoreAdvice(DirectoryAccountKind.Member));
+        var strict = new AppHostRetiredAccountPolicy(Options.Create(new AccountsSettings { LinkByUserNameOnFirstSignIn = false }));
+        Assert.Contains($"change that user's username to one that starts with {AccountRetirement.RetiredUserNamePrefix}", strict.RestoreAdvice(DirectoryAccountKind.User));
+
+        var links = new AppHostSignInLinkPolicy(Options.Create(new AccountsSettings { LinkByUserNameOnFirstSignIn = false }));
+        Assert.Equal(new[] { LegacyWindowsLoginSchemes.BackOffice }, links.PreviousLoginProviders(DirectoryAccountKind.User));
+        Assert.Equal(new[] { LegacyWindowsLoginSchemes.Member }, links.PreviousLoginProviders(DirectoryAccountKind.Member));
+        Assert.False(links.FirstSignInLinksByName);
+    }
+
+    /// <summary>The three settings sections bound as the site binds them, with the host's mapping on top.</summary>
+    private static ServiceProvider Services(Dictionary<string, string?> values)
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+        var services = new ServiceCollection();
+        services.Configure<IdentityServerSettings>(configuration.GetSection(IdentityServerSettings.SectionName));
+        services.Configure<AccountsSettings>(configuration.GetSection(AccountsSettings.SectionName));
+        services.Configure<AccountDirectorySettings>(configuration.GetSection(AccountDirectorySettings.SectionName));
+        UmbracoAppHostExtensions.AddDirectoryAccountSettings(services, configuration);
+        return services.BuildServiceProvider();
     }
 }

@@ -6,7 +6,7 @@ using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.Models;
 using Umbraco.Cms.Core.Models.Membership;
 using Umbraco.Cms.Core.Services;
-using UmbracoAppHost.Authentication;
+using IdentityServer.Sso;
 using AppBlocks.Authentication;
 using AppBlocks.InteractiveReports;
 using AppBlocks.InteractiveReports.Blocks;
@@ -21,14 +21,14 @@ namespace UmbracoAppHost.Reports;
 /// <remarks>
 /// A backoffice user is an administrator when, approved and not locked out, one of their user groups
 /// is Umbraco's <c>admin</c> group, AppBlocks' <c>interactiveReportsAdministrator</c> group, or listed
-/// in <see cref="AccountsSettings.ReportAdministratorUserGroups"/> or AppBlocks'
+/// in <see cref="ReportAccountSettings.ReportAdministratorUserGroups"/> or AppBlocks'
 /// <c>AppBlocks:ReportAdministratorGroups</c>: the groups AppBlocks' own policy accepts, plus this
 /// host's configured ones. A member is an administrator when the account they signed in with is
 /// also linked to such a backoffice user: the provider key stored with the external login (the
 /// Windows SID, whichever provider supplied it) joins the two. That link is this host's choice as
 /// a single sign-on host; AppBlocks never relates the two account stores.
 /// Everyone else signed in is an ordinary report user. An anonymous visitor is refused every report
-/// unless <see cref="AccountsSettings.AllowAnonymousReportBlocks"/> is on; then they get AppBlocks'
+/// unless <see cref="ReportAccountSettings.AllowAnonymousReportBlocks"/> is on; then they get AppBlocks'
 /// own answer, <see cref="AnonymousReportAccess.Allows"/>: a report block on a page without Public
 /// Access, whose SQL binds nobody, may be viewed, queried and exported, and every other report still
 /// needs an account. A saved view belongs to the one identity AppBlocks'
@@ -40,7 +40,7 @@ public sealed class ReportAccessPolicy(
     IEntityService entityService,
     IExternalLoginWithKeyService externalLogins,
     SsoProviderCatalog providers,
-    IOptions<AccountsSettings> accounts,
+    IOptions<ReportAccountSettings> accounts,
     IOptions<AppBlocksOptions> appBlocks,
     IOptions<InteractiveReportOptions> reportOptions,
     ILogger<ReportAccessPolicy> logger,

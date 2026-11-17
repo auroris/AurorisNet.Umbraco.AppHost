@@ -27,9 +27,10 @@ dotnet run --project src/UmbracoAppHost.Web
 The reference runs `src/UmbracoAppHost.Web/UmbracoAppHost.Web.csproj`, which is also what gets
 published for sites. `reference/instance.json` and its data folders are created automatically and
 retained. The launcher prints its HTTP address through the application log. Sign in as `admin` with
-the generated password in `reference/instance.json`. `UmbracoAppHost:AdminUserName` and
-`UmbracoAppHost:AdminEmail` configure the built-in administrator's username and contact
-email; their defaults are `admin` and `admin@localhost.local`.
+the generated password in `reference/instance.json`. `BreakGlass:AdminUserName` and
+`BreakGlass:AdminEmail` configure the built-in administrator's username and contact
+email; their defaults are `admin` and `admin@localhost.local`. The older `UmbracoAppHost:` names
+of these settings and of `AdminPassword` still work.
 Reference data and credentials are git-ignored. Shared server source and CMS views live in
 the `UmbracoAppHost` library. The .NET build generates and packages the frontend automatically.
 See [Getting started](getting-started.md) for the reset script and using the library from a
@@ -143,26 +144,30 @@ The PowerShell launcher is for Kestrel; IIS manages its own process lifetime. Th
 holds a lock under either host, preventing concurrent starts and updates while it
 is running. Media and databases remain outside the application's physical path.
 
-When using the embedded Windows identity server, enable Anonymous and Windows Authentication
-on the IIS application, then run the shared helper from an elevated PowerShell on the server:
+When using the embedded Windows identity server, configure IIS Windows authentication for the
+application:
 
-```powershell
-.\deployment\configure-iis-authentication.ps1 -Site '4Wing' -ApplicationPath '/WComptDoA'
-```
+1. Enable **Anonymous Authentication** and **Windows Authentication** on the IIS application.
+2. Run the single sign-on package's helper from an elevated PowerShell on the server, with your
+   IIS site and application path (`/` for a root application):
 
-Use your IIS site and application path (`/` for a root application). The helper leaves Windows
-authentication enabled for SSO, but disables IIS Windows challenges under `umbraco`, where
-Umbraco owns authentication. Otherwise a normal unauthenticated backoffice API response after
-logout also receives `Negotiate`/`NTLM` headers and opens a Windows Security dialog. The helper
-retains the ASP.NET Core handler at that child configuration path so the requests still reach
-Umbraco. It is safe to rerun and supports `-WhatIf`. These settings live in IIS configuration
-and survive application-file updates; the helper is included in newly published builds.
+   ```powershell
+   .\tools\configure-iis-authentication.ps1 -Site '4Wing' -ApplicationPath '/WComptDoA'
+   ```
 
-To choose or reset the administrator password, set `UmbracoAppHost:AdminPassword` in
-`app/appsettings.json` and save. The running site applies it without an IIS restart.
+The helper is `tools\configure-iis-authentication.ps1` in the sibling
+`AurorisNet.Umbraco.IdentityServer.SSO` checkout, and in that package's folder in the NuGet cache
+once the package is published. It keeps Windows authentication for SSO and switches IIS Windows
+challenges off under `umbraco`, where Umbraco owns authentication, so a backoffice API response
+after logout opens no Windows Security dialog. It can run again safely and supports `-WhatIf`.
+The settings live in IIS configuration and survive application updates. The package's
+[IIS notes](../../AurorisNet.Umbraco.IdentityServer.SSO/docs/BEHAVIOR.md#iis) explain each change.
+
+To choose or reset the administrator password, set `BreakGlass:AdminPassword` (or the older
+`UmbracoAppHost:AdminPassword`) in `app/appsettings.json` and save. The running site applies it without an IIS restart.
 A valid value also unlocks the account, resets failed login attempts and removes its two-factor
 enrolment. An empty or missing value leaves the current password, lockout state and enrolment
-alone. `BackOfficeLogin:DefaultFlow` defaults to `Auto`, which prefers the configured identity server and falls back to local
+alone. `BackOfficeLogin:DefaultFlow`, which the single sign-on package reads, defaults to `Auto`, which prefers the configured identity server and falls back to local
 password sign-in when SSO fails. The native password fallback also handles an SSO identity
 that has no linked backoffice account: its return address drops `identity_provider` while
 preserving the authorization state and PKCE challenge, so a valid password does not retry SSO.

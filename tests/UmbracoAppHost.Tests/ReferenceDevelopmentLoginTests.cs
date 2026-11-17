@@ -20,7 +20,8 @@ using Umbraco.Cms.Core.Models;
 using Umbraco.Cms.Core.Routing;
 using Umbraco.Cms.Core.Security;
 using Umbraco.Cms.Core.Services;
-using UmbracoAppHost.Authentication;
+using BreakGlass;
+using IdentityServer.Sso;
 using File = System.IO.File;
 using TestTwoFactorProvider = UmbracoAppHost.Tests.BackOfficeSsoHttpTests.TestTwoFactorProvider;
 
@@ -144,6 +145,8 @@ public sealed class ReferenceDevelopmentLoginTests
                 Assert.True(app.Services.GetRequiredService<IOptions<HostingSettings>>().Value.Debug);
                 Assert.Equal(BackOfficeLoginFlow.Form, app.Services.GetRequiredService<IOptions<BackOfficeLoginSettings>>()
                     .Value.GetEffectiveFlow(true));
+                // The Form flow reaches the BreakGlass package as its debug sign-in switch.
+                Assert.False(app.Services.GetRequiredService<IOptionsMonitor<BreakGlassSettings>>().CurrentValue.DebugSignIn);
                 await AssertNativeSecurity(app);
                 // Restore a lockout so the following Production startup must enforce it too.
                 await LockAccount(app);

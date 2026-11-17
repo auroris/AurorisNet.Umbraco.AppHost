@@ -22,8 +22,7 @@ using OpenIddict.Abstractions;
 using OpenIddict.Server;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.Services;
-using UmbracoAppHost.Authentication;
-using UmbracoAppHost.IdentityServer;
+using IdentityServer.Sso;
 
 namespace UmbracoAppHost.Tests;
 
@@ -408,49 +407,6 @@ public sealed class EmbeddedIdentityServerTests
         Assert.NotEqual(HttpStatusCode.BadRequest, authorize.StatusCode);
         Assert.NotEqual(HttpStatusCode.Unauthorized, authorize.StatusCode);
         Assert.False(File.Exists(Path.Combine(site.DataRoot, "keys", "identity-server", "signing-key.bin")));
-    }
-
-    [Fact]
-    public void Settings_are_validated_before_the_site_starts()
-    {
-        var validator = new EmbeddedIdentityServerSettingsValidator(Options.Create(new IdentityServerSettings { Enabled = true, ClientId = "umbraco-backoffice" }));
-        var result = validator.Validate(null, new EmbeddedIdentityServerSettings
-        {
-            Groups = ["(unclosed"],
-            Clients =
-            [
-                new EmbeddedIdentityServerClient { ClientId = "app", RedirectUris = ["https://app.example/callback"] },
-                new EmbeddedIdentityServerClient { ClientId = "APP", RedirectUris = ["/relative"] },
-                new EmbeddedIdentityServerClient { ClientId = "umbraco-back-office", RedirectUris = ["https://app.example/#fragment"] },
-                new EmbeddedIdentityServerClient { ClientId = "umbraco-backoffice" },
-            ],
-        });
-        Assert.True(result.Failed);
-        var failures = string.Join("\n", result.Failures!);
-        Assert.Contains("(unclosed", failures);
-        Assert.Contains("lists 'APP' more than once", failures);
-        Assert.Contains("'/relative' must be an absolute", failures);
-        Assert.Contains("belongs to Umbraco", failures);
-        Assert.Contains("this site's own IdentityServer:ClientId", failures);
-        Assert.Contains("needs at least one RedirectUris entry", failures);
-
-        Assert.True(validator.Validate(null, new EmbeddedIdentityServerSettings
-        {
-            Clients = [new EmbeddedIdentityServerClient { ClientId = "app", RedirectUris = ["https://app.example/callback"] }],
-        }).Succeeded);
-    }
-
-    [Fact]
-    public void Legacy_key_and_directory_overrides_require_explicit_migration()
-    {
-        var validator = new EmbeddedIdentityServerSettingsValidator(Options.Create(new IdentityServerSettings()));
-        var result = validator.Validate(null, new EmbeddedIdentityServerSettings
-        {
-            KeyPath = "old-signing.key", UseActiveDirectory = false,
-        });
-        Assert.True(result.Failed);
-        Assert.Contains(result.Failures!, failure => failure.Contains("EmbeddedIdentityServer:DataPath"));
-        Assert.Contains(result.Failures!, failure => failure.Contains("EmbeddedIdentityServer:UseActiveDirectory"));
     }
 
     [Fact]

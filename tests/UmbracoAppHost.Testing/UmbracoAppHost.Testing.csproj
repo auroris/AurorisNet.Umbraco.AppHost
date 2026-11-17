@@ -3,11 +3,36 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <IsPackable>false</IsPackable>
-    <Description>Boots an UmbracoAppHost site for tests and drives it over HTTP. Free of any test framework, so any runner can use it.</Description>
+    <PackageId>AurorisNet.Umbraco.AppHost.Testing</PackageId>
+    <Title>Umbraco App Host Testing</Title>
+    <Description>Boots an UmbracoAppHost site in a test process: the host's own registrations on Kestrel at a free loopback port, with a fresh SQLite database and instance folder, and signs in members and backoffice users. No test framework dependency; failures throw TestSiteException.</Description>
+    <PackageTags>umbraco;apphost;testing</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <AppBlocksRoot Condition="'$(AppBlocksRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\AppBlocks</AppBlocksRoot>
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="../../src/UmbracoAppHost/UmbracoAppHost.csproj" />
+    <!-- The endpoint clients TestSite hands out, and TestSiteException, come from AppBlocks' testing package. -->
+    <ProjectReference Include="$(AppBlocksRoot)\src\AppBlocks.Testing\AppBlocks.Testing.csproj" />
+    <InternalsVisibleTo Include="UmbracoAppHost.Tests" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
+    <None Include="../../docs/images/icon.png" Pack="true" PackagePath="/" Visible="false" />
+    <!-- Umbraco's build targets copy these into every project folder; they stay out of the package. -->
+    <None Update="appsettings-schema*.json;umbraco-package-schema.json" Pack="false" />
+  </ItemGroup>
+
+  <!-- Visual Studio only schedules projects listed in its solution. A host's solution lists this project but not
+       AppBlocks.Testing or the library's own source dependencies, so build them here using normal project traversal. -->
+  <Target Name="BuildSourceDependenciesInVisualStudio" BeforeTargets="ResolveProjectReferences"
+          Condition="'$(BuildingInsideVisualStudio)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="@(ProjectReference)" Targets="Build" BuildInParallel="false"
+             Properties="Configuration=$(Configuration);BuildingInsideVisualStudio=false;BuildProjectReferences=true"
+             RemoveProperties="TargetFramework;RuntimeIdentifier;SelfContained" />
+  </Target>
 </Project>

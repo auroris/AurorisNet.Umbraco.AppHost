@@ -19,7 +19,7 @@ using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.Security;
 using Umbraco.Cms.Core.Services;
 using Umbraco.Cms.Web.Common.Security;
-using UmbracoAppHost.Authentication;
+using IdentityServer.Sso;
 
 namespace UmbracoAppHost.Tests;
 

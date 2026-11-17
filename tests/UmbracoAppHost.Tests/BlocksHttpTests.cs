@@ -13,7 +13,7 @@ using AppBlocks.InteractiveReports.Blocks;
 using AppBlocks.Connections;
 using AppBlocks.Forms;
 using UmbracoAppHost.Application;
-using UmbracoAppHost.Authentication;
+using UmbracoAppHost.Reports;
 
 namespace UmbracoAppHost.Tests;
 
@@ -136,7 +136,7 @@ public sealed class BlocksHttpTests
         {
             var users = services.GetRequiredService<IUserService>();
             var groups = services.GetRequiredService<IUserGroupService>();
-            var editor = await site.CreateUserAsync("application-editor", "application-editor@example.invalid", "Application editor", ConfiguredAccounts.ReportAdministratorsAlias);
+            var editor = await site.CreateUserAsync("application-editor", "application-editor@example.invalid", "Application editor", ReportAdministratorsGroup.Alias);
             await site.SetPasswordAsync(editor, password);
             (await client.PostAsJsonAsync(site.PathBase + "/umbraco/management/api/v1/security/back-office/login", new { username = editor.Username, password }, cancellationToken: TestContext.Current.CancellationToken)).EnsureSuccessStatusCode();
             // Any backoffice user is a signed-in visitor on an open page; the sample's Orders form still wants Administrators.

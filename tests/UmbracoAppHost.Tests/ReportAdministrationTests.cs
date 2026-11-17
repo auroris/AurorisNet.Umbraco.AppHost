@@ -6,7 +6,6 @@ using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.Models;
 using Umbraco.Cms.Core.Models.Membership;
 using Umbraco.Cms.Core.Services;
-using UmbracoAppHost.Authentication;
 using UmbracoAppHost.Reports;
 
 namespace UmbracoAppHost.Tests;
@@ -40,11 +39,11 @@ public sealed class ReportAdministrationTests
         var groups = services.GetRequiredService<IUserGroupService>();
         // Hosts create AppBlocks' recognized group themselves; this host provisions it from configuration.
         Assert.NotNull(await groups.GetAsync(ReportAdministratorGroup.Alias));
-        Assert.NotNull(await groups.GetAsync(ConfiguredAccounts.ReportAdministratorsAlias));
+        Assert.NotNull(await groups.GetAsync(ReportAdministratorsGroup.Alias));
         var policy = services.GetRequiredService<ReportAccessPolicy>();
 
         var appBlocksAdministrator = await site.CreateUserAsync("reports-admin", "reports-admin@example.invalid", "Reports administrator", ReportAdministratorGroup.Alias);
-        var hostAdministrator = await site.CreateUserAsync("host-reports-admin", "host-reports-admin@example.invalid", "Host reports administrator", ConfiguredAccounts.ReportAdministratorsAlias);
+        var hostAdministrator = await site.CreateUserAsync("host-reports-admin", "host-reports-admin@example.invalid", "Host reports administrator", ReportAdministratorsGroup.Alias);
         var administrator = await site.CreateUserAsync("site-admin", "site-admin@example.invalid", "Site administrator", Constants.Security.AdminGroupAlias);
         var editor = await site.CreateUserAsync("plain-editor", "plain-editor@example.invalid", "Plain editor");
         Assert.True(await policy.IsAdministratorAsync(BackOffice(appBlocksAdministrator)));

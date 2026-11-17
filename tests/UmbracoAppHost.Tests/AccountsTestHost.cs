@@ -7,7 +7,7 @@ using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.Models;
 using Umbraco.Cms.Core.Models.Membership;
 using Umbraco.Cms.Core.Services;
-using UmbracoAppHost.Authentication;
+using IdentityServer.Sso;
 
 namespace UmbracoAppHost.Tests;
 

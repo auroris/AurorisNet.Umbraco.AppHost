@@ -14,6 +14,7 @@ using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Umbraco.Cms.Core;
 using Umbraco.Extensions;
 using UmbracoAppHost.Authentication;
+using IdentityServer.Sso;
 
 namespace UmbracoAppHost.Tests;
 

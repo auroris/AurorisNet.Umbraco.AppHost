@@ -22,6 +22,7 @@ using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.Configuration.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Umbraco.Cms.Core;
@@ -29,7 +30,9 @@ using Umbraco.Cms.Core.Models;
 using Umbraco.Cms.Core.Models.Membership;
 using Umbraco.Cms.Core.Security;
 using Umbraco.Cms.Core.Services;
-using UmbracoAppHost.Authentication;
+using AppBlocks.Testing;
+using BreakGlass;
+using IdentityServer.Sso;
 using UmbracoAppHost.Hosting;
 using File = System.IO.File;
 
@@ -40,18 +43,16 @@ namespace UmbracoAppHost.Testing;
 /// own SQLite database and instance folder under a temporary root, returned once the unattended
 /// install has finished. The install normally comes from a copy of one made once per process; see
 /// <see cref="TestSiteOptions.UseInstallSnapshot"/>. Umbraco keeps some state in static fields, which
-/// starting and disposing a site reset, so a process runs one site at a time.
+/// starting and disposing a site reset, so a process runs one site at a time: <see cref="StartAsync"/> throws while
+/// another site of the process is running.
 /// </summary>
 public sealed partial class TestSite : IAsyncDisposable
 {
     private const string BackOfficeApi = "/umbraco/management/api/v1/security/back-office";
     private const string LoginRoute = "/__tests/login";
 
-    // The host's registrations are applied through the library's generic calls, for a type found at run time.
-    private static readonly MethodInfo AddHost = typeof(UmbracoAppHostExtensions).GetMethods()
-        .Single(method => method is { Name: nameof(UmbracoAppHostExtensions.AddUmbracoAppHost), IsGenericMethodDefinition: true });
-    private static readonly MethodInfo UseHost = typeof(UmbracoAppHostExtensions).GetMethods()
-        .Single(method => method is { Name: nameof(UmbracoAppHostExtensions.UseUmbracoAppHostAsync), IsGenericMethodDefinition: true });
+    // 1 while a site of this process is starting or running; see Claim.
+    private static int running;
 
     private bool disposed;
     private bool deleteRoot;
@@ -68,9 +69,10 @@ public sealed partial class TestSite : IAsyncDisposable
         InstanceRoot = app.Services.GetRequiredService<AppHostInstance>().Root;
         DataRoot = app.Configuration["UmbracoAppHost:DataRoot"]!;
         USyncFolder = Path.GetFullPath(app.Configuration["uSync:Settings:RootFolder"]!, app.Environment.ContentRootPath);
-        AdminUserName = (app.Configuration[ConfiguredAdminPassword.UserNameConfigurationKey] ?? "admin").Trim() is { Length: > 0 } name ? name
+        AdminUserName = app.Services.GetRequiredService<IOptionsMonitor<BreakGlassSettings>>().CurrentValue
+                .GetAdminUserName(app.Services.GetRequiredService<IOptionsMonitor<Umbraco.Cms.Core.Configuration.Models.SecuritySettings>>().CurrentValue.UsernameIsEmail)
             // Without a configured name the administrator keeps the unattended install's, which is its email.
-            : app.Configuration["Umbraco:CMS:Unattended:UnattendedUserEmail"] ?? "";
+            ?? app.Configuration["Umbraco:CMS:Unattended:UnattendedUserEmail"] ?? "";
     }
 
     public WebApplication App { get; }
@@ -122,46 +124,55 @@ public sealed partial class TestSite : IAsyncDisposable
         var host = options.Host ?? FindHost(options.Application);
         if (host is not null && !typeof(IUmbracoAppHost).IsAssignableFrom(host))
             throw new TestSiteException($"TestSiteOptions.Host {host} does not implement {nameof(IUmbracoAppHost)}.");
+        // Checked before an install snapshot is made for a start that could not go ahead.
+        if (Volatile.Read(ref running) != 0) throw AnotherSiteIsRunning();
         var root = Directory.CreateDirectory(options.Root ?? Directory.CreateTempSubdirectory("apphost-test-").FullName).FullName;
         // A root the test chose may hold files of its own, and connections can change what the import publishes.
+        // Making the snapshot starts and disposes a site of its own, so this site claims the process only afterwards.
         if (options is { UseInstallSnapshot: true, Root: null, ConfigureConnections: null }) await CopyInstallSnapshotAsync(options, project, host, root, ct);
         // Umbraco renders templates from the content root's views; a view the test already wrote there stays.
         CopyMissingFiles(Path.Combine(project, "Views"), Path.Combine(root, "Views"));
-        ResetStatics();
-        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
-        {
-            ContentRootPath = root, ApplicationName = name, EnvironmentName = options.EnvironmentName,
-        });
-        builder.Logging.ClearProviders();
-        builder.WebHost.UseUrls("http://127.0.0.1:0");
-        UseProjectSettings(builder, project);
-        var settings = new Dictionary<string, string?>
-        {
-            [AppHostProject.RootSetting] = project,
-            ["InstanceRoot"] = Path.Combine(root, "instance"),
-            // Without pooling, sites started one after another in a process never hold each other's files.
-            ["ConnectionStrings:umbracoDbDSN"] = $"Data Source={Path.Combine(root, "umbraco.db")};Pooling=False",
-            ["ConnectionStrings:umbracoDbDSN_ProviderName"] = "Microsoft.Data.Sqlite",
-            ["Umbraco:CMS:Unattended:UnattendedUserPassword"] = options.AdminPassword,
-            ["Umbraco:CMS:Global:UseHttps"] = "false",
-            ["Umbraco:CMS:Hosting:Debug"] = "false",
-            ["uSync:Settings:ImportAtStartup"] = "None",
-            ["uSync:Settings:ExportOnSave"] = "None",
-            ["uSync:Settings:FirstBootGroup"] = options.FirstBootGroup,
-        };
-        if (!string.IsNullOrEmpty(options.VirtualPath)) settings[VirtualPathHosting.SettingKey] = options.VirtualPath;
-        foreach (var (key, value) in options.Settings) settings[key] = value;
-        builder.Configuration.AddInMemoryCollection(settings);
-        options.ConfigureBuilder?.Invoke(builder);
-        if (host is null) builder.AddUmbracoAppHost(options.ConfigureConnections);
-        else Invoke(AddHost, host, builder, options.ConfigureConnections);
-        UmbracoTestSupport.UseSingleServer(builder.Services);
-
-        var app = builder.Build();
+        try { Claim(); }
+        catch { if (options.Root is null) TryDelete(root); throw; }
+        WebApplication? app = null;
         try
         {
+            ResetStatics();
+            var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+            {
+                ContentRootPath = root, ApplicationName = name, EnvironmentName = options.EnvironmentName,
+            });
+            // The host's App_Plugins and backoffice assets come from <host>.staticwebassets.runtime.json in the test
+            // output, which WebApplication reads by itself only in Development.
+            if (!builder.Environment.IsDevelopment()) builder.WebHost.UseStaticWebAssets();
+            builder.Logging.ClearProviders();
+            builder.WebHost.UseUrls("http://127.0.0.1:0");
+            UseProjectSettings(builder, project);
+            var settings = new Dictionary<string, string?>
+            {
+                [AppHostProject.RootSetting] = project,
+                ["InstanceRoot"] = Path.Combine(root, "instance"),
+                // Without pooling, sites started one after another in a process never hold each other's files.
+                ["ConnectionStrings:umbracoDbDSN"] = $"Data Source={Path.Combine(root, "umbraco.db")};Pooling=False",
+                ["ConnectionStrings:umbracoDbDSN_ProviderName"] = "Microsoft.Data.Sqlite",
+                ["Umbraco:CMS:Unattended:UnattendedUserPassword"] = options.AdminPassword,
+                ["Umbraco:CMS:Global:UseHttps"] = "false",
+                ["Umbraco:CMS:Hosting:Debug"] = "false",
+                ["uSync:Settings:ImportAtStartup"] = "None",
+                ["uSync:Settings:ExportOnSave"] = "None",
+                ["uSync:Settings:FirstBootGroup"] = options.FirstBootGroup,
+            };
+            if (!string.IsNullOrEmpty(options.VirtualPath)) settings[VirtualPathHosting.SettingKey] = options.VirtualPath;
+            foreach (var (key, value) in options.Settings) settings[key] = value;
+            builder.Configuration.AddInMemoryCollection(settings);
+            options.ConfigureBuilder?.Invoke(builder);
+            if (host is null) builder.AddUmbracoAppHost(options.ConfigureConnections);
+            else Invoke(HostMethod(nameof(UmbracoAppHostExtensions.AddUmbracoAppHost)), host, builder, options.ConfigureConnections);
+            UmbracoTestSupport.UseSingleServer(builder.Services);
+
+            app = builder.Build();
             if (host is null) await app.UseUmbracoAppHostAsync();
-            else await (Task<WebApplication>)Invoke(UseHost, host, app)!;
+            else await (Task<WebApplication>)Invoke(HostMethod(nameof(UmbracoAppHostExtensions.UseUmbracoAppHostAsync)), host, app)!;
             if (options.TestLoginRoute) MapTestLogin(app);
             options.ConfigureApp?.Invoke(app);
             await app.StartAsync(ct);
@@ -173,7 +184,8 @@ public sealed partial class TestSite : IAsyncDisposable
         catch
         {
             // The start failure is the one to report, not a failure to stop a half-started site.
-            try { await ShutDownAsync(app); } catch { }
+            if (app is not null) try { await ShutDownAsync(app); } catch { }
+            Volatile.Write(ref running, 0);
             throw;
         }
     }
@@ -182,9 +194,23 @@ public sealed partial class TestSite : IAsyncDisposable
     {
         if (disposed) return;
         disposed = true;
-        await ShutDownAsync(App);
+        try { await ShutDownAsync(App); }
+        finally { Volatile.Write(ref running, 0); }
         if (deleteRoot) TryDelete(Root);
     }
+
+    /// <summary>
+    /// Takes the process's one site slot. Umbraco keeps state in static fields, which starting and disposing a site
+    /// reset, so a second site started while one runs would fail at random rather than at once.
+    /// </summary>
+    private static void Claim()
+    {
+        if (Interlocked.CompareExchange(ref running, 1, 0) != 0) throw AnotherSiteIsRunning();
+    }
+
+    private static TestSiteException AnotherSiteIsRunning() => new(
+        "Another TestSite is still running in this process. Umbraco keeps state in static fields, so a process runs one site at a time: "
+        + "dispose the running site before starting the next, and keep the tests that start sites out of parallel test collections.");
 
     public IServiceScope CreateScope() => App.Services.CreateScope();
 
@@ -367,9 +393,12 @@ public sealed partial class TestSite : IAsyncDisposable
     /// <summary>The files an Attachments block on <paramref name="pageKey"/> shows; the record follows the query the calls carry.</summary>
     public AttachmentsClient Attachments(HttpClient client, Guid pageKey, Guid blockKey) => new(client, PathBase, pageKey, blockKey);
 
+    /// <summary>The rows a Tabular form block on <paramref name="pageKey"/> shows; the record follows the query the calls carry.</summary>
+    public TabularClient Tabular(HttpClient client, Guid pageKey, Guid blockKey) => new(client, PathBase, pageKey, blockKey);
+
     /// <summary>Downloads a paper report; <paramref name="query"/> carries its parameters, such as <c>?id=1</c>.</summary>
     public Task<HttpResponseMessage> DownloadPaperReportAsync(HttpClient client, Guid nodeKey, string? query = null)
-        => client.GetAsync(Http.WithQuery($"{PathBase}/api/paper-reports/{nodeKey}", query));
+        => new PaperReportsClient(client, PathBase).DownloadAsync(nodeKey, query);
 
     /// <summary>Requests a page by its path under the site, such as <c>/orders-form/?id=4</c>.</summary>
     public Task<HttpResponseMessage> GetPageAsync(HttpClient client, string path) => client.GetAsync(PathBase + path);
@@ -428,7 +457,7 @@ public sealed partial class TestSite : IAsyncDisposable
         => FindProjectFolder(application.GetName().Name!, ApplicationFolder(application));
 
     /// <inheritdoc cref="FindProjectFolder(Assembly)"/>
-    public static string? FindProjectFolder(string assemblyName, string startFolder)
+    internal static string? FindProjectFolder(string assemblyName, string startFolder)
     {
         var file = assemblyName + ".csproj";
         for (var folder = new DirectoryInfo(startFolder); folder is not null; folder = folder.Parent)
@@ -447,7 +476,7 @@ public sealed partial class TestSite : IAsyncDisposable
     }
 
     /// <summary>The application's <see cref="IUmbracoAppHost"/>: its <c>Program</c> class, or else the one class that implements it. Null when there is none.</summary>
-    public static Type? FindHost(Assembly application)
+    internal static Type? FindHost(Assembly application)
     {
         if (application.EntryPoint?.DeclaringType is { } program && typeof(IUmbracoAppHost).IsAssignableFrom(program)) return program;
         Type?[] types;
@@ -487,8 +516,11 @@ public sealed partial class TestSite : IAsyncDisposable
         var projectOnly = new ConfigurationBuilder();
         foreach (var source in settings) projectOnly.Add(source);
         // Each insert reloads the configuration.
-        if (!string.IsNullOrEmpty(projectOnly.Build()[ConfiguredAdminPassword.ConfigurationKey]))
-            sources.Insert(first, new MemoryConfigurationSource { InitialData = [new(ConfiguredAdminPassword.ConfigurationKey, "")] });
+        // The project may still use the older UmbracoAppHost:AdminPassword name, which the host maps to the new one.
+        string[] passwordKeys = [BreakGlassSettings.AdminPasswordKey, "UmbracoAppHost:AdminPassword"];
+        var projectSettings = projectOnly.Build();
+        if (passwordKeys.Any(key => !string.IsNullOrEmpty(projectSettings[key])))
+            sources.Insert(first, new MemoryConfigurationSource { InitialData = passwordKeys.Select(key => new KeyValuePair<string, string?>(key, "")) });
         sources.Insert(first, settings[1]);
         sources.Insert(first, settings[0]);
     }
@@ -503,6 +535,19 @@ public sealed partial class TestSite : IAsyncDisposable
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             File.Copy(file, target);
         }
+    }
+
+    /// <summary>
+    /// The library's generic <c>AddUmbracoAppHost&lt;T&gt;</c> or <c>UseUmbracoAppHostAsync&lt;T&gt;</c>, through which the
+    /// host's registrations are applied for a type found at run time. Looked up on each start, so a library whose
+    /// overloads differ from what this package expects fails that start with a message.
+    /// </summary>
+    private static MethodInfo HostMethod(string name)
+    {
+        var methods = typeof(UmbracoAppHostExtensions).GetMethods().Where(method => method.Name == name && method.IsGenericMethodDefinition).ToList();
+        return methods is [var method] ? method : throw new TestSiteException(
+            $"{typeof(UmbracoAppHostExtensions).Assembly.GetName()} has {methods.Count} generic {name} methods where this TestSite expects one. "
+            + "Use the version of AurorisNet.Umbraco.AppHost.Testing that matches AurorisNet.Umbraco.AppHost.");
     }
 
     private static object? Invoke(MethodInfo method, Type host, params object?[] arguments)

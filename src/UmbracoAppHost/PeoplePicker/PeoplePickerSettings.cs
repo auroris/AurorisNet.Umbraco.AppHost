@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Umbraco.Cms.Core.Models.PublishedContent;
-using UmbracoAppHost.DirectoryAccounts;
+using IdentityServer.Directory;
 
 namespace UmbracoAppHost.PeoplePicker;
 
@@ -117,7 +117,7 @@ public sealed record PeoplePickerSettings
     public static string? Attribute(DirectoryUser user, string name) => name.ToLowerInvariant() switch {
         "objectsid" => user.Sid, "objectguid" => user.Guid, "displayname" => user.DisplayName, "samaccountname" => user.UserName,
         "givenname" => user.GivenName, "sn" => user.Surname, "mail" => user.Email, "telephonenumber" => user.Telephone,
-        _ => user.Attributes.FirstOrDefault(p => p.Key.Equals(name, StringComparison.OrdinalIgnoreCase)).Value,
+        _ => user.Attributes?.FirstOrDefault(p => p.Key.Equals(name, StringComparison.OrdinalIgnoreCase)).Value,
     };
 
     private static string[] Split(string text) => text.Split([' ', ',', ';', '\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();

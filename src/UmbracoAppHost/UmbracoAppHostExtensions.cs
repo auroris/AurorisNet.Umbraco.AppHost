@@ -10,7 +10,9 @@ using Umbraco.Cms.Core.Configuration.Models;
 using Umbraco.Cms.Core.Security;
 using Umbraco.Cms.Web.Common.ApplicationBuilder;
 using UmbracoAppHost.Authentication;
-using UmbracoAppHost.DirectoryAccounts;
+using IdentityServer.Sso;
+using DirectoryAccounts;
+using Microsoft.Extensions.Options;
 using AppBlocks.InteractiveReports.Reports;
 using UmbracoAppHost.Reports;
 using AppBlocks.Blocks;
@@ -79,7 +81,7 @@ public static class UmbracoAppHostExtensions
     /// <summary>
     /// Adds the shared services: single sign-on and the account policy, accounts created from the
     /// directory, Interactive Reports with Umbraco-backed authorization and the built-in audit
-    /// reports, configured accounts, Debug backoffice recovery, and virtual-path
+    /// reports, configured accounts, the older setting names of break-glass access, and virtual-path
     /// hosting.
     /// On first boot the working uSync folder receives the library's export, without its sample content when
     /// <c>UmbracoAppHost:Samples</c> is false, then the host's own export from <c>UmbracoAppHost:HostExport</c>.
@@ -118,19 +120,35 @@ public static class UmbracoAppHostExtensions
         // This host's rule for a page Umbraco's Public Access protects: a backoffice user who may edit it is admitted without a member account.
         builder.Services.AddScoped<IProtectedPageAdmission, EditorPageAdmission>();
         builder.Services.Replace(ServiceDescriptor.Scoped<IReportAccessPolicy>(services => services.GetRequiredService<ReportAccessPolicy>()));
+        // The report keys of the Accounts section; the AurorisNet.Umbraco.IdentityServer.SSO package binds the rest.
+        builder.Services.Configure<ReportAccountSettings>(configuration.GetSection(ReportAccountSettings.SectionName));
+        // Who is signed in, for the views and the application pages, and AppBlocks' access rule for those pages.
+        builder.Services.AddScoped<SiteVisitor>();
+        builder.Services.AddScoped<ApplicationAccessPolicy>();
+        // The embedded identity server keeps its keys where this host always has: keys/identity-server under the
+        // instance data folder, not the package's own default under App_Data.
+        builder.Services.AddOptions<EmbeddedIdentityServerSettings>().PostConfigure<IWebHostEnvironment>((settings, environment) =>
+        {
+            if (!string.IsNullOrWhiteSpace(settings.DataPath)) return;
+            var dataRoot = configuration["UmbracoAppHost:DataRoot"] ?? Path.Combine(environment.ContentRootPath, "App_Data", "UmbracoAppHost");
+            settings.DataPath = Path.Combine(dataRoot, "keys", "identity-server");
+        });
         builder
+            // Before the package's configured accounts, so a configured backoffice user can join this group on the first run.
+            .AddNotificationAsyncHandler<UmbracoApplicationStartedNotification, ReportAdministratorsGroup>()
             .AddSingleSignOn(configuration)
-            .AddAccountDirectory(configuration)
+            // The Add from directory package's composer also calls this; a second call does nothing.
+            .AddAccountDirectory()
             .AddAppBlocksInteractiveReports()
             // After the companion, so a report seed that a callback configures comes after Interactive Reports' own configuration.
             .AddAppBlocks(configureConnections)
-            .AddNotificationAsyncHandler<UmbracoApplicationStartedNotification, ConfiguredAccounts>()
             // The configured groups exist before uSync's first-boot import resolves the export's group pickers.
-            .AddNotificationAsyncHandler<uSyncImportStartingNotification, ConfiguredAccounts>()
+            .AddNotificationAsyncHandler<uSyncImportStartingNotification, ConfiguredGroupsBeforeImport>()
             // AppBlocks' definitions exist before uSync imports what uses them, and only AppBlocks changes them.
             .AddNotificationAsyncHandler<uSyncImportStartingNotification, AppBlocksDefinitionImport>()
             .AddNotificationAsyncHandler<uSyncImportingItemNotification, AppBlocksDefinitionImport>();
         builder.Services.AddSingleton<AppBlocksDefinitions>();
+        AddDirectoryAccountSettings(builder.Services, configuration);
 
         builder.AddAppBlocksDocuments();
         builder.Services.Replace(ServiceDescriptor.Scoped<IDocumentPresentationProvider, UmbracoAppHost.Themes.AppHostDocumentPresentation>());
@@ -143,18 +161,41 @@ public static class UmbracoAppHostExtensions
         builder.Services.Configure<SecuritySettings>(security =>
             security.UsernameIsEmail = configuration.GetValue("Umbraco:CMS:Security:UsernameIsEmail", false));
 
-        // Explicit Debug recovery bypasses password, lockout and two-factor challenges only
-        // during backoffice password sign-in. Normal flows retain native authentication.
-        builder.Services.AddUnique<IBackOfficeUserPasswordChecker, DevPasswordChecker>();
-        builder.Services.AddScoped<DebugBackOfficeSignInManager>();
-        builder.Services.Replace(ServiceDescriptor.Scoped<Microsoft.AspNetCore.Identity.SignInManager<BackOfficeIdentityUser>>(services => services.GetRequiredService<DebugBackOfficeSignInManager>()));
-        builder.Services.Replace(ServiceDescriptor.Scoped<Umbraco.Cms.Api.Management.Security.BackOfficeSignInManager>(services => services.GetRequiredService<DebugBackOfficeSignInManager>()));
-        builder.Services.Replace(ServiceDescriptor.Scoped<Umbraco.Cms.Web.Common.Security.IBackOfficeSignInManager>(services => services.GetRequiredService<DebugBackOfficeSignInManager>()));
-        builder.Services.Replace(ServiceDescriptor.Scoped<ICoreBackOfficeSignInManager>(services => services.GetRequiredService<DebugBackOfficeSignInManager>()));
-        builder.Services.AddSingleton<ConfiguredAdminPassword>();
-        builder.Services.AddHostedService(services => services.GetRequiredService<ConfiguredAdminPassword>());
-        builder.AddNotificationAsyncHandler<UmbracoApplicationStartedNotification, ConfiguredAdminPasswordStartup>();
+        // The AurorisNet.Umbraco.BreakGlass package's composer adds the configured administrator password and debug
+        // sign-in. This host's older setting names still feed them.
+        builder.AddBreakGlassCompatibility(configuration);
         return builder;
+    }
+
+    /// <summary>
+    /// Feeds the Add from directory package from this host's settings. The package reads the <c>Directory</c> section;
+    /// this host's sites configure the identity server, its scheme names and the member type in <c>IdentityServer</c>
+    /// and <c>Accounts</c>. Each value maps only when the <c>Directory</c> section leaves it unset, so a site can still
+    /// set it there. Also registers this host's retirement and sign-in rules for the dialog.
+    /// </summary>
+    internal static void AddDirectoryAccountSettings(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<AccountDirectorySettings>()
+            .PostConfigure<IOptions<IdentityServerSettings>, IOptions<AccountsSettings>>((directory, identityServer, accounts) =>
+            {
+                var section = configuration.GetSection(AccountDirectorySettings.SectionName);
+                var server = identityServer.Value;
+                if (section[nameof(AccountDirectorySettings.IdentityServerAuthority)] is null)
+                    directory.IdentityServerAuthority = server.Authority;
+                if (section[nameof(AccountDirectorySettings.IdentityServerApiKey)] is null)
+                    directory.IdentityServerApiKey = server.DirectoryApiKey;
+                if (section[nameof(AccountDirectorySettings.IdentityServerAcceptAnyServerCertificate)] is null)
+                    directory.IdentityServerAcceptAnyServerCertificate = server.AcceptAnyServerCertificate;
+                if (section[nameof(AccountDirectorySettings.BackOfficeLoginProvider)] is null)
+                    directory.BackOfficeLoginProvider = server.BackOfficeScheme;
+                if (section[nameof(AccountDirectorySettings.MemberLoginProvider)] is null)
+                    directory.MemberLoginProvider = server.MemberScheme;
+                if (section[nameof(AccountDirectorySettings.MemberTypeAlias)] is null)
+                    directory.MemberTypeAlias = accounts.Value.MemberTypeAlias;
+            });
+        // AddSingleton, not TryAdd: the package adds its defaults with TryAdd, and the last registration wins.
+        services.AddSingleton<IRetiredAccountPolicy, AppHostRetiredAccountPolicy>();
+        services.AddSingleton<ISignInLinkPolicy, AppHostSignInLinkPolicy>();
     }
 
     /// <summary>

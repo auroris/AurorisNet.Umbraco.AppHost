@@ -31,6 +31,23 @@ public sealed class TestSiteSnapshotTests
 
     [Fact]
     [ResetPublishedContentServices]
+    public async Task A_second_site_waits_for_the_first_to_be_disposed()
+    {
+        var options = new TestSiteOptions { Application = typeof(Program).Assembly };
+        await using (var first = await TestSite.StartAsync(options, TestContext.Current.CancellationToken))
+        {
+            var refused = await Assert.ThrowsAsync<TestSiteException>(() => TestSite.StartAsync(options, TestContext.Current.CancellationToken));
+            Assert.Contains("Another TestSite is still running", refused.Message);
+            // The refused start left the running site's state alone.
+            using var scope = first.CreateScope();
+            Assert.True(scope.ServiceProvider.GetRequiredService<IContentService>().GetById(ApplicationStarter.FormPageKey)!.Published);
+        }
+
+        await using var second = await TestSite.StartAsync(options, TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    [ResetPublishedContentServices]
     public async Task A_site_can_still_run_first_boot_itself()
     {
         await using var site = await TestSite.StartAsync(new TestSiteOptions { Application = typeof(Program).Assembly, UseInstallSnapshot = false }, TestContext.Current.CancellationToken);
