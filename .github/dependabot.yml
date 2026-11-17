@@ -1,0 +1,39 @@
+# Dependabot opens the pull requests that .github/workflows/ci.yml tests and merges. An update of a package the library
+# references then starts the Release workflow. The workflows pin each action to a commit; Dependabot updates the commit
+# and the version in the comment beside it.
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: daily
+    groups:
+      # AppBlocks and the Umbraco release it pins are the dependency this library follows. Umbraco, uSync and the
+      # AurorisNet packages for that release must move together, because the build checks that the library and AppBlocks
+      # name one Umbraco release, and two of the packages accept Umbraco only up to the release they were built for. One
+      # pull request carries them all, and passes once every package for the new Umbraco release is on nuget.org.
+      umbraco:
+        patterns:
+          - "Umbraco.Cms*"
+          - "uSync*"
+          - "AurorisNet.*"
+      dependencies:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "Umbraco.Cms*"
+          - "uSync*"
+          - "AurorisNet.*"
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      github-actions:
+        patterns:
+          - "*"

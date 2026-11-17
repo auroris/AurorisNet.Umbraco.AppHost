@@ -12,16 +12,19 @@
     <!-- Let MSBuild check browser sources and dependencies outside the VS solution. -->
     <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
     <AppBlocksRoot Condition="'$(AppBlocksRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\AurorisNet.Umbraco.AppBlocks</AppBlocksRoot>
+    <!-- AppBlocks builds from the sibling checkout until its packages are on nuget.org. Then set UseAppBlocksSource to
+         false here. The CI and Release workflows already set it to false, with the other Use...Source switches. -->
+    <UseAppBlocksSource Condition="'$(UseAppBlocksSource)' == ''">true</UseAppBlocksSource>
     <!-- Break-glass access builds from the sibling checkout until its package is on nuget.org. Then set
-         UseBreakGlassSource to false here and uncomment its version in Directory.Packages.props. -->
+         UseBreakGlassSource to false here and set its version in Directory.Packages.props. -->
     <BreakGlassRoot Condition="'$(BreakGlassRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\AurorisNet.Umbraco.BreakGlass</BreakGlassRoot>
     <UseBreakGlassSource Condition="'$(UseBreakGlassSource)' == ''">true</UseBreakGlassSource>
     <!-- Single sign-on builds from the sibling checkout until its package is on nuget.org. Then set
-         UseIdentityServerSsoSource to false here and uncomment its version in Directory.Packages.props. -->
+         UseIdentityServerSsoSource to false here and set its version in Directory.Packages.props. -->
     <IdentityServerSsoRoot Condition="'$(IdentityServerSsoRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\AurorisNet.Umbraco.IdentityServer.SSO</IdentityServerSsoRoot>
     <UseIdentityServerSsoSource Condition="'$(UseIdentityServerSsoSource)' == ''">true</UseIdentityServerSsoSource>
     <!-- Add from directory builds from the sibling checkout until its package is on nuget.org. Then set
-         UseIdentityServerDirectorySource to false here and uncomment its version in Directory.Packages.props. -->
+         UseIdentityServerDirectorySource to false here and set its version in Directory.Packages.props. -->
     <IdentityServerDirectoryRoot Condition="'$(IdentityServerDirectoryRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\AurorisNet.Umbraco.IdentityServer.Directory</IdentityServerDirectoryRoot>
     <UseIdentityServerDirectorySource Condition="'$(UseIdentityServerDirectorySource)' == ''">true</UseIdentityServerDirectorySource>
     <!-- App_Plugins and the login images must sit at the site root, not under /_content/UmbracoAppHost/. -->
@@ -67,9 +70,12 @@
 
   <ItemGroup>
     <!-- AppBlocks owns forms/data sources; its optional companion supplies interactive reports. -->
-    <ProjectReference Include="$(AppBlocksRoot)\src\AppBlocks\AppBlocks.csproj" />
-    <ProjectReference Include="$(AppBlocksRoot)\src\AppBlocks.InteractiveReports\AppBlocks.InteractiveReports.csproj" />
-    <ProjectReference Include="$(AppBlocksRoot)\src\AppBlocks.Documents\AppBlocks.Documents.csproj" />
+    <ProjectReference Include="$(AppBlocksRoot)\src\AppBlocks\AppBlocks.csproj" Condition="'$(UseAppBlocksSource)' == 'true'" />
+    <PackageReference Include="AurorisNet.Umbraco.AppBlocks" Condition="'$(UseAppBlocksSource)' != 'true'" />
+    <ProjectReference Include="$(AppBlocksRoot)\src\AppBlocks.InteractiveReports\AppBlocks.InteractiveReports.csproj" Condition="'$(UseAppBlocksSource)' == 'true'" />
+    <PackageReference Include="AurorisNet.Umbraco.AppBlocks.InteractiveReports" Condition="'$(UseAppBlocksSource)' != 'true'" />
+    <ProjectReference Include="$(AppBlocksRoot)\src\AppBlocks.Documents\AppBlocks.Documents.csproj" Condition="'$(UseAppBlocksSource)' == 'true'" />
+    <PackageReference Include="AurorisNet.Umbraco.AppBlocks.Documents" Condition="'$(UseAppBlocksSource)' != 'true'" />
   </ItemGroup>
 
   <ItemGroup>
@@ -127,7 +133,7 @@
        pins them here. A difference would quietly compile AppBlocks against one version and run it on another, so it
        stops the build. The check lives only here, because AppBlocks must not need this repository. -->
   <Target Name="CheckAppBlocksPackageVersions" BeforeTargets="CollectPackageReferences;ResolveProjectReferences"
-          Condition="Exists('$(AppBlocksRoot)\src\AppBlocks\AppBlocks.csproj') and '$(DesignTimeBuild)' != 'true'">
+          Condition="'$(UseAppBlocksSource)' == 'true' and Exists('$(AppBlocksRoot)\src\AppBlocks\AppBlocks.csproj') and '$(DesignTimeBuild)' != 'true'">
     <ItemGroup>
       <_AppBlocksProject Include="$(AppBlocksRoot)\src\AppBlocks\AppBlocks.csproj;$(AppBlocksRoot)\src\AppBlocks.Documents\AppBlocks.Documents.csproj;$(AppBlocksRoot)\src\AppBlocks.InteractiveReports\AppBlocks.InteractiveReports.csproj" />
     </ItemGroup>

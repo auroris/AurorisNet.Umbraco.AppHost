@@ -25,23 +25,24 @@ The repository holds:
 | `new-site.ps1`, `update-site.ps1`, `refresh-definitions.ps1`, `reset.ps1`, `deployment/` | The scripts that create, update and reset sites. |
 
 This is an alpha, version `1.0.0-alpha.1`. The packages are not on nuget.org yet, so a site builds
-the library from a checkout of this repository.
+the library from a checkout of this repository. Only the package ids carry the `AurorisNet`
+prefix: the assembly, the namespace and the settings section are `UmbracoAppHost`.
 
 ## Start a site
 
 Building needs the .NET 10 SDK, Node 20 or newer, and these checkouts beside this repository's
 folder. The scripts need PowerShell 7.
 
-| Sibling checkout | Provides | MSBuild property for another folder |
-|---|---|---|
-| `../AurorisNet.Umbraco.AppBlocks` | Forms, data sources, reports and documents | `AppBlocksRoot` |
-| `../AurorisNet.Umbraco.BreakGlass` | Administrator recovery | `BreakGlassRoot` |
-| `../AurorisNet.Umbraco.IdentityServer.SSO` | Single sign-on | `IdentityServerSsoRoot` |
-| `../AurorisNet.Umbraco.IdentityServer.Directory` | Add from directory | `IdentityServerDirectoryRoot` |
+| Sibling checkout | Provides | Folder property | Source switch |
+|---|---|---|---|
+| `../AurorisNet.Umbraco.AppBlocks` | Forms, data sources, reports and documents | `AppBlocksRoot` | `UseAppBlocksSource` |
+| `../AurorisNet.Umbraco.BreakGlass` | Administrator recovery | `BreakGlassRoot` | `UseBreakGlassSource` |
+| `../AurorisNet.Umbraco.IdentityServer.SSO` | Single sign-on | `IdentityServerSsoRoot` | `UseIdentityServerSsoSource` |
+| `../AurorisNet.Umbraco.IdentityServer.Directory` | Add from directory | `IdentityServerDirectoryRoot` | `UseIdentityServerDirectorySource` |
 
-Pass a property to use a checkout elsewhere, for example
-`dotnet build -p:AppBlocksRoot=D:\src\AurorisNet.Umbraco.AppBlocks`. [Developing](#developing)
-describes how each reference changes to a package.
+Pass a folder property to use a checkout elsewhere, for example
+`dotnet build -p:AppBlocksRoot=D:\src\AurorisNet.Umbraco.AppBlocks`. Each switch is `true` by
+default; [Developing](#developing) describes what `false` does.
 
 **Run the reference website.** Open `UmbracoAppHost.slnx` in Visual Studio and start the
 **Website** launch profile, or run:
@@ -103,7 +104,7 @@ has the project file, settings and update routine.
 - **Forms, data sources, reports and documents** from
   [AppBlocks](https://github.com/auroris/AurorisNet.Umbraco.AppBlocks) and its Interactive
   Reports and Documents companions, with sample pages over a sample orders database. See
-  [Websites, pages and blocks](docs/application-blocks.md) and [Reports](docs/reports.md).
+  [Websites, pages and blocks](docs/application-blocks.md) and [Interactive Reports](docs/interactive-reports.md).
 - **Single sign-on** for backoffice users and members through an embedded identity server that
   signs in Windows accounts, with a password fallback, an **Add from directory** button and
   administrator recovery through configuration. See
@@ -189,7 +190,7 @@ from `InstanceRoot`, so a `uSync:Settings:RootFolder` in a settings file has no 
 The other sections are described where they apply: `BreakGlass`, `BackOfficeLogin`,
 `IdentityServer`, `EmbeddedIdentityServer`, `Accounts` and `Directory` in
 [Sign-in and accounts](docs/sign-in-and-accounts.md), `Attachments`, `InteractiveReport` and
-`ConnectionStrings` in [Databases](docs/databases.md) and [Reports](docs/reports.md), and
+`ConnectionStrings` in [Databases](docs/databases.md) and [Interactive Reports](docs/interactive-reports.md), and
 `BlockPreview` in [Block previews](docs/block-previews.md).
 
 ## Supported versions
@@ -200,14 +201,15 @@ The other sections are described where they apply: `BreakGlass`, `BackOfficeLogi
 |---|---|---|
 | .NET | 10 | The SDK to build, the ASP.NET Core runtime to run a published site. |
 | Umbraco | 18.3.1 | AppBlocks pins the same release. The build stops when the two differ. |
+| AppBlocks | 0.1.0-alpha.1 | Its four packages share one version. Used when the library builds against packages. |
 | uSync | 18.3.1 | |
 | `Umbraco.Community.UmbNav` | 5.0.3 | |
 | `Umbraco.Community.BlockPreview` | 6.3.0 | |
 | `AurorisNet.Umbraco.ApplicationVirtualPathFix` | 18.3.1.2 | Its supported Umbraco range must include the pinned Umbraco release. |
 | `AurorisNet.Umbraco.DisableTelemetry` | 18.3.1.1 | |
 
-Umbraco's own database is SQLite or SQL Server. Windows authentication through the embedded
-identity server needs Windows, under Kestrel or IIS.
+A new instance keeps Umbraco in a SQLite file. [Databases](docs/databases.md) has the steps to
+move it to SQL Server.
 
 ## Documentation
 
@@ -219,7 +221,7 @@ identity server needs Windows, under Kestrel or IIS.
 | [Websites, pages and blocks](docs/application-blocks.md) | Web Site and Web Page, templates, menus, Public Access, language fallback, layouts, and the sample pages. |
 | [Themes](docs/themes.md) | The two themes, registering another, and packaging a theme as a library. |
 | [Sign-in and accounts](docs/sign-in-and-accounts.md) | Administrator recovery, login flows, single sign-on defaults, accounts from the directory, and access to protected pages. |
-| [Reports](docs/reports.md) | Who administers and reads Interactive Reports in this host, the built-in reports and the Report Page type. |
+| [Interactive Reports](docs/interactive-reports.md) | Who administers and reads Interactive Reports in this host, the built-in reports and the Report Page type. |
 | [Databases](docs/databases.md) | The database files of an instance, a project's own database, and moving Umbraco to SQL Server. |
 | [Hosting under a sub-path](docs/hosting-under-a-sub-path.md) | The virtual path setting and what the host applies it to. |
 | [Login screen and backoffice](docs/backoffice.md) | Branding the login screen, the Welcome dashboard and telemetry. |
@@ -256,14 +258,19 @@ routine. `tests/UmbracoAppHost.ProviderTests` runs data sources against PostgreS
 `UMBRACOAPPHOST_TEST_POSTGRES`, `UMBRACOAPPHOST_TEST_ORACLE` or `UMBRACOAPPHOST_TEST_ORACLE11G`
 holds a connection string.
 
-AppBlocks builds through project references. `src/UmbracoAppHost/UmbracoAppHost.csproj` checks
-that AppBlocks pins the same `Umbraco.Cms` and `Microsoft.Extensions.FileProviders.Embedded`
-releases as `Directory.Packages.props`, and stops the build with the two versions when they
-differ. BreakGlass and the two IdentityServer packages also build from their checkouts. Once one
-of them is on nuget.org, set its switch to `false` in that project file (`UseBreakGlassSource`,
-`UseIdentityServerSsoSource` or `UseIdentityServerDirectorySource`) and uncomment its
-`PackageVersion` line in `Directory.Packages.props`. `AurorisNet.Umbraco.ApplicationVirtualPathFix`
-and `AurorisNet.Umbraco.DisableTelemetry` restore from nuget.org.
+While their packages are unpublished, the four sibling checkouts build as project references.
+Each has a switch in `src/UmbracoAppHost/UmbracoAppHost.csproj`, `true` by default:
+`UseAppBlocksSource`, `UseBreakGlassSource`, `UseIdentityServerSsoSource` and
+`UseIdentityServerDirectorySource`. With a switch at `false`, the library references the package
+at the version in `Directory.Packages.props`. The CI and Release workflows set all four to
+`false`, so they build against nuget.org and fail until those packages are published. Once a
+package is published, set its version in `Directory.Packages.props` and its switch to `false`
+in the project file. `AurorisNet.Umbraco.ApplicationVirtualPathFix` and
+`AurorisNet.Umbraco.DisableTelemetry` already restore from nuget.org.
+
+When AppBlocks builds from its checkout, the library's project checks that AppBlocks pins the
+same `Umbraco.Cms` and `Microsoft.Extensions.FileProviders.Embedded` releases as
+`Directory.Packages.props`, and stops the build with both versions when they differ.
 
 ## Releases
 

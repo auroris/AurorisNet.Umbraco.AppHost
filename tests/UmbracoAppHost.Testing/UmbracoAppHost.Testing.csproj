@@ -12,12 +12,14 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <AppBlocksRoot Condition="'$(AppBlocksRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\AurorisNet.Umbraco.AppBlocks</AppBlocksRoot>
+    <UseAppBlocksSource Condition="'$(UseAppBlocksSource)' == ''">true</UseAppBlocksSource>
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="../../src/UmbracoAppHost/UmbracoAppHost.csproj" />
     <!-- The endpoint clients TestSite hands out, and TestSiteException, come from AppBlocks' testing package. -->
-    <ProjectReference Include="$(AppBlocksRoot)\src\AppBlocks.Testing\AppBlocks.Testing.csproj" />
+    <ProjectReference Include="$(AppBlocksRoot)\src\AppBlocks.Testing\AppBlocks.Testing.csproj" Condition="'$(UseAppBlocksSource)' == 'true'" />
+    <PackageReference Include="AurorisNet.Umbraco.AppBlocks.Testing" Condition="'$(UseAppBlocksSource)' != 'true'" />
     <InternalsVisibleTo Include="UmbracoAppHost.Tests" />
   </ItemGroup>
   <ItemGroup>

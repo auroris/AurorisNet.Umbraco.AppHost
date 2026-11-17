@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { JSDOM } from 'jsdom';
-import { enclosingFormResource } from '../../../AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/form-context.js';
+import { enclosingFormResource } from '../../../AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/form-context.js';
 
-const runtime = (await readFile(new URL('../../../AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/runtime.js', import.meta.url), 'utf8'))
+const runtime = (await readFile(new URL('../../../AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/runtime.js', import.meta.url), 'utf8'))
     .replace('import.meta.url', '"https://example.test/App_Plugins/ApplicationBlocks/runtime.js"');
 
 const orderFields = `<input id="amount" data-field="amount" data-kind="number" data-readonly="false" type="number" step="any">

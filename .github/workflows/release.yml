@@ -1,0 +1,114 @@
+name: Release
+
+run-name: Release ${{ inputs.version || format('(next {0})', inputs.bump) }}${{ inputs.dry-run && ' (dry run)' || '' }}
+
+# Publishes the two packages to nuget.org and GitHub. Starts by hand, or from the CI workflow when
+# a Dependabot update of a shipped package has passed the tests. The shared steps come from auroris/AurorisNet.Build, whose
+# docs/releasing.md describes them. nuget.org trusts this file by its name, so keep it release.yml.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to publish, such as 1.0.0-alpha.2 or 1.2.3. Leave empty to raise the newest release tag.
+        required: false
+        type: string
+      bump:
+        description: Which part of the newest stable tag to raise when the version is empty
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+      test:
+        description: Run the tests before publishing. The automated runs turn this off, because they have just run them.
+        type: boolean
+        default: true
+      dry-run:
+        description: Test and pack only, and keep the packages as an artifact
+        type: boolean
+        default: false
+      notes:
+        description: Notes for the GitHub release, in Markdown, shown above the generated list of changes
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: pwsh
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+  TESTINGPLATFORM_TELEMETRY_OPTOUT: '1'
+
+jobs:
+  release:
+    name: Test and publish
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      # Makes the build deterministic.
+      ContinuousIntegrationBuild: 'true'
+      # Build against the published AppBlocks, BreakGlass and IdentityServer packages, which the package then depends on,
+      # instead of sibling checkouts. The build fails until those packages are on nuget.org.
+      UseAppBlocksSource: 'false'
+      UseBreakGlassSource: 'false'
+      UseIdentityServerSsoSource: 'false'
+      UseIdentityServerDirectorySource: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: '10.0.x'
+
+      # The library's build runs the Frontend build, which needs Node.js.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+
+      - name: Choose the version
+        id: version
+        uses: auroris/AurorisNet.Build/actions/version@main
+        with:
+          version: ${{ inputs.version }}
+          bump: ${{ inputs.bump }}
+          dry-run: ${{ inputs.dry-run }}
+
+      # The tests boot the host with SQLite on the Umbraco release that Directory.Packages.props pins. The deployment
+      # scripts' tests run on a developer's machine.
+      - name: Test
+        if: ${{ inputs.test }}
+        run: |
+          dotnet test --project tests/UmbracoAppHost.Tests/UmbracoAppHost.Tests.csproj
+          if ($LASTEXITCODE -ne 0) { throw 'The tests failed.' }
+
+      # The two packages carry one version, because the testing package applies the host's registrations by reflection.
+      - name: Pack
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          foreach ($project in 'src/UmbracoAppHost', 'tests/UmbracoAppHost.Testing') {
+            dotnet pack $project -c Release "-p:Version=$env:RELEASE_VERSION" -o artifacts/packages
+            if ($LASTEXITCODE -ne 0) { throw "Could not pack $project." }
+          }
+
+      - name: Publish
+        uses: auroris/AurorisNet.Build/actions/publish@main
+        with:
+          versions: ${{ steps.version.outputs.versions }}
+          dry-run: ${{ inputs.dry-run }}
+          notes: ${{ inputs.notes }}

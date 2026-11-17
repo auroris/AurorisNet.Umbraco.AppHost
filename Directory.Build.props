@@ -8,8 +8,7 @@
     <PackageProjectUrl>https://github.com/auroris/AurorisNet.Umbraco.AppHost</PackageProjectUrl>
     <RepositoryUrl>https://github.com/auroris/AurorisNet.Umbraco.AppHost</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <!-- Reuse needs written permission, so the license travels as the file itself rather than an SPDX expression. -->
-    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
   <ItemGroup Condition="'$(MSBuildProjectName)' == 'UmbracoAppHost' or '$(MSBuildProjectName)' == 'UmbracoAppHost.Testing'">
     <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="/" Visible="false" />

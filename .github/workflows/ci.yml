@@ -1,0 +1,77 @@
+name: CI
+
+# Tests each pull request on the Umbraco release that Directory.Packages.props pins, and merges a Dependabot update that
+# passes. An update of a package the library references then starts the Release workflow.
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: pwsh
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+  TESTINGPLATFORM_TELEMETRY_OPTOUT: '1'
+
+jobs:
+  test:
+    name: Test
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      # Build against the published AppBlocks, BreakGlass and IdentityServer packages, which the package then depends on,
+      # instead of sibling checkouts. The build fails until those packages are on nuget.org.
+      UseAppBlocksSource: 'false'
+      UseBreakGlassSource: 'false'
+      UseIdentityServerSsoSource: 'false'
+      UseIdentityServerDirectorySource: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: '10.0.x'
+
+      # The library's build runs the Frontend build, which needs Node.js.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+
+      - name: Test
+        run: dotnet test --project tests/UmbracoAppHost.Tests/UmbracoAppHost.Tests.csproj
+
+      - name: Pack
+        run: |
+          foreach ($project in 'src/UmbracoAppHost', 'tests/UmbracoAppHost.Testing') {
+            dotnet pack $project -c Release -o artifacts/packages
+            if ($LASTEXITCODE -ne 0) { throw "Could not pack $project." }
+          }
+
+  # A workflow that runs for Dependabot gets a read-only token unless the job asks for more.
+  dependabot:
+    name: Merge Dependabot update
+    needs: test
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - uses: auroris/AurorisNet.Build/actions/dependabot-release@main
+        with:
+          shipped-projects: |
+            src/UmbracoAppHost
+            tests/UmbracoAppHost.Testing

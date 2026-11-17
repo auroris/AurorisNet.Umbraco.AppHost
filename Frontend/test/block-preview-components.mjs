@@ -13,9 +13,9 @@ test('custom views render with the running host’s installed Umbraco modules', 
     const page = await (await fetch(`${origin}/umbraco/`)).text();
     const imports = JSON.parse(page.match(/<script type="importmap"[^>]*>([\s\S]*?)<\/script>/)[1]).imports;
     const scripts = [
-        'AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/block-preview.js',
-        'AppBlocks/src/AppBlocks.InteractiveReports/wwwroot/App_Plugins/AppBlocks.InteractiveReports/block-preview.js',
-        'AppBlocks/src/AppBlocks.InteractiveReports/wwwroot/App_Plugins/AppBlocks.InteractiveReports/block-preview-entrypoint.js',
+        'AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/block-preview.js',
+        'AurorisNet.Umbraco.AppBlocks/src/AppBlocks.InteractiveReports/wwwroot/App_Plugins/AppBlocks.InteractiveReports/block-preview.js',
+        'AurorisNet.Umbraco.AppBlocks/src/AppBlocks.InteractiveReports/wwwroot/App_Plugins/AppBlocks.InteractiveReports/block-preview-entrypoint.js',
         '4Wing/4WingResources/wwwroot/App_Plugins/4WingResources/block-preview.js',
         '4Wing/4WingDiagrams/wwwroot/App_Plugins/FourWing.Diagrams/block-preview.js',
         '4Wing/4WingTelephoneDirectory/wwwroot/App_Plugins/FourWing.TelephoneDirectory/block-preview.js',
@@ -33,7 +33,7 @@ test('custom views render with the running host’s installed Umbraco modules', 
         bundle: true, write: false, format: 'iife', logLevel: 'silent',
         define: { 'import.meta.url': JSON.stringify(`${origin}/App_Plugins/ApplicationBlocks/block-preview.js`) },
         plugins: [{ name: 'installed-umbraco', setup(builder) {
-            builder.onResolve({ filter: /^\.\.\/ApplicationBlocks\// }, args => ({ path: resolve(repos, 'AppBlocks/src/AppBlocks/wwwroot/App_Plugins', args.path.substring(3)) }));
+            builder.onResolve({ filter: /^\.\.\/ApplicationBlocks\// }, args => ({ path: resolve(repos, 'AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins', args.path.substring(3)) }));
             builder.onResolve({ filter: /^@umbraco-cms\// }, args => {
                 assert(imports[args.path], `Installed Umbraco does not export ${args.path}`);
                 return { path: new URL(imports[args.path], origin).href, namespace: 'umbraco' };

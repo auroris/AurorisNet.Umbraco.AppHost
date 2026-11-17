@@ -4,15 +4,15 @@ import { readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
-import { renderAppBlock, fieldTypes, values, listItems } from '../../../AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/preview-model.js';
-import { appBlockTypes } from '../../../AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/block-types.js';
+import { renderAppBlock, fieldTypes, values, listItems } from '../../../AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/preview-model.js';
+import { appBlockTypes } from '../../../AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/block-types.js';
 
 const repos = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 // These pure layouts already have the required preview: Umbraco's own card and editable areas.
 const nativeLayouts = new Set(['appFullWidth', 'appThreeColumns', 'blockTwoColumn1', 'blockTwoColumn2', 'blockTwoColumn3']);
 const owners = [
-    ['AppBlocks/src/AppBlocks', 'Schema'], ['AppBlocks/src/AppBlocks.InteractiveReports', 'Schema'],
-    ['AppBlocks/src/AppBlocks.Documents', 'Schema'], ['UmbracoAppHost/src/UmbracoAppHost', 'uSync'],
+    ['AurorisNet.Umbraco.AppBlocks/src/AppBlocks', 'Schema'], ['AurorisNet.Umbraco.AppBlocks/src/AppBlocks.InteractiveReports', 'Schema'],
+    ['AurorisNet.Umbraco.AppBlocks/src/AppBlocks.Documents', 'Schema'], ['AurorisNet.Umbraco.AppHost/src/UmbracoAppHost', 'uSync'],
     ...['4WingResources', '4WingDiagrams', '4WingTelephoneDirectory', '4WingFileRepository', '4WingActivityScheduler', '4WingAerodromeStatus'].map(name => [`4Wing/${name}`, 'Schema']),
 ];
 async function files(directory, suffix) {
@@ -22,7 +22,7 @@ async function files(directory, suffix) {
 }
 test('every owned element offered by the block editors has a preview in its owning library', async () => {
     // Conventional host partials now render through Umbraco.Community.BlockPreview.
-    const razorAliases = new Set((await files(resolve(repos, 'UmbracoAppHost/src/UmbracoAppHost/Views/Partials/blockgrid/Components'), '.cshtml'))
+    const razorAliases = new Set((await files(resolve(repos, 'AurorisNet.Umbraco.AppHost/src/UmbracoAppHost/Views/Partials/blockgrid/Components'), '.cshtml'))
         .map(path => path.split(/[\\/]/).at(-1).replace(/\.cshtml$/, '')));
     const allTypes = new Map();
     const configs = [];
