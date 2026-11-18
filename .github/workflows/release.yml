@@ -58,8 +58,6 @@ jobs:
       contents: write
       id-token: write
     env:
-      # Makes the build deterministic.
-      ContinuousIntegrationBuild: 'true'
       # Build against the published AppBlocks, BreakGlass and IdentityServer packages, which the package then depends on,
       # instead of sibling checkouts. The build fails until those packages are on nuget.org.
       UseAppBlocksSource: 'false'
@@ -98,12 +96,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'The tests failed.' }
 
       # The two packages carry one version, because the testing package applies the host's registrations by reflection.
+      # ContinuousIntegrationBuild makes the packed build deterministic. It is set here and not for the tests, which find
+      # repository files through the source paths the compiler records, and a deterministic build replaces those paths.
       - name: Pack
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           foreach ($project in 'src/UmbracoAppHost', 'tests/UmbracoAppHost.Testing') {
-            dotnet pack $project -c Release "-p:Version=$env:RELEASE_VERSION" -o artifacts/packages
+            dotnet pack $project -c Release "-p:Version=$env:RELEASE_VERSION" -p:ContinuousIntegrationBuild=true -o artifacts/packages
             if ($LASTEXITCODE -ne 0) { throw "Could not pack $project." }
           }
 
