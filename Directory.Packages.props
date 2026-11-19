@@ -7,7 +7,7 @@
     <PackageVersion Include="xunit.v3" Version="4.0.3" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.15" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
-    <PackageVersion Include="Oracle.ManagedDataAccess.Core" Version="23.26.400" />
+    <PackageVersion Include="Oracle.ManagedDataAccess.Core" Version="23.26.401" />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.15" />
     <PackageVersion Include="Umbraco.Cms" Version="18.3.1" />
     <!-- Keep Umbraco within the fix package's supported version range. -->
