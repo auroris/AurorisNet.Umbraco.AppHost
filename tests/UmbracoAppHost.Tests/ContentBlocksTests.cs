@@ -11,7 +11,7 @@ namespace UmbracoAppHost.Tests;
 public sealed class ContentBlocksTests
 {
     [Fact]
-    public void The_grid_offers_the_content_blocks_wherever_it_offers_fields()
+    public void The_grid_offers_content_blocks_at_the_root_and_in_areas_and_groups_form_fields_separately()
     {
         var config = JsonNode.Parse(XElement.Load(Path.Combine(AppContext.BaseDirectory, "uSync", "DataTypes", "ApplicationApplicationBlocks.config"))
             .Element("Config")!.Value)!;
@@ -26,8 +26,9 @@ public sealed class ContentBlocksTests
             Assert.True(block["allowInAreas"]!.GetValue<bool>());
             Assert.Empty(block["areas"]!.AsArray());
         }
-        // The same group and placement as the field blocks, so every area that takes one takes the other.
-        Assert.Equal(content, Block("appText")["groupKey"]!.GetValue<string>());
+        var fields = config["blockGroups"]!.AsArray().Single(group => (string?)group!["name"] == "Form fields")!["key"]!.GetValue<string>();
+        foreach (var alias in AppBlockSchema.FieldAliases)
+            Assert.Equal(fields, Block(alias)["groupKey"]!.GetValue<string>());
     }
 
     /// <summary>The Content blocks page of the saved export, which shows every new block and field property.</summary>
