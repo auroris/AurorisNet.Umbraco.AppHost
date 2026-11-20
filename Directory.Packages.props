@@ -9,10 +9,10 @@
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Oracle.ManagedDataAccess.Core" Version="23.26.401" />
     <PackageVersion Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.15" />
-    <PackageVersion Include="Umbraco.Cms" Version="18.3.1" />
+    <PackageVersion Include="Umbraco.Cms" Version="18.3.2" />
     <!-- Keep Umbraco within the fix package's supported version range. -->
-    <PackageVersion Include="AurorisNet.Umbraco.ApplicationVirtualPathFix" Version="18.3.1.2" />
-    <PackageVersion Include="AurorisNet.Umbraco.DisableTelemetry" Version="18.3.1.1" />
+    <PackageVersion Include="AurorisNet.Umbraco.ApplicationVirtualPathFix" Version="18.3.2.1" />
+    <PackageVersion Include="AurorisNet.Umbraco.DisableTelemetry" Version="18.3.2.1" />
     <!-- Used when UseBreakGlassSource is false, as the CI and Release workflows set it. Set it to the first published version. -->
     <PackageVersion Include="AurorisNet.Umbraco.BreakGlass" Version="1.0.0" />
     <!-- Used when UseIdentityServerSsoSource is false, as the CI and Release workflows set it. Set it to the first published version. -->
@@ -24,7 +24,7 @@
     <PackageVersion Include="AurorisNet.Umbraco.AppBlocks.InteractiveReports" Version="0.1.0-alpha.1" />
     <PackageVersion Include="AurorisNet.Umbraco.AppBlocks.Documents" Version="0.1.0-alpha.1" />
     <PackageVersion Include="AurorisNet.Umbraco.AppBlocks.Testing" Version="0.1.0-alpha.1" />
-    <PackageVersion Include="Umbraco.Cms.DevelopmentMode.Backoffice" Version="18.3.1" />
+    <PackageVersion Include="Umbraco.Cms.DevelopmentMode.Backoffice" Version="18.3.2" />
     <PackageVersion Include="Umbraco.Community.UmbNav" Version="5.0.3" />
     <PackageVersion Include="Umbraco.Community.BlockPreview" Version="6.3.0" />
     <PackageVersion Include="uSync" Version="18.3.1" />

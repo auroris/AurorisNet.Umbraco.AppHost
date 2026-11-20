@@ -1,12 +1,16 @@
 # Dependabot opens the pull requests that .github/workflows/ci.yml tests and merges. An update of a package the library
-# references then starts the Release workflow. The workflows pin each action to a commit; Dependabot updates the commit
+# references ships in the next weekly release. The workflows pin each action to a commit; Dependabot updates the commit
 # and the version in the comment beside it.
+#
+# Dependabot checks each Friday, the day after the weekly releases of AppBlocks and the Umbraco IdentityServer packages
+# and three days after those of the other Umbraco packages, so their releases arrive here in the same week.
 version: 2
 updates:
   - package-ecosystem: nuget
     directory: /
     schedule:
-      interval: daily
+      interval: weekly
+      day: friday
     ignore:
       # These packages follow the .NET version the projects target, so a new major version waits for that upgrade.
       - dependency-name: "Microsoft.Extensions.*"
@@ -43,7 +47,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
-      day: monday
+      day: friday
     groups:
       github-actions:
         patterns:

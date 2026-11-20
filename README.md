@@ -200,13 +200,13 @@ The other sections are described where they apply: `BreakGlass`, `BackOfficeLogi
 | Dependency | Release | Notes |
 |---|---|---|
 | .NET | 10 | The SDK to build, the ASP.NET Core runtime to run a published site. |
-| Umbraco | 18.3.1 | AppBlocks pins the same release. The build stops when the two differ. |
+| Umbraco | 18.3.2 | AppBlocks pins the same release. The build stops when the two differ. |
 | AppBlocks | 0.1.0-alpha.1 | Its four packages share one version. Used when the library builds against packages. |
 | uSync | 18.3.1 | |
 | `Umbraco.Community.UmbNav` | 5.0.3 | |
 | `Umbraco.Community.BlockPreview` | 6.3.0 | |
-| `AurorisNet.Umbraco.ApplicationVirtualPathFix` | 18.3.1.2 | Its supported Umbraco range must include the pinned Umbraco release. |
-| `AurorisNet.Umbraco.DisableTelemetry` | 18.3.1.1 | |
+| `AurorisNet.Umbraco.ApplicationVirtualPathFix` | 18.3.2.1 | Its supported Umbraco range must include the pinned Umbraco release. |
+| `AurorisNet.Umbraco.DisableTelemetry` | 18.3.2.1 | |
 
 A new instance keeps Umbraco in a SQLite file. [Databases](docs/databases.md) has the steps to
 move it to SQL Server.
@@ -275,8 +275,9 @@ same `Umbraco.Cms` and `Microsoft.Extensions.FileProviders.Embedded` releases as
 ## Releases
 
 AppHost follows AppBlocks, together with the Umbraco release that both pin. Dependabot checks
-NuGet each day and groups Umbraco, uSync and the AurorisNet packages into one pull request.
-`ci.yml` tests it, merges it and starts `release.yml`. Versions continue the prerelease series:
+NuGet each week and groups Umbraco, uSync and the AurorisNet packages into one pull request.
+`ci.yml` tests it and merges it, and `weekly-release.yml` publishes the week's merged updates as
+one release. Versions continue the prerelease series:
 `1.0.0-alpha.1`, then `1.0.0-alpha.2`. Both packages publish under one version, because the
 testing package must match the library. The first release waits until AppBlocks, BreakGlass and
 the two Umbraco IdentityServer packages are on nuget.org. See the
