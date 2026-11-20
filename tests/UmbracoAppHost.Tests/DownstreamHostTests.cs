@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Xml.Linq;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -127,6 +128,7 @@ public sealed class DownstreamHostTests
                 var homeHtml = await home.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
                 Assert.True(home.IsSuccessStatusCode, $"Home returned {home.StatusCode}: {homeHtml}");
                 Assert.Contains("Downstream home", homeHtml);
+                Assert.Contains("<p>A downstream host's own root page.</p>", homeHtml);
                 var paper = await client.GetAsync($"/api/paper-reports/{PaperKey}?format=html", TestContext.Current.CancellationToken);
                 var print = await paper.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
                 Assert.True(paper.IsSuccessStatusCode, print);
@@ -252,7 +254,10 @@ public sealed class DownstreamHostTests
         var properties = home.Element("Properties")!;
         properties.Element("siteTitle")!.Element("Value")!.Value = "Downstream home";
         properties.Element("title")!.Element("Value")!.Value = "Downstream home";
-        properties.Element("introduction")!.Element("Value")!.Value = "<p>A downstream host's own root page.</p>";
+        var pageBlocks = properties.Element("applicationBlocks")!.Element("Value")!;
+        var grid = JsonNode.Parse(pageBlocks.Value)!;
+        grid["contentData"]![0]!["values"]![0]!["value"]!["markup"] = "<p>A downstream host's own root page.</p>";
+        pageBlocks.Value = grid.ToJsonString();
         properties.Element("topNavigationMenu")!.Element("Value")!.Value = JsonSerializer.Serialize(new[] {
             new { key = MenuItemKey, name = "Downstream home", itemType = "Document", contentKey = HomeKey, published = true, children = Array.Empty<object>() },
         });

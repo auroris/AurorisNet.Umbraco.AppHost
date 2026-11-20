@@ -15,7 +15,7 @@ properties of its own. They compose these types, each of which adds one tab:
 
 | Composition | Alias | Properties | Tab | Used by |
 |---|---|---|---|---|
-| Page Content | `webPageContent` | Title, introduction, page blocks | Content | Site and page |
+| Page Content | `webPageContent` | Title, page blocks | Content | Site and page |
 | Page Sidebar | `webPageSidebar` | Sidebar content | Content | Site and page |
 | Page Navigation | `pageNavigation` | Hide from navigation, spacing, group, external link | Navigation | Site and page |
 | Site Menu | `navigationMenu` | Authored menu, profile page | Navigation | Site |
@@ -139,10 +139,13 @@ Report block. The same blocks render under both themes.
 | Three columns | `appThreeColumns` | Three, 4 + 4 + 4 | |
 | Region | `appRegion` | One, 12 columns, under an optional title bar | **Collapsible** in its settings lets visitors fold it from the title bar. |
 
-Layouts nest: put Two columns inside a Region to set related fields side by side. They stand at
-page level and inside forms, and their areas hold fields, reports, content blocks, attachments
-and tabular forms. A page can hold several forms, and a form cannot contain another form. A
-block's span inside an area counts that area's columns, so a block that fills a Three columns
+Page layouts can hold standalone blocks such as Interactive Report, rich text and attachments.
+Inside a Form, use **Form full width**, **Form two columns**, **Form three columns** or **Form region**
+to arrange fields. The page and Form layouts use the same column splits and collapsible-region settings.
+Bound fields, fieldsets, Anti-spam and Form actions are available anywhere inside a Form.
+On website pages the Form also offers **People picker**. Under **Button and form fields**, choose the writable text boxes in this form that will receive the person's SID and display name. Directory search, access, and caching and limits each have their own settings group.
+
+A block's span inside an area counts that area's columns, so a block that fills a Three columns
 area spans 4. The split changes the two areas on the page, while the backoffice draws them 6 + 6.
 
 [Themes](themes.md#what-a-theme-styles) lists the markup hooks the layouts emit.

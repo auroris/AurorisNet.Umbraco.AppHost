@@ -109,7 +109,10 @@ $homePage.SelectSingleNode('/Content/Info/SortOrder').InnerText = '0'
 $homePage.SelectSingleNode('/Content/Info/NodeName').SetAttribute('Default', 'Downstream home')
 $homePage.SelectSingleNode('/Content/Info/NodeName/Name').InnerText = 'Downstream home'
 foreach ($property in @('siteTitle', 'title')) { $homePage.SelectSingleNode("/Content/Properties/$property/Value").InnerText = 'Downstream home' }
-$homePage.SelectSingleNode('/Content/Properties/introduction/Value').InnerText = "<p>A downstream host's own root page.</p>"
+$pageBlocks = $homePage.SelectSingleNode('/Content/Properties/applicationBlocks/Value')
+$grid = $pageBlocks.InnerText | ConvertFrom-Json -AsHashtable
+$grid.contentData[0].values[0].value.markup = "<p>A downstream host's own root page.</p>"
+$pageBlocks.InnerText = ConvertTo-Json $grid -Depth 20
 $homePage.SelectSingleNode('/Content/Properties/topNavigationMenu/Value').InnerText = ConvertTo-Json -Compress -InputObject @(
     [ordered]@{ key = $menuItemKey; name = 'Downstream home'; itemType = 'Document'; contentKey = $homeKey; published = $true; children = @() })
 $homePage.Save((Join-Path $export 'Content/downstream-home.config'))

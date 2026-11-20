@@ -1,11 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { JSDOM } from 'jsdom';
-import { enclosingFormResource } from '../../../AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/form-context.js';
+import { fileURLToPath } from 'node:url';
+import cssEscape from 'css.escape';
+import { build } from 'esbuild';
+import { JSDOM, requestInterceptor } from 'jsdom';
+import { enclosingForm, enclosingFormResource, writableTextBindings } from '../../../AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/form-context.js';
+import { appBlockTypes } from '../../../AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/block-types.js';
 
-const runtime = (await readFile(new URL('../../../AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/runtime.js', import.meta.url), 'utf8'))
-    .replace('import.meta.url', '"https://example.test/App_Plugins/ApplicationBlocks/runtime.js"');
+const runtimeEntry = new URL('../../../AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/runtime.js', import.meta.url);
+const runtimeUrl = 'https://example.test/App_Plugins/ApplicationBlocks/runtime.js';
+// jsdom runs classic scripts. Bundle the shipped browser modules for its window, keeping their public asset URL.
+const bundle = await build({
+    entryPoints: [fileURLToPath(runtimeEntry)], bundle: true, format: 'iife', write: false,
+    define: { 'import.meta.url': JSON.stringify(runtimeUrl) },
+});
+const runtime = bundle.outputFiles[0].text;
 
 const orderFields = `<input id="amount" data-field="amount" data-kind="number" data-readonly="false" type="number" step="any">
         <span id="amount-error"></span>
@@ -13,21 +23,31 @@ const orderFields = `<input id="amount" data-field="amount" data-kind="number" d
         <textarea id="notes" data-field="notes" data-readonly="false"></textarea><span id="notes-error"></span>`;
 
 function mount(respond, query = '?id=4&unrelated=ignored', fields = orderFields, api = '/api/forms/page/form') {
+    const requests = [];
+    function answer(url, options = {}) {
+        requests.push({ url: String(url), ...options });
+        return respond(requests.length, options);
+    }
     const dom = new JSDOM(`<form data-app-form data-api="${api}" data-key-parameter="id" data-return="/orders/" novalidate>
       <div class="app-form-message"></div><div class="app-form-errors" hidden></div>
       <fieldset class="app-form-body" disabled>
         ${fields}
         <button type="submit" data-save>Save</button><button type="button" data-delete>Delete</button>
-      </fieldset></form>`, { url: 'https://example.test/order-form' + query, runScripts:'outside-only' });
-    const requests = [];
-    dom.window.fetch = async (url, options = {}) => {
-        requests.push({ url: String(url), ...options });
-        return respond(requests.length, options);
-    };
+      </fieldset></form>`, {
+        url: 'https://example.test/order-form' + query, runScripts: 'outside-only', pretendToBeVisual: true,
+        resources: { interceptors: [requestInterceptor(async request => {
+            if (request.url === new URL('uppy.css', runtimeUrl).href)
+                return new Response(await readFile(new URL('uppy.css', runtimeEntry)), { headers: { 'Content-Type': 'text/css' } });
+            // Uppy sends its multipart POST via XMLHttpRequest. Record the decoded browser request alongside the fetches.
+            return answer(request.url, { method: request.method, headers: request.headers, body: await request.formData() });
+        })] },
+    });
+    dom.window.fetch = answer;
+    dom.window.CSS = { escape: cssEscape };
     dom.window.eval(runtime);
     return { dom, window:dom.window, document:dom.window.document, requests };
 }
-const loaded = (key = '4') => ({ record:{ key, version:'1', values:{ amount:'125.34', customer:'Server-controlled', notes:'Existing notes' }, capabilities:{ create:!key, update:!!key, delete:!!key } }, definitionVersion:'published-1', antiforgeryToken:'test-token' });
+const loaded = (key = '4') => ({ record:{ key, checksum:key ? 'order-checksum' : null, values:{ amount:'125.34', customer:'Server-controlled', notes:'Existing notes' }, capabilities:{ create:!key, update:!!key, delete:!!key } }, definitionVersion:'published-1', antiforgeryToken:'test-token' });
 
 test('field pickers use their enclosing form resource across layouts, regions and independent forms', () => {
     const configuration = resource => ({contentData:[{values:[{alias:'resource', value:resource}]}]});
@@ -54,6 +74,24 @@ test('field pickers use their enclosing form resource across layouts, regions an
     assert.equal(enclosingFormResource(contents, layouts, 'second-field'), 'changed-source');
     contents[1].values[0].value = '{unfinished';
     assert.equal(enclosingFormResource(contents, layouts, 'second-field'), undefined);
+});
+
+test('writable text targets use placed text boxes from the current form, including hidden writable boxes', () => {
+    const block = (key, alias, properties = {}) => ({
+        key, contentTypeKey: appBlockTypes.find(type => type.alias === alias).key,
+        values: Object.entries(properties).map(([alias, value]) => ({ alias, value })),
+    });
+    const contents = [
+        block('one', 'appForm'), block('two', 'appForm'),
+        block('sid', 'appText', { field: 'sid', hidden: '1' }), block('name', 'appText', { field: 'name' }),
+        block('mirror', 'appText', { field: 'directoryName', readOnly: true }), block('notes', 'appTextArea', { field: 'notes' }),
+        block('other', 'appText', { field: 'anotherName' }),
+    ];
+    const item = (contentKey, children = []) => ({ contentKey, areas: [{ items: children }] });
+    const layout = [item('one', [item('region', ['sid', 'name', 'mirror', 'notes'].map(key => item(key))), item('picker')]),
+        item('two', [item('other')])];
+    assert.deepEqual([...writableTextBindings(enclosingForm(contents, layout, 'picker'))], ['sid', 'name']);
+    assert.deepEqual([...writableTextBindings(enclosingForm(contents, layout, 'new-picker', 'two'))], ['anotherName']);
 });
 async function until(predicate) {
     for (let i=0;i<100;i++) { if (predicate()) return; await new Promise(resolve=>setTimeout(resolve,5)); }
@@ -90,7 +128,7 @@ test('form submissions preserve decimal text, omit read-only fields and retain v
         const request=fixture.requests[1], body=JSON.parse(request.body);
         assert.equal(request.method,'PUT'); assert.equal(request.headers.RequestVerificationToken,'test-token');
         assert.deepEqual(body.values,{amount:'123456789.123456789',notes:null});
-        assert.equal(body.definitionVersion,'published-1'); assert.equal(body.version,'1');
+        assert.equal(body.definitionVersion,'published-1'); assert.equal(body.checksum,'order-checksum');
         assert.equal(fixture.document.querySelector('#amount').value,'123456789.123456789');
         assert.match(fixture.document.querySelector('.app-form-errors').textContent,/Record changed/);
         submit(fixture); await until(()=>fixture.requests.length===3 && !fixture.document.querySelector('fieldset').disabled);
@@ -187,8 +225,8 @@ const defaultedFields = `<input id="customer" data-field="customer" data-kind="t
 const localMinutes = value => { const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
 
 test('a new record takes the defaults where the resource left fields empty, and a saved record ignores them', async () => {
-    const initialized = { record:{ key:null, version:null, values:{ customer:'', region:'NORTH', orderDate:null, when:null, urgent:null, notes:null, owner:null, flag:null }, capabilities:{ create:true } }, definitionVersion:'published-1', antiforgeryToken:'test-token' };
-    const saved = { record:{ key:'501', version:'1', values:{ customer:'', region:'NORTH', orderDate:'2026-10-23', when:null, urgent:false, notes:null, owner:'S-1-5-21-1-2-3-1105', flag:true }, capabilities:{ update:true } } };
+    const initialized = { record:{ key:null, checksum:null, values:{ customer:'', region:'NORTH', orderDate:null, when:null, urgent:null, notes:null, owner:null, flag:null }, capabilities:{ create:true } }, definitionVersion:'published-1', antiforgeryToken:'test-token' };
+    const saved = { record:{ key:'501', checksum:'row-checksum-1', values:{ customer:'', region:'NORTH', orderDate:'2026-10-23', when:null, urgent:false, notes:null, owner:'S-1-5-21-1-2-3-1105', flag:true }, capabilities:{ update:true } } };
     const fixture = mount(async count => Response.json(count === 1 ? initialized : saved), '', defaultedFields);
     try {
         await until(()=>!fixture.document.querySelector('fieldset').disabled);
@@ -203,7 +241,7 @@ test('a new record takes the defaults where the resource left fields empty, and 
         submit(fixture); await until(()=>fixture.requests.length===2 && fixture.window.location.search==='?id=501');
         assert.equal(fixture.requests[1].method, 'POST');
         assert.deepEqual(JSON.parse(fixture.requests[1].body).values, {
-            customer:'test.user', region:'NORTH', orderDate:'2026-10-23', when:new Date(localMinutes('2026-10-23T14:05:09-06:00')).toISOString(),
+            customer:'test.user', region:'NORTH', orderDate:'2026-10-23', when:'2026-10-23T14:05:09-06:00',
             urgent:true, notes:null, owner:'S-1-5-21-1-2-3-1105', flag:true,
         });
         // The saved record is shown as stored: an empty customer stays empty.
@@ -227,22 +265,27 @@ test('a form announces the record it loaded and the record it saved', async () =
 });
 
 const attachmentsBlock = (owner = 'form', readOnly = false) => `<section class="app-attachments" data-app-attachments data-api="/api/attachments/page/block" data-owner="${owner}"
-        data-key-parameter="id" data-read-only="${readOnly}" data-max-size="1000000" data-accept="">
+        data-key-parameter="id" data-read-only="${readOnly}" data-max-size="1000000" data-accept=".pdf">
         <div class="app-attachments-message"></div><div class="app-attachments-errors" hidden></div>
         <ul class="app-attachments-list"></ul>
-        <div class="app-attachments-upload" hidden>
-          <input type="file" form="" data-attachment-file><select form="" data-attachment-purpose><option value="">Choose</option><option value="Invoice">Invoice</option></select>
-          <input type="text" form="" data-attachment-label><input type="text" form="" data-attachment-notes><button type="button" data-attachment-upload>Upload</button>
-        </div></section>`;
-const files = (items = []) => ({ canWrite:true, purposes:['Invoice'], maxFileSize:1000000, accept:null, items, antiforgeryToken:'att-token' });
-const invoice = { id:7, fileName:'invoice.pdf', contentType:'application/pdf', size:2048, sha256:'0'.repeat(64), purpose:'Invoice', label:null, notes:'Paid', uploadedBy:'member:1', uploadedAt:'2026-10-27T12:00:00.000Z', updatedBy:'member:1', updatedAt:'2026-10-27T12:00:00.000Z', revisions:[{ id:3, fileName:'invoice-v1.pdf', contentType:'application/pdf', size:1024, sha256:'1'.repeat(64), uploadedBy:'member:1', uploadedAt:'2026-10-26T12:00:00.000Z' }] };
+        <button type="button" form="" data-attachment-add hidden>Upload</button>
+        <dialog class="app-attachments-dialog">
+          <div class="app-attachments-upload-errors" hidden></div>
+          <div class="app-attachments-upload">
+            <select form="" data-attachment-purpose><option value="">Choose</option><option value="Invoice">Invoice</option></select>
+            <input type="text" form="" data-attachment-label><input type="text" form="" data-attachment-notes>
+            <div data-attachment-dashboard></div>
+          </div>
+        </dialog></section>`;
+const files = (items = []) => ({ canWrite:true, purposes:['Invoice'], maxFileSize:1000000, accept:'.pdf', items, antiforgeryToken:'att-token' });
+const invoice = { id:7, fileName:'invoice.pdf', contentType:'application/pdf', size:2048, sha256:'0'.repeat(64), purpose:'Invoice', label:null, notes:'Paid', uploadedBy:'member:1', uploadedAt:'2026-10-27T12:00:00.000Z', updatedBy:'member:1', updatedAt:'2026-10-27T12:00:00.000Z' };
 
 test('an attachments block inside a form waits for the record, lists its files with the key, and uploads with the list token', async () => {
-    const fixture = mount(async (count, options) => {
+    const fixture = mount(async count => {
         if (count === 1) return Response.json(loaded());
         if (count === 2) return Response.json(files([invoice]));
         if (count === 3) return Response.json({ ...invoice, id:8, fileName:'delivery.pdf' }, { status:201 });
-        return Response.json(files([{ ...invoice, id:8, fileName:'delivery.pdf', revisions:[] }, invoice]));
+        return Response.json(files([{ ...invoice, id:8, fileName:'delivery.pdf' }, invoice]));
     }, '?id=4&unrelated=ignored', orderFields + attachmentsBlock());
     try {
         const block = fixture.document.querySelector('[data-app-attachments]');
@@ -255,21 +298,33 @@ test('an attachments block inside a form waits for the record, lists its files w
         assert.equal(row.querySelector('.app-attachment-name').textContent, 'invoice.pdf');
         assert.equal(new URL(row.querySelector('.app-attachment-name').href).pathname, '/api/attachments/page/block/7');
         assert.match(row.querySelector('.app-attachment-meta').textContent, /Invoice/);
-        assert.match(row.querySelector('.app-attachment-revisions summary').textContent, /1 earlier revision/);
-        assert.equal(block.querySelector('.app-attachments-upload').hidden, false);
+        assert.equal(row.querySelector('.app-attachment-notes').textContent, 'Paid');
+        const add = block.querySelector('[data-attachment-add]');
+        assert.equal(add.hidden, false);
+        const dialog = block.querySelector('dialog');
+        // jsdom has no modal or layout engine. The dashboard can mount at a fixed size.
+        dialog.showModal = () => { dialog.open = true; };
+        fixture.window.ResizeObserver = class { observe() {} disconnect() {} };
+        add.click();
+        await until(() => block.querySelector('.uppy-Dashboard-input'));
         // Upload: a multipart body with the file and the chosen purpose, and the token the list handed out.
-        const input = block.querySelector('[data-attachment-file]');
+        const input = block.querySelector('.uppy-Dashboard-input');
         const file = new fixture.window.File(['%PDF-1.7'], 'delivery.pdf', { type:'application/pdf' });
         Object.defineProperty(input, 'files', { value:[file] });
         block.querySelector('[data-attachment-purpose]').value = 'Invoice';
         block.querySelector('[data-attachment-label]').value = 'Box 2';
-        block.querySelector('[data-attachment-upload]').click();
-        await until(() => fixture.requests.length === 4 && block.querySelectorAll('.app-attachment').length === 2);
+        input.dispatchEvent(new fixture.window.Event('change', { bubbles: true }));
+        await until(() => {
+            assert.equal(block.querySelector('.app-attachments-upload-errors').textContent, '');
+            return block.querySelectorAll('.app-attachment').length === 2;
+        });
         const upload = fixture.requests[2];
         assert.equal(upload.method, 'POST');
         assert.equal(new URL(upload.url).searchParams.get('id'), '4');
-        assert.equal(upload.headers.RequestVerificationToken, 'att-token');
+        assert.equal(upload.headers.get('RequestVerificationToken'), 'att-token');
+        assert.match(upload.headers.get('Content-Type'), /^multipart\/form-data; boundary=/);
         assert.equal(upload.body.get('file').name, 'delivery.pdf');
+        assert.equal(await upload.body.get('file').text(), '%PDF-1.7');
         assert.equal(upload.body.get('purpose'), 'Invoice');
         assert.equal(upload.body.get('label'), 'Box 2');
         assert.equal(block.querySelector('.app-attachment .app-attachment-name').textContent, 'delivery.pdf');
@@ -284,12 +339,12 @@ test('an attachments block asks for nothing until its form has a saved record, t
         await until(() => !fixture.document.querySelector('fieldset').disabled);
         assert.equal(fixture.requests.length, 1);
         assert.match(block.querySelector('.app-attachments-message').textContent, /Save the record/);
-        assert.equal(block.querySelector('.app-attachments-upload').hidden, true);
+        assert.equal(block.querySelector('[data-attachment-add]').hidden, true);
         submit(fixture);
         await until(() => fixture.requests.length === 3);
         assert.equal(new URL(fixture.requests[2].url).searchParams.get('id'), '501');
         await until(() => block.querySelector('.app-attachments-message').textContent === 'No files yet.');
-        assert.equal(block.querySelector('.app-attachments-upload').hidden, false);
+        assert.equal(block.querySelector('[data-attachment-add]').hidden, false);
     } finally { fixture.dom.window.close(); }
 });
 
@@ -319,7 +374,7 @@ test('hidden fields are submitted like any other, a hidden checkbox as true or f
         <input type="hidden" id="owner" data-field="owner" data-kind="text" data-readonly="false" data-label="Owner">
         <input type="hidden" id="flag" data-field="flag" data-kind="checkbox" data-readonly="false" data-label="Flag">
         <input type="hidden" id="key" data-field="key" data-kind="number" data-readonly="true" data-label="Key">`;
-    const record = { record:{ key:'4', version:'1', values:{ amount:'1.5', owner:'S-1-5-21-9', flag:false, key:'4' }, capabilities:{ update:true } }, definitionVersion:'published-1', antiforgeryToken:'test-token' };
+    const record = { record:{ key:'4', checksum:'row-checksum-1', values:{ amount:'1.5', owner:'S-1-5-21-9', flag:false, key:'4' }, capabilities:{ update:true } }, definitionVersion:'published-1', antiforgeryToken:'test-token' };
     const fixture = mount(async count => count === 1 ? Response.json(record) : Response.json({ errors:{ owner:['A value is required.'] } }, { status:422 }), '?id=4', fields);
     try {
         await until(()=>!fixture.document.querySelector('fieldset').disabled);
@@ -408,12 +463,12 @@ const lineFields = [
     lineField('colour', 'Colour', 'text', { choices:[{ value:'red', label:'Red' }, { value:'blue', label:'Blue' }] }),
     lineField('createdBy', 'Created by', 'text', { readOnly:true }),
 ];
-const line = (key, version, values) => ({ key, version, values:{ item:null, quantity:null, shipOn:null, deliverAt:null, gift:false, colour:null, createdBy:'member:1', ...values },
+const line = (key, checksum, values) => ({ key, checksum, values:{ item:null, quantity:null, shipOn:null, deliverAt:null, gift:false, colour:null, createdBy:'member:1', ...values },
     capabilities:{ create:false, update:true, delete:true } });
-const widget = line('12', '1', { item:'Widget', quantity:2, shipOn:'2026-11-02', deliverAt:'2026-11-03T09:30:00.000Z', gift:true, colour:'red' });
-const bolt = line('13', '2', { item:'Bolt', quantity:5 });
+const widget = line('12', 'row-checksum-1', { item:'Widget', quantity:2, shipOn:'2026-11-02', deliverAt:'2026-11-03T09:30:00.000Z', gift:true, colour:'red' });
+const bolt = line('13', 'row-checksum-2', { item:'Bolt', quantity:5 });
 const lines = (rows = [widget, bolt]) => ({ owner:{ alias:'orders', key:'4' }, dataSource:'orders.lines', canAdd:true, canUpdate:true, canDelete:true, maxRows:50,
-    fields:lineFields, rows, newRow:{ key:null, version:null, values:{ item:null, quantity:1, shipOn:null, deliverAt:null, gift:false, colour:null, createdBy:null },
+    fields:lineFields, rows, newRow:{ key:null, checksum:null, values:{ item:null, quantity:1, shipOn:null, deliverAt:null, gift:false, colour:null, createdBy:null },
         capabilities:{ create:true, update:false, delete:false } }, antiforgeryToken:'tab-token' });
 // The order form, then the lines, then whatever the save answers.
 const mountLines = saved => mount(async count => count === 1 ? Response.json(loaded()) : count === 2 ? Response.json(lines()) : saved(count), '?id=4&unrelated=ignored', orderFields + tabularBlock());
@@ -460,7 +515,7 @@ test('a tabular form inside a form waits for the record, then lists its rows wit
 });
 
 test('Add row starts from the new row and Save rows posts one create with every column, the token and a submission key', async () => {
-    const created = line('14', '1', { item:'Bolt', quantity:1 });
+    const created = line('14', 'row-checksum-1', { item:'Bolt', quantity:1 });
     const fixture = mountLines(() => Response.json(lines([widget, bolt, created])));
     try {
         const block = fixture.document.querySelector('[data-app-tabular]');
@@ -491,15 +546,15 @@ test('Add row starts from the new row and Save rows posts one create with every 
     } finally { fixture.dom.window.close(); }
 });
 
-test('editing one cell posts one update with only that column, the key and the version', async () => {
-    const fixture = mountLines(() => Response.json(lines([{ ...widget, version:'2', values:{ ...widget.values, quantity:3 } }, bolt])));
+test('editing one cell posts one update with only that column, the key and the checksum', async () => {
+    const fixture = mountLines(() => Response.json(lines([{ ...widget, checksum:'row-checksum-2', values:{ ...widget.values, quantity:3 } }, bolt])));
     try {
         const block = fixture.document.querySelector('[data-app-tabular]');
         await until(() => rowsOf(block).length === 2);
         cell(rowsOf(block)[0], 'quantity').value = '3';
         block.querySelector('[data-tabular-save]').click();
         await until(() => fixture.requests.length === 3);
-        assert.deepEqual(sentBody(fixture.requests[2]).changes, [{ operation:'update', key:'12', version:'1', values:{ quantity:'3' } }]);
+        assert.deepEqual(sentBody(fixture.requests[2]).changes, [{ operation:'update', key:'12', checksum:'row-checksum-1', values:{ quantity:'3' } }]);
         await until(() => block.querySelector('.app-tabular-message').textContent === 'Saved.');
         assert.equal(cell(rowsOf(block)[0], 'quantity').value, '3');
     } finally { fixture.dom.window.close(); }
@@ -529,7 +584,7 @@ test('a refused batch marks the failing row and cell, keeps the typed values and
     } finally { fixture.dom.window.close(); }
 });
 
-test('a row marked for deletion posts a delete with its key and version, and a new row marked so is dropped', async () => {
+test('a row marked for deletion posts a delete with its key and checksum, and a new row marked so is dropped', async () => {
     const fixture = mountLines(() => Response.json(lines([widget])));
     try {
         const block = fixture.document.querySelector('[data-app-tabular]');
@@ -545,7 +600,7 @@ test('a row marked for deletion posts a delete with its key and version, and a n
         [...added.querySelectorAll('button')].find(button => button.textContent === 'Delete').click();
         block.querySelector('[data-tabular-save]').click();
         await until(() => fixture.requests.length === 3);
-        assert.deepEqual(sentBody(fixture.requests[2]).changes, [{ operation:'delete', key:'13', version:'2' }]);
+        assert.deepEqual(sentBody(fixture.requests[2]).changes, [{ operation:'delete', key:'13', checksum:'row-checksum-2' }]);
         await until(() => rowsOf(block).length === 1);
     } finally { fixture.dom.window.close(); }
 });

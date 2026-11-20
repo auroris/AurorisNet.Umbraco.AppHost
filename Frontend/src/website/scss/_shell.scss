@@ -397,17 +397,6 @@ body.site {
   font-size: 0.9375rem;
 }
 
-.site-intro {
-  max-width: 46rem;
-  margin-bottom: 2rem;
-  font-size: 1.1875rem;
-  color: var(--site-muted);
-
-  > :last-child {
-    margin-bottom: 0;
-  }
-}
-
 .site-footer {
   padding-block: 1.5rem;
   background: var(--site-surface-alt);

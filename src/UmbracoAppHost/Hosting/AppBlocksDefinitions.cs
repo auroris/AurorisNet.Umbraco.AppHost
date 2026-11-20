@@ -32,10 +32,8 @@ public sealed class AppBlocksDefinitions(IEnumerable<AppBlocksSchema> schemas)
 }
 
 /// <summary>
-/// AppBlocks installs its definitions through Umbraco's tracked package migrations. A uSync import may run before those
-/// migrations, so before any import this ensures missing definitions exist, respecting Umbraco's schema migration setting.
-/// During an import it refuses a stale copy of a
-/// definition that a working folder still holds, which would otherwise replace AppBlocks' with whatever that file says.
+/// Ensures registered AppBlocks definitions exist before uSync imports content that uses them. During the import,
+/// a stale definition in the working folder is skipped so that it cannot overwrite the registered definition.
 /// </summary>
 public sealed class AppBlocksDefinitionImport(SchemaInstaller installer, AppBlocksDefinitions definitions, ILogger<AppBlocksDefinitionImport> logger)
     : INotificationAsyncHandler<uSyncImportStartingNotification>, INotificationAsyncHandler<uSyncImportingItemNotification>

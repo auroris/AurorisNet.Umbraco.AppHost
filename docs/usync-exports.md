@@ -56,8 +56,8 @@ Configure Public Access in each installation.
 
 The form, field, layout and content blocks, the Interactive Report block, and the data source,
 list and report definition types come from the `Schema/` folders of AppBlocks and its companions.
-They are in the **AppBlocks** folder of Document Types and Data Types. AppBlocks installs them
-through Umbraco's package migrations, and the host adds two rules around uSync:
+They are in the **AppBlocks** folder of Document Types and Data Types. AppHost registers the
+People picker with the same schema installer. Two rules apply to uSync imports.
 
 - Before any uSync import, `AppBlocksDefinitionImport` installs the definitions that are missing,
   so imported content finds its types on a first start. When that fails, the import stops. uSync
@@ -138,5 +138,6 @@ For an instance that a host runs from its own project, `refresh-definitions.ps1 
 <folder>` copies the same folders from the export in the host's build output. See
 [Bring an upstream change down](getting-started.md#bring-an-upstream-change-down).
 
-AppBlocks' own definitions reach an existing site through its package migrations, which run at
-startup unless `Umbraco:CMS:PackageMigration:RunSchemaAndContentMigrations` is `false`.
+AppBlocks installs missing definitions at startup when
+`Umbraco:CMS:PackageMigration:RunSchemaAndContentMigrations` is enabled. To reset installed
+definitions to the current schema, use **Settings → AppBlocks → Definitions → Reinstall**.
