@@ -16,7 +16,7 @@ test('custom views render with the running host’s installed Umbraco modules', 
         'AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/block-preview.js',
         'AurorisNet.Umbraco.AppBlocks/src/AppBlocks.InteractiveReports/wwwroot/App_Plugins/AppBlocks.InteractiveReports/block-preview.js',
         'AurorisNet.Umbraco.AppBlocks/src/AppBlocks.InteractiveReports/wwwroot/App_Plugins/AppBlocks.InteractiveReports/block-preview-entrypoint.js',
-        '4Wing/4WingResources/wwwroot/App_Plugins/4WingResources/block-preview.js',
+        '4Wing/4WingSiteIdentity/wwwroot/App_Plugins/4WingResources/block-preview.js',
         '4Wing/4WingDiagrams/wwwroot/App_Plugins/FourWing.Diagrams/block-preview.js',
         '4Wing/4WingTelephoneDirectory/wwwroot/App_Plugins/FourWing.TelephoneDirectory/block-preview.js',
         '4Wing/4WingFileRepository/wwwroot/App_Plugins/FourWing.FileRepository/block-preview.js',
@@ -34,8 +34,8 @@ test('custom views render with the running host’s installed Umbraco modules', 
         define: { 'import.meta.url': JSON.stringify(`${origin}/App_Plugins/ApplicationBlocks/block-preview.js`) },
         plugins: [{ name: 'installed-umbraco', setup(builder) {
             builder.onResolve({ filter: /^\.\.\/ApplicationBlocks\// }, args => ({ path: resolve(repos, 'AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins', args.path.substring(3)) }));
-            builder.onResolve({ filter: /^@umbraco-cms\// }, args => {
-                assert(imports[args.path], `Installed Umbraco does not export ${args.path}`);
+            builder.onResolve({ filter: /^@/ }, args => {
+                assert(imports[args.path], `The running host does not export ${args.path}`);
                 return { path: new URL(imports[args.path], origin).href, namespace: 'umbraco' };
             });
             builder.onResolve({ filter: /^\./, namespace: 'umbraco' }, args => ({ path: new URL(args.path, args.importer).href, namespace: 'umbraco' }));
@@ -51,15 +51,21 @@ test('custom views render with the running host’s installed Umbraco modules', 
     console.on('jsdomError', error => errors.push(error));
     const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: `${origin}/umbraco/`, runScripts: 'outside-only', pretendToBeVisual: true, virtualConsole: console });
     dom.window.ResizeObserver = class { observe() {} disconnect() {} unobserve() {} };
+    // Umbraco's router checks clicks for SVG links. JSDOM has no SVG anchor constructor.
+    dom.window.SVGAElement ??= class extends dom.window.SVGElement {};
     dom.window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
     dom.window.fetch = fetch;
     dom.window.eval(bundled.outputFiles[0].text);
+    const reportSchema = await readFile(resolve(repos, 'AurorisNet.Umbraco.AppBlocks/src/AppBlocks.InteractiveReports/Schema/ContentTypes/appreport.config'), 'utf8');
+    const reportKey = new JSDOM(reportSchema, { contentType: 'text/xml' }).window.document.documentElement.getAttribute('Key');
     const samples = [
         ['app-block-preview', 'appHtml', { html: '<style>h2{color:navy}</style><h2>Actual HTML</h2><script>bad()</script><img src=x onerror="bad()"><form><button>Submit</button></form>' }],
         ['app-block-preview', 'appColumns', {}, { split: '4/8' }],
+        ['app-block-preview', 'appFormRegion', { heading: 'The position' }, { collapsible: false }],
+        ['app-block-preview', 'appScript', { script: 'first();\nsecond();' }],
         ['app-block-preview', 'appText', { label: 'First name', placeholder: 'Enter name' }],
         ['app-report-preview', 'appReport', { heading: 'Orders', dataSource: 'orders' }],
-        ['app-block-preview', 'appFormsContainer', { forms: { layout: { 'Umbraco.BlockGrid': [{ contentKey: 'report', columnSpan: 12 }] }, contentData: [{ key: 'report', contentTypeKey: '067680b2-58b7-3fd9-a43d-d7e41f31ccde', values: [{ alias: 'heading', value: 'Nested orders' }, { alias: 'dataSource', value: 'orders' }] }] } }],
+        ['app-block-preview', 'appFormsContainer', { forms: { layout: { 'Umbraco.BlockGrid': [{ contentKey: 'report', columnSpan: 12 }] }, contentData: [{ key: 'report', contentTypeKey: reportKey, values: [{ alias: 'heading', value: 'Nested orders' }, { alias: 'dataSource', value: 'orders' }] }] } }],
         ['four-wing-block-preview', 'fourWingTabs', { items: { layout: { 'Umbraco.BlockList': [{ contentKey: 'a' }] }, contentData: [{ key: 'a', values: [{ alias: 'title', value: 'Section one' }, { alias: 'body', value: { markup: '<p>Actual tab content</p>' } }] }] } }],
         ['four-wing-diagram-preview', 'fourWingDiagram', {}],
         ['four-wing-telephone-preview', 'fourWingTelephoneDirectory', { view: 'positions', scope: 'unit', filter: 'Operations' }],
@@ -74,7 +80,11 @@ test('custom views render with the running host’s installed Umbraco modules', 
         await element.updateComplete;
         assert(element.shadowRoot.querySelector('umb-block-grid-areas-container'), alias);
         const frame = element.shadowRoot.querySelector('iframe');
-        if (alias === 'appColumns') {
+        if (alias === 'appScript') {
+            assert.equal(frame, null);
+            assert.match(element.shadowRoot.querySelector('umb-ufm-render').markdown, / · 2 lines$/);
+            assert.equal(element.shadowRoot.querySelector('umb-ref-grid-block').href, '/edit-block');
+        } else if (alias === 'appColumns') {
             assert.equal(frame, null);
             assert.match(element.shadowRoot.querySelector('.split').getAttribute('style'), /1fr 2fr/);
         } else {
@@ -83,6 +93,18 @@ test('custom views render with the running host’s installed Umbraco modules', 
             assert.equal(element.shadowRoot.querySelector('.edit-preview').getAttribute('href'), '/edit-block');
             const preview = new JSDOM(frame.srcdoc).window.document;
             assert.equal(preview.querySelector('script,form,[onerror]'), null, alias);
+            if (alias === 'appFormRegion') {
+                const toggle = element.shadowRoot.querySelector('button[aria-controls]');
+                const body = element.shadowRoot.getElementById(toggle.getAttribute('aria-controls'));
+                const areas = body.querySelector('umb-block-grid-areas-container');
+                for (const folded of [true, false]) {
+                    toggle.click(); await element.updateComplete;
+                    assert.equal(body.hidden, folded);
+                    assert.equal(toggle.getAttribute('aria-expanded'), String(!folded));
+                    assert.equal(body.querySelector('umb-block-grid-areas-container'), areas);
+                    assert.deepEqual(element.settings, { collapsible: false });
+                }
+            }
             if (alias === 'appHtml') {
                 assert.equal(preview.querySelector('h2').textContent, 'Actual HTML');
                 assert.match(preview.body.querySelector('style').textContent, /color:navy/);

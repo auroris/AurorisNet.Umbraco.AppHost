@@ -22,5 +22,5 @@
     "Website/PageHead": "<section class=\"site-hero\"><div class=\"site-container\"><p class=\"site-hero__kicker\">Demo site</p><h1 class=\"site-hero__title\">Welcome to the demo</h1></div></section>",
     "Website/Aside": ""
   },
-  "body": "<div class=\"site-intro\"><p>A short introduction to the site, shown beneath the hero.</p></div><p><a class=\"btn btn-primary\" href=\"#\">Open the backoffice</a></p><ul class=\"app-cards\"><li class=\"app-card\"><a href=\"#\"><span class=\"app-card-kind\">Page</span><span class=\"app-card-title\">Layouts</span></a></li><li class=\"app-card\"><a href=\"#\"><span class=\"app-card-kind\">Page</span><span class=\"app-card-title\">Content blocks</span></a></li></ul>"
+  "body": "<div class=\"ah-rich-text\"><p>A short introduction to the site, shown beneath the hero.</p></div>"
 }

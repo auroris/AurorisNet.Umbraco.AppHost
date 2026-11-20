@@ -18,8 +18,6 @@ namespace UmbracoAppHost.Tests;
 [Collection("Umbraco hosts")]
 public sealed class BlockLayoutsHttpTests
 {
-    private static readonly Guid[] ColumnLayouts = AppBlockSchema.ColumnLayoutAliases.Select(AppBlockSchema.Key).ToArray();
-
     [Fact]
     [ResetPublishedContentServices]
     public async Task Layout_blocks_publish_and_render_their_areas_in_both_shells()
@@ -36,7 +34,9 @@ public sealed class BlockLayoutsHttpTests
         Assert.NotNull(layouts);
         Assert.True(layouts.Published);
 
-        AssertLayoutsNeverNest(await services.GetRequiredService<IDataTypeService>().GetAsync(ApplicationStarter.Key("datatype:Application blocks")));
+        var dataTypes = services.GetRequiredService<IDataTypeService>();
+        AssertPicker(await dataTypes.GetAsync(ApplicationStarter.Key("datatype:Application blocks")), website: false);
+        AssertPicker(await dataTypes.GetAsync("Website: Page blocks"), website: true);
 
         // The same blocks beneath a website root render in the website shell.
 #pragma warning disable CS0618
@@ -211,41 +211,57 @@ public sealed class BlockLayoutsHttpTests
         Assert.Matches("<div class=\"ah-grid umb-block-grid__layout-container\" data-grid-columns=\"12\"", html);
     }
 
-    /// <summary>
-    /// Every area of a column layout, of a region and of a fieldset accepts content blocks, fieldsets and
-    /// regions but no column layout; the form's own areas take the layouts.
-    /// </summary>
-    private static void AssertLayoutsNeverNest(Umbraco.Cms.Core.Models.IDataType? dataType)
+    private static void AssertPicker(Umbraco.Cms.Core.Models.IDataType? dataType, bool website)
     {
         Assert.NotNull(dataType);
-        var configuration = JsonNode.Parse(JsonSerializer.Serialize(dataType.ConfigurationData))!;
-        var blocks = configuration["blocks"]!.AsArray().Select(b => b!).ToArray();
-        Guid Type(JsonNode block) => Guid.Parse(block["contentElementTypeKey"]!.GetValue<string>());
-        JsonNode Block(string alias) => blocks.Single(b => Type(b) == AppBlockSchema.Key(alias));
-        HashSet<Guid> Allowed(JsonNode area) => area["specifiedAllowance"]!.AsArray().SelectMany(rule =>
-            rule!["groupKey"]?.GetValue<string>() is { } group
-                ? blocks.Where(b => b["groupKey"]?.GetValue<string>() == group).Select(Type)
-                : [Guid.Parse(rule["elementTypeKey"]!.GetValue<string>())]).ToHashSet();
+        var config = JsonNode.Parse(JsonSerializer.Serialize(dataType.ConfigurationData))!;
+        var blocks = config["blocks"]!.AsArray().ToDictionary(b => b!["contentElementTypeKey"]!.GetValue<Guid>(), b => b!);
+        JsonArray Areas(string alias) => blocks[AppBlockSchema.Key(alias)]["areas"]!.AsArray();
+        // Umbraco uses the area's explicit list when present, or the grid-wide area flag otherwise.
+        HashSet<Guid> Allowed(JsonNode area) => blocks.Where(pair =>
+            area["specifiedAllowance"] is JsonArray { Count: > 0 } rules
+                ? rules.Any(rule => rule!["elementTypeKey"]?.GetValue<Guid>() == pair.Key
+                    || rule["groupKey"]?.GetValue<Guid>() is Guid group && pair.Value["groupKey"]?.GetValue<Guid>() == group)
+                : pair.Value["allowInAreas"]!.GetValue<bool>()).Select(pair => pair.Key).ToHashSet();
 
-        foreach (var alias in AppBlockSchema.LayoutAliases)
+        string[] pageLayouts = ["appFullWidth", "appColumns", "appThreeColumns", AppBlockSchema.RegionAlias];
+        string[] formLayouts = ["appFormFullWidth", "appFormColumns", "appFormThreeColumns", AppBlockSchema.FormRegionAlias];
+        string[] controls = [.. AppBlockSchema.FieldAliases, "appActions", "appFieldset", AppBlockSchema.AntiSpamAlias];
+        if (website) controls = [.. controls, "appPeoplePicker"];
+        foreach (var alias in controls.Concat(formLayouts))
         {
-            var block = Block(alias);
-            Assert.True(block["allowAtRoot"]!.GetValue<bool>());
-            Assert.True(block["allowInAreas"]!.GetValue<bool>());
+            var block = blocks[AppBlockSchema.Key(alias)];
+            Assert.False(block["allowAtRoot"]!.GetValue<bool>(), alias);
+            Assert.False(block["allowInAreas"]!.GetValue<bool>(), alias);
         }
-        var areas = new[] { "appFullWidth", "appColumns", "appThreeColumns", AppBlockSchema.RegionAlias, "appFieldset" }
-            .SelectMany(alias => Block(alias)["areas"]!.AsArray().Select(area => (alias, area: area!))).ToArray();
-        Assert.Equal(8, areas.Length);
-        foreach (var (alias, area) in areas)
+        Assert.True(blocks[AppBlockSchema.Key("appReport")]["allowAtRoot"]!.GetValue<bool>());
+        foreach (var alias in pageLayouts)
         {
-            var allowed = Allowed(area);
-            Assert.DoesNotContain(allowed, ColumnLayouts.Contains);
-            Assert.Contains(AppBlockSchema.Key(AppBlockSchema.RegionAlias), allowed);
-            Assert.Contains(AppBlockSchema.Key("appFieldset"), allowed);
-            Assert.All(AppBlockSchema.FieldAliases, field => Assert.Contains(AppBlockSchema.Key(field), allowed));
+            Assert.True(blocks[AppBlockSchema.Key(alias)]["allowAtRoot"]!.GetValue<bool>(), alias);
+            foreach (var area in Areas(alias))
+            {
+                var allowed = Allowed(area!);
+                Assert.Contains(AppBlockSchema.Key("appReport"), allowed);
+                Assert.Contains(AppBlockSchema.Key(AppBlockSchema.RegionAlias), allowed);
+                Assert.Contains(AppBlockSchema.Key(AppBlockSchema.RichTextAlias), allowed);
+                Assert.Contains(AppBlockSchema.Key(AppBlockSchema.AttachmentsAlias), allowed);
+                Assert.Equal(website, allowed.Contains(AppBlockSchema.Key("appForm")));
+                Assert.Equal(website, allowed.Contains(AppBlockSchema.Key("appColumns")));
+                Assert.DoesNotContain(controls.Concat(formLayouts), child => allowed.Contains(AppBlockSchema.Key(child)));
+            }
         }
-        // The form's fields area keeps no allowance list, so it takes every block allowed in areas: the layouts too.
-        Assert.Null(Block("appForm")["areas"]!.AsArray().Single(a => a!["alias"]!.GetValue<string>() == "fields")!["specifiedAllowance"]);
+
+        foreach (var parent in formLayouts.Concat(["appFieldset", "appForm"]))
+        foreach (var area in Areas(parent))
+        {
+            var allowed = Allowed(area!);
+            foreach (var column in formLayouts.Take(3))
+                Assert.Equal(website || parent == "appForm", allowed.Contains(AppBlockSchema.Key(column)));
+            Assert.All(controls, alias => Assert.Contains(AppBlockSchema.Key(alias), allowed));
+            Assert.Contains(AppBlockSchema.Key(AppBlockSchema.RichTextAlias), allowed);
+            Assert.Contains(AppBlockSchema.Key(AppBlockSchema.FormRegionAlias), allowed);
+            Assert.DoesNotContain(pageLayouts.Concat(["appForm", "appReport"]), alias => allowed.Contains(AppBlockSchema.Key(alias)));
+        }
     }
 
     private static string LayoutsContent()

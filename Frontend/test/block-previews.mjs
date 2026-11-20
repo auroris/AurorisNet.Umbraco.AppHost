@@ -9,11 +9,16 @@ import { appBlockTypes } from '../../../AurorisNet.Umbraco.AppBlocks/src/AppBloc
 
 const repos = resolve(fileURLToPath(new URL('../../../', import.meta.url)));
 // These pure layouts already have the required preview: Umbraco's own card and editable areas.
-const nativeLayouts = new Set(['appFullWidth', 'appThreeColumns', 'blockTwoColumn1', 'blockTwoColumn2', 'blockTwoColumn3']);
+const nativeLayouts = new Set(['appFullWidth', 'appThreeColumns', 'appFormFullWidth', 'appFormThreeColumns', 'blockTwoColumn1', 'blockTwoColumn2', 'blockTwoColumn3']);
+// Form rules and their conditions use labels in Umbraco's native Block List editor.
+const ruleLabels = new Map([
+    ['appFieldRule', '{=action} {=field}'],
+    ['appFieldCondition', '{=field} {=comparison} {=otherField} {=literal}'],
+]);
 const owners = [
     ['AurorisNet.Umbraco.AppBlocks/src/AppBlocks', 'Schema'], ['AurorisNet.Umbraco.AppBlocks/src/AppBlocks.InteractiveReports', 'Schema'],
-    ['AurorisNet.Umbraco.AppBlocks/src/AppBlocks.Documents', 'Schema'], ['AurorisNet.Umbraco.AppHost/src/UmbracoAppHost', 'uSync'],
-    ...['4WingResources', '4WingDiagrams', '4WingTelephoneDirectory', '4WingFileRepository', '4WingActivityScheduler', '4WingAerodromeStatus'].map(name => [`4Wing/${name}`, 'Schema']),
+    ['AurorisNet.Umbraco.AppBlocks/src/AppBlocks.Documents', 'Schema'], ['AurorisNet.Umbraco.AppHost/src/UmbracoAppHost', 'uSync', 'Schema'],
+    ...['4WingSiteIdentity', '4WingDiagrams', '4WingTelephoneDirectory', '4WingFileRepository', '4WingActivityScheduler', '4WingAerodromeStatus'].map(name => [`4Wing/${name}`, 'Schema']),
 ];
 async function files(directory, suffix) {
     let entries;
@@ -28,7 +33,7 @@ test('every owned element offered by the block editors has a preview in its owni
     const configs = [];
     const previewAliases = new Set();
     const previewScopes = new Set();
-    for (const [project, schema] of owners) {
+    for (const [project, ...schemas] of owners) {
         const manifests = await files(resolve(repos, project, 'wwwroot/App_Plugins'), 'umbraco-package.json');
         const aliases = new Set();
         for (const path of manifests) {
@@ -42,7 +47,7 @@ test('every owned element offered by the block editors has a preview in its owni
                 await readFile(resolve(repos, project, 'wwwroot', ext.element.replace(/^\//, '')));
             }
         }
-        for (const path of await files(resolve(repos, project, schema), '.config')) {
+        for (const path of (await Promise.all(schemas.map(schema => files(resolve(repos, project, schema), '.config')))).flat()) {
             const doc = new JSDOM(await readFile(path, 'utf8'), { contentType: 'text/xml' }).window.document;
             const type = doc.querySelector('ContentType');
             if (type) {
@@ -51,26 +56,35 @@ test('every owned element offered by the block editors has a preview in its owni
                 const nestedType = appBlockTypes.find(item => item.alias === alias);
                 if (nestedType) assert.equal(nestedType.key, type.getAttribute('Key'), `Nested preview identity differs: ${alias}`);
                 if (doc.querySelector('Info > IsElement')?.textContent === 'true' && !['appColumnsSettings', 'appRegionSettings', 'fourWingMediaPresentation'].includes(alias)) {
-                    assert(aliases.has(alias) || nativeLayouts.has(alias) || razorAliases.has(alias), `${project} does not preview ${alias}`);
+                    assert(aliases.has(alias) || nativeLayouts.has(alias) || ruleLabels.has(alias) || razorAliases.has(alias), `${project} does not preview ${alias}`);
                 }
             }
             const config = doc.querySelector('DataType > Config')?.textContent;
-            if (config) { try { configs.push(JSON.parse(config)); } catch {} }
+            if (config) configs.push({ editor: doc.querySelector('DataType > Info > EditorAlias').textContent, blocks: JSON.parse(config).blocks ?? [] });
         }
     }
-    for (const config of configs) for (const block of config.blocks ?? []) {
+    const checkedRules = new Set();
+    for (const { editor, blocks } of configs) for (const block of blocks) {
         const alias = allTypes.get(block.contentElementTypeKey);
         assert(alias, `Unknown configured type ${block.contentElementTypeKey}`);
-        assert(previewAliases.has(alias) || nativeLayouts.has(alias) || razorAliases.has(alias), `Configured block has no preview: ${alias}`);
+        if (ruleLabels.has(alias)) {
+            assert.equal(editor, 'Umbraco.BlockList', alias);
+            assert.equal(block.label, ruleLabels.get(alias), alias);
+            checkedRules.add(alias);
+        } else {
+            assert(previewAliases.has(alias) || nativeLayouts.has(alias) || razorAliases.has(alias), `Configured block has no preview: ${alias}`);
+        }
         if (nativeLayouts.has(alias)) assert(block.areas?.length > 0, `Native layout has no configured areas: ${alias}`);
     }
+    assert.deepEqual(checkedRules, new Set(ruleLabels.keys()));
 });
 
-test('every AppBlocks type renders an intentional representation, including nested forms', () => {
+test('AppBlocks renders its custom previews, including nested forms', () => {
     for (const { alias } of appBlockTypes) {
+        if (ruleLabels.has(alias)) continue;
         const result = renderAppBlock(alias, {}, {}, () => '<p>Nested form content</p>');
         assert(!result.includes('Preview unavailable'), alias);
-        if (!['appFullWidth', 'appColumns', 'appThreeColumns', 'appRegion', 'appFieldset'].includes(alias)) assert(result.length > 0, alias);
+        if (!nativeLayouts.has(alias) && !['appColumns', 'appFormColumns', 'appRegion', 'appFormRegion', 'appFieldset'].includes(alias)) assert(result.length > 0, alias);
     }
     assert.match(renderAppBlock('appFormsContainer', {}, {}, () => '<p>Nested form content</p>'), /Nested form content/);
 });
@@ -99,5 +113,15 @@ test('code and interactive previews do not execute page code or submit forms', (
         const doc = new JSDOM(renderAppBlock(alias, { script: '<script>bad()</script>', css: '</style><script>bad()</script>' })).window.document;
         assert.equal(doc.querySelector('script,form,iframe'), null, alias);
         for (const button of doc.querySelectorAll('button')) assert(button.disabled, alias);
+    }
+});
+
+test('source previews count logical lines and leave source in the block editor', () => {
+    for (const [alias, property, name] of [['appCss', 'css', 'CSS'], ['appScript', 'script', 'JavaScript']]) {
+        for (const [source, count] of [['', '0 lines'], ['secret();\n', '1 line'], ['one\r\n\r\ntwo', '3 lines']]) {
+            const doc = new JSDOM(renderAppBlock(alias, { [property]: source })).window.document;
+            assert.equal(doc.body.textContent, `${name} · ${count}`);
+            assert.equal(doc.querySelector('pre,code,script,style'), null);
+        }
     }
 });

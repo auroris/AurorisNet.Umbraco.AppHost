@@ -159,12 +159,13 @@ public sealed class DefinitionOwnershipTests
         public Installed()
         {
             // The export comes second, as its import does: what the host keeps replaces the schema's.
-            foreach (var type in SchemaDefinitions("ContentTypes").Concat(ExportDefinitions("ContentTypes").Select(item => item.Definition)))
+            var appHost = new AppBlocksSchema(typeof(UmbracoAppHost.PeoplePicker.PeoplePickerBlock).Assembly);
+            foreach (var type in SchemaDefinitions("ContentTypes").Concat(appHost.Definitions("ContentTypes")).Concat(ExportDefinitions("ContentTypes").Select(item => item.Definition)))
             {
                 Types[Alias(type)] = type;
                 TypesByKey[Key(type)] = type;
             }
-            foreach (var dataType in SchemaDefinitions("DataTypes").Concat(ExportDefinitions("DataTypes").Select(item => item.Definition)))
+            foreach (var dataType in SchemaDefinitions("DataTypes").Concat(appHost.Definitions("DataTypes")).Concat(ExportDefinitions("DataTypes").Select(item => item.Definition)))
                 DataTypes[Key(dataType)] = dataType;
         }
 
