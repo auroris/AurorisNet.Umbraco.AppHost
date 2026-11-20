@@ -10,7 +10,7 @@
   "razor": {
     "Model.GetCultureFromDomains()": "en",
     "Model.PageTitle()": "Welcome to the demo",
-    "Model.WriterName()": "Local Development",
+    "Model.WriterName(UserService)": "Local Development",
     "pageUpdateDate.ToString(\"s\")": "2026-10-31T09:00:00",
     "site.NavigationTitle()": "Demo site",
     "pageUpdateDate.ToString(\"yyyy-MM-dd\")": "2026-10-31",

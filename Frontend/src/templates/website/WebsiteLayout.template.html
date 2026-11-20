@@ -10,6 +10,7 @@
 --------------------------------------------------------------------------- }}
 {{# razor }}@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
 @using AppBlocks.Publishing
+@inject Umbraco.Cms.Core.Services.IUserService UserService
 @{
     Layout = null;
 
@@ -44,7 +45,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#252f7c" />
-    <meta name="dcterms.creator" content="{{ razor 'Model.WriterName()' }}" />
+    <meta name="dcterms.creator" content="{{ razor 'Model.WriterName(UserService)' }}" />
     <meta name="dcterms.modified" content="{{ razor 'pageUpdateDate.ToString("s")' }}" />
     <title>{{ razor 'Model.PageTitle()' }}</title>
     {{ styles }}

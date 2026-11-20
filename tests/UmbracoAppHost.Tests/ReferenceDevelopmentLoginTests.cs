@@ -198,7 +198,7 @@ public sealed class ReferenceDevelopmentLoginTests
         {
             await app.UseUmbracoAppHostAsync();
             await app.StartAsync();
-            await UmbracoTestSupport.WaitForInstallAsync(app.Services);
+            await UmbracoTestSupport.WaitForInstallAsync(app.Services, TimeSpan.FromMinutes(3));
             return app;
         }
         catch { await app.DisposeAsync(); throw; }
