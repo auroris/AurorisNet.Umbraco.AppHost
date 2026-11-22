@@ -85,7 +85,7 @@ public sealed class AdminPasswordTests
             {
                 using var response = await client.PostAsJsonAsync("/umbraco/management/api/v1/security/back-office/login", new { username = "admin", password = ChangedPassword }, cancellationToken: TestContext.Current.CancellationToken);
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-                Assert.Contains(response.Headers.GetValues("Set-Cookie"), cookie => cookie.StartsWith("UMB_UCONTEXT="));
+                Assert.True(response.SetsBackOfficeLoginCookie(app.Services));
             }
             Assert.False(await AcceptsPassword(app, FirstPassword));
             Assert.False(await AcceptsPassword(app, ChangedPassword.Trim()));

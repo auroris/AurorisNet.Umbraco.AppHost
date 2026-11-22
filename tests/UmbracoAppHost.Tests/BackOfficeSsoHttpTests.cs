@@ -154,7 +154,7 @@ public sealed class BackOfficeSsoHttpTests
 
             using var login = await browser.PostAsJsonAsync(Api + "/login", new { username = "admin", password = Password }, cancellationToken: TestContext.Current.CancellationToken);
             Assert.True(login.IsSuccessStatusCode, await login.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
-            Assert.Contains(login.Headers.GetValues("Set-Cookie"), cookie => cookie.StartsWith("UMB_UCONTEXT=", StringComparison.Ordinal));
+            Assert.True(login.SetsBackOfficeLoginCookie(site.Services));
             await CompleteAuthorization(browser, continuation, callback, verifier);
             Assert.Equal(1, metadata.Calls);
         }
@@ -173,8 +173,7 @@ public sealed class BackOfficeSsoHttpTests
             using var login = await browser.PostAsJsonAsync(Api + "/login", new { username = "admin", password = Password }, cancellationToken: TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.PaymentRequired, login.StatusCode);
             Assert.Contains(TestTwoFactorProvider.Name, await login.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
-            Assert.False(login.Headers.TryGetValues("Set-Cookie", out var cookies)
-                && cookies.Any(cookie => cookie.StartsWith("UMB_UCONTEXT=", StringComparison.Ordinal)));
+            Assert.False(login.SetsBackOfficeLoginCookie(site.Services));
             Assert.Equal(2, metadata.Calls);
 
             using var verify = await browser.PostAsJsonAsync(Api + "/verify-2fa", new

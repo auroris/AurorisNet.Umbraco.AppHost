@@ -15,6 +15,9 @@ Each package's README lists every setting and describes its behavior. The defaul
 from `src/UmbracoAppHost/Hosting/defaults.json` and replace the packages' own. Restart the site
 after changing a `BackOfficeLogin`, `IdentityServer` or `EmbeddedIdentityServer` setting.
 
+Each installation has its own sign-in cookies. For sites sharing a hostname, see
+[Running several installations on one hostname](hosting-under-a-sub-path.md#running-several-installations-on-one-hostname).
+
 ## The built-in administrator
 
 Local backoffice sign-in uses a username. The host sets `Umbraco:CMS:Security:UsernameIsEmail`

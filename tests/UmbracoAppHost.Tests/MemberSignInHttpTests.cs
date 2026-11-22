@@ -2,18 +2,23 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.Net.Http.Headers;
 using Umbraco.Cms.Core;
 using Umbraco.Extensions;
 using UmbracoAppHost.Authentication;
+using UmbracoAppHost.Hosting;
 using IdentityServer.Sso;
 
 namespace UmbracoAppHost.Tests;
@@ -127,6 +132,12 @@ public sealed class MemberSignInHttpTests
         var signedIn = await browser.PostAsync(login.Action, new FormUrlEncodedContent(login.Fields), TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.Redirect, signedIn.StatusCode);
         Assert.Equal(destination, signedIn.Headers.Location!.OriginalString);
+        var memberCookieName = site.Services.GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>()
+            .Get(IdentityConstants.ApplicationScheme).Cookie.Name;
+        Assert.EndsWith(site.Services.GetRequiredService<InstallationCookies>().Suffix, memberCookieName);
+        var memberCookie = Assert.Single(signedIn.Headers.GetValues(HeaderNames.SetCookie).Select(value => SetCookieHeaderValue.Parse(value)),
+            cookie => cookie.Name == memberCookieName && cookie.Value.Length > 0);
+        Assert.Equal(prefix, memberCookie.Path.ToString());
         Assert.Contains("data-app-form", await Page(browser, destination));
     }
 

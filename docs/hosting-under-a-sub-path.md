@@ -19,6 +19,31 @@ Put it in the site's `app/appsettings.json` or `instance.json`. Umbraco removes 
 incoming addresses before it routes content and adds it to the links it generates. The site and
 its backoffice then answer at `/portal/` and `/portal/umbraco`.
 
+## Running several installations on one hostname
+
+AppHost gives each installation its own cookie names and backoffice tab messages. For example,
+an editor can sign in to both `/wing/umbraco` and `/doa/umbraco` in one browser. Signing out of
+`/wing` signs out its other backoffice tabs while the `/doa` session stays active.
+
+The suffix combines a cookie-safe version of `Umbraco:CMS:Hosting:SiteName` with 12 hex
+characters derived from `Umbraco:CMS:Global:Id`, for example
+`__Host-umbRefreshToken-wing-a1b2c3d4e5f6`. The application name supplies the label when
+`SiteName` is empty. New sites created by `new-site.ps1` use their `-Name` as the label.
+AppHost persists the installation ID in `instance.json`. Keep it across updates and replicas
+of the same site, and give independently cloned sites their own installation IDs.
+Hosts using the lower-level `IUmbracoBuilder` entry point supply their own `Global:Id`.
+If they omit it, the suffix uses the physical and virtual paths and can change when the app moves.
+
+Cookie paths are case-sensitive. A bookmark such as `/WING/orders` redirects to
+`/wing/orders` when the configured prefix is `/wing`. The redirect preserves the request
+method and query string so forms and sign-in callbacks reach the same session.
+
+Users sign in again after the first deployment with these names, or after changing the site
+name or installation ID. Older sites on the hostname can continue using their existing cookies
+during rollout. HTTPS cookies with the `__Host-` prefix must use `Path=/`, so the browser sends
+them to every path on that hostname. Their size still counts toward request-header limits when
+a user signs in to many sites at once.
+
 ## What applies the prefix
 
 Umbraco builds many backoffice, sign-in and asset addresses from the host's root. The
@@ -46,6 +71,7 @@ check that the new release is in that range, and raise the package with it when 
 
 ## Testing under a prefix
 
-`TestSiteOptions.VirtualPath` boots a test site under a prefix, and the clients it hands out use
-it; see [Test a host](getting-started.md#test-a-host). The browser tests of the sign-in and the
-backoffice under a prefix belong to the fix package's repository.
+`TestSiteOptions.VirtualPath` boots a test site under a prefix, and its clients use that prefix.
+See [Test a host](getting-started.md#test-a-host). The fix package's repository covers the
+backoffice under a prefix. AppHost's [two-site browser test](../tests/ui/site-cookie-isolation.browser.test.mjs)
+checks sign-in, token refresh, logout and restart with two installations on one HTTPS origin.

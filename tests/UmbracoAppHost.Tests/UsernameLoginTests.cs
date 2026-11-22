@@ -100,7 +100,7 @@ public sealed class UsernameLoginTests
             Assert.Equal(HttpStatusCode.Unauthorized, wrongPassword.StatusCode);
             using var usernameLogin = await client.PostAsJsonAsync(loginUrl, new { username, password }, cancellationToken: TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.OK, usernameLogin.StatusCode);
-            Assert.Contains(usernameLogin.Headers.GetValues("Set-Cookie"), cookie => cookie.StartsWith("UMB_UCONTEXT="));
+            Assert.True(usernameLogin.SetsBackOfficeLoginCookie(app.Services));
         }
         finally { await app.StopAsync(TestContext.Current.CancellationToken); }
     }

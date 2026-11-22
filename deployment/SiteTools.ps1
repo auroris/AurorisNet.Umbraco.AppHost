@@ -277,7 +277,7 @@ function New-InstanceSettings([string] $Root, [string] $Name) {
         Umbraco = @{ CMS = @{
             Global = @{ Id = [guid]::NewGuid().ToString() }
             Imaging = @{ HMACSecretKey = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(64)) }
-            Hosting = @{ Debug = $false }
+            Hosting = @{ Debug = $false; SiteName = $Name }
             Unattended = @{
                 InstallUnattended = $true; UpgradeUnattended = $true; UnattendedTelemetryLevel = 'Minimal'
                 UnattendedUserName = 'Administrator'; UnattendedUserEmail = "admin@$($Name.ToLowerInvariant()).local"

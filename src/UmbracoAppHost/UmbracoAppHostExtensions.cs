@@ -9,10 +9,12 @@ using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Cms.Core.Configuration.Models;
 using Umbraco.Cms.Core.Security;
 using Umbraco.Cms.Web.Common.ApplicationBuilder;
+using Umbraco.Cms.Web.Common.Hosting;
 using UmbracoAppHost.Authentication;
 using IdentityServer.Sso;
 using DirectoryAccounts;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.FileProviders;
 using AppBlocks.InteractiveReports.Reports;
 using UmbracoAppHost.Reports;
 using AppBlocks.Blocks;
@@ -97,6 +99,9 @@ public static class UmbracoAppHostExtensions
     {
         SharedViews.Configure(builder.Services);
         BlockPreviews.Configure(builder.Services);
+        builder.Services.AddSingleton<BackOfficeAuthFiles>();
+        Decorate<IBackOfficePathGenerator>(builder.Services, (paths, services) =>
+            new InstallationBackOfficePaths(paths, services.GetRequiredService<BackOfficeAuthFiles>()));
         // Umbraco initializes publication state before uSync imports, so installation needs a
         // default language. Further languages and their settings come from the saved export.
         builder.Services.Configure<InstallDefaultDataSettings>(Umbraco.Cms.Core.Constants.Configuration.NamedOptions.InstallDefaultData.Languages,
@@ -167,6 +172,7 @@ public static class UmbracoAppHostExtensions
         builder.AddNotificationAsyncHandler<RoutingRequestNotification, UmbracoAppHost.Website.WebsiteTemplateInheritance>();
         AddCultureFallback(builder);
 
+        InstallationCookies.Configure(builder.Services);
         // Use separate usernames for local login, including hosts using the IUmbracoBuilder entry point.
         builder.Services.Configure<SecuritySettings>(security =>
             security.UsernameIsEmail = configuration.GetValue("Umbraco:CMS:Security:UsernameIsEmail", false));
@@ -260,6 +266,10 @@ public static class UmbracoAppHostExtensions
                 instance.Root, instance.SettingsPath);
         await app.BootUmbracoAsync();
 
+        var cookies = app.Services.GetRequiredService<InstallationCookies>();
+        app.Environment.WebRootFileProvider = new CompositeFileProvider(
+            app.Services.GetRequiredService<BackOfficeAuthFiles>(), app.Environment.WebRootFileProvider);
+        app.Use(cookies.Apply);
         app.UseUmbraco()
             .WithMiddleware(u =>
             {

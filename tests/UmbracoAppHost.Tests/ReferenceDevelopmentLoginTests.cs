@@ -106,7 +106,7 @@ public sealed class ReferenceDevelopmentLoginTests
                     var loginStarted = DateTime.UtcNow;
                     using var login = await browser.PostAsJsonAsync(Api + "/login", new { username = "admin", password = OtherPassword }, cancellationToken: TestContext.Current.CancellationToken);
                     Assert.True(login.IsSuccessStatusCode, await login.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
-                    Assert.Contains(login.Headers.GetValues("Set-Cookie"), cookie => cookie.StartsWith("UMB_UCONTEXT="));
+                    Assert.True(login.SetsBackOfficeLoginCookie(app.Services));
                     await CompleteAuthorization(browser);
                     var unlocked = await AccountState(app);
                     Assert.False(unlocked.Locked);
@@ -222,8 +222,7 @@ public sealed class ReferenceDevelopmentLoginTests
         using var browser = Browser(app);
         using var response = await browser.PostAsJsonAsync(Api + "/login", new { username, password });
         Assert.Contains(response.StatusCode, new[] { HttpStatusCode.BadRequest, HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden });
-        Assert.False(response.Headers.TryGetValues("Set-Cookie", out var cookies)
-            && cookies.Any(cookie => cookie.StartsWith("UMB_UCONTEXT=")));
+        Assert.False(response.SetsBackOfficeLoginCookie(app.Services));
     }
 
     private static async Task AssertNativeSecurity(WebApplication app)
@@ -248,8 +247,7 @@ public sealed class ReferenceDevelopmentLoginTests
         {
             Assert.Equal(HttpStatusCode.PaymentRequired, login.StatusCode);
             Assert.Contains(TestTwoFactorProvider.Name, await login.Content.ReadAsStringAsync());
-            Assert.False(login.Headers.TryGetValues("Set-Cookie", out var cookies)
-                && cookies.Any(cookie => cookie.StartsWith("UMB_UCONTEXT=")));
+            Assert.False(login.SetsBackOfficeLoginCookie(app.Services));
         }
         using var verification = await browser.PostAsJsonAsync(Api + "/verify-2fa", new
         {
