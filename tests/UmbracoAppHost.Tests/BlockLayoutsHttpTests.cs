@@ -226,7 +226,7 @@ public sealed class BlockLayoutsHttpTests
 
         string[] pageLayouts = ["appFullWidth", "appColumns", "appThreeColumns", AppBlockSchema.RegionAlias];
         string[] formLayouts = ["appFormFullWidth", "appFormColumns", "appFormThreeColumns", AppBlockSchema.FormRegionAlias];
-        string[] controls = [.. AppBlockSchema.FieldAliases, "appActions", "appFieldset", AppBlockSchema.AntiSpamAlias];
+        string[] controls = [.. AppBlockSchema.FieldAliases, "appActions", "appFieldset", "appUmbracoAccountPicker", AppBlockSchema.AntiSpamAlias];
         if (website) controls = [.. controls, "appPeoplePicker"];
         foreach (var alias in controls.Concat(formLayouts))
         {

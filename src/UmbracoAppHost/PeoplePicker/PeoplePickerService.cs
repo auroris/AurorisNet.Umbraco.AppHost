@@ -1,5 +1,5 @@
+using AppBlocks.AccountPickers;
 using System.Text.Json;
-using AppBlocks.Blocks;
 using AppBlocks.DataSources;
 using AppBlocks.Forms;
 using IdentityServer.Directory;
@@ -43,14 +43,13 @@ public sealed class PeoplePickerCache(TimeProvider clock) : IDisposable
 
 /// <summary>Resolves canonical people within one published block's scope and rechecks changed SIDs before persistence.</summary>
 public sealed class PeoplePickerService(IPeoplePickerDirectory directory, PeoplePickerCache cache,
-    IDataSourceUserResolver users, IEnumerable<IPeoplePickerSelectionObserver> observers) : IFormSubmissionProcessor
+    IDataSourceUserResolver users, IEnumerable<IPeoplePickerSelectionObserver> observers) : IAccountPickerProvider, IFormSubmissionProcessor
 {
     private readonly HashSet<(Guid Form, string Field, string Sid)> validated = [];
     public bool WasValidated(Guid form, string field, string sid) => validated.Contains((form, field, sid));
 
     public static bool Permits(PeoplePickerSettings settings, DataSourceUser? user) =>
-        settings.AllowedMemberGroups.Length + settings.AllowedUserGroups.Length == 0
-        || user is not null && (settings.AllowedMemberGroups.Any(user.IsInMemberGroup) || settings.AllowedUserGroups.Any(user.IsInUserGroup));
+        settings.Permits(user);
 
     public async Task<(IReadOnlyList<DirectoryUser> People, bool Cached)> SearchAsync(PeoplePickerDefinition picker, string? query, CancellationToken ct)
     {
@@ -89,72 +88,48 @@ public sealed class PeoplePickerService(IPeoplePickerDirectory directory, People
         }
     }
 
+    private static PeoplePickerDefinition DirectoryPicker(AccountPickerDefinition picker) =>
+        new(picker.PageKey, picker.BlockKey, (PeoplePickerSettings)picker.Settings);
+
+    // Existing callers can still use the AD-only form API. Stock forms run all picker providers together.
     public static IReadOnlyList<PeoplePickerDefinition> Definitions(FormDefinition form)
     {
-        var pickers = AppBlockContent.Flatten(form.Block.Areas.SelectMany(area => area))
-            .Where(block => block.Content.ContentType.Alias == PeoplePickerBlock.AliasName)
-            .Select(block => new PeoplePickerDefinition(form.Page.Key, block.ContentKey, PeoplePickerSettings.Read(block.Content))).ToArray();
-        var owned = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var picker in pickers) {
-            foreach (var field in new[] { picker.Settings.IdentityField, picker.Settings.NameField }.Concat(picker.Settings.FieldMappings.Values)) {
-                var binding = form.Fields.FirstOrDefault(f => f.Content.Value<string>("field") == field);
-                if (!owned.Add(field) || binding is null || binding.Content.ContentType.Alias != "appText" || binding.Content.Value<bool>("readOnly")
-                    || !form.Resource.Fields.Any(f => f.Key == field && f.Kind == "text" && !f.ReadOnly))
-                    throw new DirectoryQueryException("Each people picker must bind its own writable text fields in the containing form.");
-            }
-            foreach (var field in picker.Settings.FallbackFields.Values)
-                if (!owned.Add(field) || !form.Fields.Any(f => f.Content.Value<string>("field") == field)
-                    || !form.Resource.Fields.Any(f => f.Key == field && f.Kind == "text" && f.ReadOnly))
-                    throw new DirectoryQueryException("A directory-value mirror must be a separate read-only text field in the containing form.");
-        }
-        return pickers;
+        try { return AccountPickerForm.Definitions(form, [new PeoplePickerBlock()]).Select(DirectoryPicker).ToArray(); }
+        catch (AccountPickerException error) { throw new DirectoryQueryException(error.Message); }
     }
 
-    public async Task<FormSubmissionValues> ProcessAsync(FormDefinition form, JsonElement values, FormRecord? stored, FormExecutionContext context, CancellationToken ct)
+    public Task<FormSubmissionValues> ProcessAsync(FormDefinition form, JsonElement values, FormRecord? stored, FormExecutionContext context, CancellationToken ct) =>
+        new AccountPickerForm([new PeoplePickerBlock()], users, _ => this).ProcessAsync(form, values, stored, context, ct);
+
+    private static AccountPickerItem Project(DirectoryUser person, PeoplePickerSettings settings) =>
+        new(person.Sid, person.DisplayName,
+            settings.ReturnedAttributes.Contains("mail", StringComparer.OrdinalIgnoreCase) ? person.Email : null,
+            settings.ReturnedAttributes.ToDictionary(name => name, name => PeoplePickerSettings.Attribute(person, name), StringComparer.OrdinalIgnoreCase));
+
+    Task<AccountPickerSearch> IAccountPickerProvider.SearchAsync(AccountPickerDefinition definition, string? query, CancellationToken ct)
+        => WithDirectoryAsync<AccountPickerSearch>(async () => {
+            var picker = DirectoryPicker(definition);
+            var (people, cached) = await SearchAsync(picker, query, ct);
+            return new(people.Select(person => Project(person, picker.Settings)).ToArray(), cached);
+        });
+
+    Task<AccountPickerSelection?> IAccountPickerProvider.ResolveAsync(AccountPickerDefinition definition, string key,
+        FormExecutionContext? submission, CancellationToken ct)
+        => WithDirectoryAsync<AccountPickerSelection?>(async () => {
+            var picker = DirectoryPicker(definition);
+            if (await SelectAsync(picker, key, ct) is not { } selected) return null;
+            if (submission is not null)
+            {
+                foreach (var observer in observers) await observer.SelectedAsync(submission, picker, selected, ct);
+                validated.Add((submission.FormKey, picker.Settings.IdentityField, selected.Person.Sid));
+            }
+            return new(Project(selected.Person, picker.Settings), selected.Cached);
+        });
+
+    private static async Task<T> WithDirectoryAsync<T>(Func<Task<T>> lookup)
     {
-        IReadOnlyList<PeoplePickerDefinition> pickers;
-        try { pickers = Definitions(form); }
-        catch (DirectoryQueryException error) { return new(values, FormResult.Invalid("", error.Message)); }
-        if (pickers.Count == 0) return new(values);
-        var result = values.EnumerateObject().ToDictionary(p => p.Name, p => (object?)p.Value.Clone(), StringComparer.Ordinal);
-        foreach (var picker in pickers) {
-            var settings = picker.Settings;
-            if (!Permits(settings, await users.ResolveAsync(context, ct))) return new(values, FormResult.Denied());
-            var sid = Text(result.GetValueOrDefault(settings.IdentityField))?.Trim();
-            var previous = stored is null ? null : Text(stored.Values.GetValueOrDefault(settings.IdentityField))?.Trim();
-            if (string.IsNullOrEmpty(sid)) {
-                if (!settings.AllowManualEntry) return new(values, FormResult.Invalid(settings.IdentityField, "Choose a person from the directory."));
-                result[settings.IdentityField] = null;
-                foreach (var field in settings.CompactUpperFields) result[field] = settings.Normalize(field, Text(result.GetValueOrDefault(field)));
-                continue;
-            }
-            // A saved identity remains valid for unrelated edits during an outage. Its directory-owned fields cannot be forged.
-            if (sid == previous) {
-                result[settings.NameField] = stored!.Values.GetValueOrDefault(settings.NameField);
-                foreach (var field in settings.FieldMappings.Values)
-                    if (!settings.FallbackFields.TryGetValue(field, out var mirror) || !string.IsNullOrEmpty(Text(stored.Values.GetValueOrDefault(mirror))))
-                        result[field] = stored.Values.GetValueOrDefault(field);
-                foreach (var field in settings.CompactUpperFields) result[field] = settings.Normalize(field, Text(result.GetValueOrDefault(field)));
-                continue;
-            }
-            PeoplePickerResult? selected;
-            try { selected = await SelectAsync(picker, sid, ct); }
-            catch (Exception error) when (error is DirectoryQueryException or DirectoryUnavailableException) {
-                return new(values, FormResult.Invalid(settings.IdentityField, "The directory selection could not be validated. Try again when the directory is available."));
-            }
-            if (selected is null) return new(values, FormResult.Invalid(settings.IdentityField, "This person is no longer available in this picker's directory scope."));
-            result[settings.IdentityField] = selected.Person.Sid;
-            result[settings.NameField] = selected.Person.DisplayName;
-            foreach (var (attribute, field) in settings.FieldMappings) {
-                var value = PeoplePickerSettings.Attribute(selected.Person, attribute);
-                result[field] = settings.Normalize(field, !string.IsNullOrWhiteSpace(value) ? value
-                    : settings.FallbackFields.ContainsKey(field) ? Text(result.GetValueOrDefault(field)) : null);
-            }
-            foreach (var observer in observers) await observer.SelectedAsync(context, picker, selected, ct);
-            validated.Add((context.FormKey, settings.IdentityField, selected.Person.Sid));
-        }
-        return new(JsonSerializer.SerializeToElement(result));
+        try { return await lookup(); }
+        catch (DirectoryQueryException error) { throw new AccountPickerException(error.Message); }
+        catch (DirectoryUnavailableException) { throw new AccountPickerException("The directory is unavailable. Try again later.", unavailable: true); }
     }
-
-    private static string? Text(object? value) => value is JsonElement json ? json.ValueKind == JsonValueKind.String ? json.GetString() : null : value as string;
 }

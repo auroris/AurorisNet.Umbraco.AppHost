@@ -15,12 +15,14 @@
     });
     Assets.AddStylesheet(Url.Content("~/App_Plugins/PeoplePicker/people-picker.css"));
 }
-<div id="@id" class="app-people" data-endpoint="@endpoint" data-settings="@options">
+<div id="@id" class="app-people" data-app-account-picker data-block-alias="appPeoplePicker"
+    data-popup="@Url.Content("~/App_Plugins/PeoplePicker/people-picker.html")" data-key-parameter="sid" data-endpoint="@endpoint" data-settings="@options">
     <button type="button" data-find title="Search the directory in a new window">@settings.Label</button>
     <button type="button" data-manual hidden>Enter manually</button>
     <span data-status role="status" aria-live="polite"></span>
 </div>
 <script type="module">
     import { mountPeoplePicker } from '@Url.Content("~/App_Plugins/PeoplePicker/people-picker.js")';
-    mountPeoplePicker(document.getElementById('@id'));
+    const picker = document.getElementById('@id');
+    if (picker && !picker.closest('dialog[data-app-form-panel]')) mountPeoplePicker(picker);
 </script>

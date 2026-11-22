@@ -32,6 +32,7 @@ using UmbracoAppHost.Hosting;
 using uSync.BackOffice;
 using uSync.BackOffice.Configuration;
 using UmbracoAppHost.PeoplePicker;
+using AppBlocks.AccountPickers;
 using AppBlocks.Setup;
 
 namespace UmbracoAppHost;
@@ -161,7 +162,7 @@ public static class UmbracoAppHostExtensions
         builder.Services.TryAddSingleton<IPeoplePickerDirectory, PeoplePickerDirectory>();
         builder.Services.AddSingleton<PeoplePickerCache>();
         builder.Services.AddScoped<PeoplePickerService>();
-        builder.Services.AddScoped<IFormSubmissionProcessor>(services => services.GetRequiredService<PeoplePickerService>());
+        builder.Services.AddKeyedScoped<IAccountPickerProvider>(PeoplePickerBlock.AliasName, (services, _) => services.GetRequiredService<PeoplePickerService>());
         AddDirectoryAccountSettings(builder.Services, configuration);
 
         builder.AddAppBlocksDocuments();

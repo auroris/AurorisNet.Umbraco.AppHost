@@ -103,7 +103,7 @@ test("LOV beside the name opens a window, searches under the IIS path, and commi
     assert.deepEqual(searches, ["Example"]);
     await expect(page.getByLabel("Incumbent", { exact: true })).toHaveValue("Manual person");
     // A different window (including the form itself) cannot forge a picker selection.
-    await page.evaluate(() => window.postMessage({ type: "apphost:person-picked", person: { sid: "forged", displayName: "Forged person" } }, location.origin));
+    await page.evaluate(() => window.postMessage({ type: "appblocks:account-picked", key: "forged" }, location.origin));
     await expect(page.locator('[data-field="incumbentSid"]')).toHaveValue("");
     await popup.getByLabel("Name", { exact: true }).press("ArrowDown");
     await popup.keyboard.press("ArrowDown");
@@ -267,7 +267,7 @@ test("a late validation response cannot change a form that has reloaded", async 
 });
 
 test("two pickers in one form retain independent fields and popup ownership", async t => {
-    const { page, context, open } = await mount(t);
+    const { page, open } = await mount(t);
     await page.evaluate(async options => {
         const form = document.querySelector('form'), box = document.getElementById('people-test').cloneNode(true);
         box.id = 'second-picker'; delete box.dataset.mounted;
@@ -280,10 +280,11 @@ test("two pickers in one form retain independent fields and popup ownership", as
         const { mountPeoplePicker } = await import('/WComptDoA/App_Plugins/PeoplePicker/people-picker.js');
         mountPeoplePicker(box);
     }, options);
-    const first = await open(), pending = context.waitForEvent('page');
+    const first = await open(), pending = page.waitForEvent('popup');
     await page.getByRole('button', { name: 'Find second person', exact: true }).click();
     const second = await pending;
     await second.getByLabel('Name', { exact: true }).fill('Example');
+    await expect(second.locator('[data-results] button')).toHaveCount(2);
     const closed = second.waitForEvent('close');
     await second.locator('[data-results] button').first().click(); await closed;
     await expect(page.locator('[data-field="secondSid"]')).toHaveValue('sid-1');

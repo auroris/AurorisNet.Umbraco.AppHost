@@ -41,8 +41,10 @@ ContentTypes/datasources.config
 ContentTypes/listofvalues.config
 ContentTypes/reportdefinition.config
 ContentTypes/sqldatasource.config
+ContentTypes/appumbracoaccountpicker.config
 DataTypes/AppBlocksConnection.config
 DataTypes/AppBlocksTable.config
+DataTypes/ApplicationAccountType.config
 DataTypes/ApplicationAntiSpamService.config
 DataTypes/ApplicationAntiSpamSize.config
 DataTypes/ApplicationAntiSpamTheme.config

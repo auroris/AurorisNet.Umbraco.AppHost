@@ -5,12 +5,20 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Umbraco.Cms.Core.Models.PublishedContent;
 using IdentityServer.Directory;
+using AppBlocks.AccountPickers;
+using AppBlocks.DataSources;
 
 namespace UmbracoAppHost.PeoplePicker;
 
 /// <summary>One published picker's configuration. Editors use the ordinary block properties.</summary>
-public sealed record PeoplePickerSettings
+public sealed record PeoplePickerSettings : AccountPickerSettings
 {
+    public PeoplePickerSettings() { AllowManualEntry = true; Label = "Find person"; }
+    public override bool AllowsEmpty => AllowManualEntry;
+    public override bool Permits(DataSourceUser? user) =>
+        AllowedMemberGroups.Length + AllowedUserGroups.Length == 0
+        || user is not null && (AllowedMemberGroups.Any(user.IsInMemberGroup) || AllowedUserGroups.Any(user.IsInUserGroup));
+
     public string SearchRoot { get; init; } = "";
     public bool EntireDomain { get; init; }
     public bool IncludeChildOus { get; init; } = true;
@@ -24,16 +32,8 @@ public sealed record PeoplePickerSettings
     public int MinTermLength { get; init; } = 2;
     public int MaxResults { get; init; } = 20;
     public int TimeoutSeconds { get; init; } = 5;
-    public bool AllowManualEntry { get; init; } = true;
     public bool AllowCachedSelection { get; init; }
     public int CacheMinutes { get; init; } = 15;
-    public string IdentityField { get; init; } = "";
-    public string NameField { get; init; } = "";
-    public Dictionary<string, string> FieldMappings { get; init; } = new(StringComparer.OrdinalIgnoreCase);
-    // field=read-only mirror field. A missing directory value permits editing the original.
-    public Dictionary<string, string> FallbackFields { get; init; } = new(StringComparer.Ordinal);
-    public string[] CompactUpperFields { get; init; } = [];
-    public string Label { get; init; } = "Find person";
 
     private static readonly Regex AttributeName = new("^[A-Za-z][A-Za-z0-9-]{0,63}$", RegexOptions.CultureInvariant);
     private static readonly Regex FieldName = new("^[A-Za-z][A-Za-z0-9_]{0,99}$", RegexOptions.CultureInvariant);
@@ -114,9 +114,6 @@ public sealed record PeoplePickerSettings
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(50)); }
         catch (RegexMatchTimeoutException) { throw new DirectoryQueryException("The excluded account name pattern took too long to evaluate."); }
     }
-
-    public string? Normalize(string field, string? value) => CompactUpperFields.Contains(field)
-        ? string.Concat((value ?? "").Where(c => !char.IsWhiteSpace(c))).ToUpperInvariant() : value;
 
     public static string? Attribute(DirectoryUser user, string name) => name.ToLowerInvariant() switch {
         "objectsid" => user.Sid, "objectguid" => user.Guid, "displayname" => user.DisplayName, "samaccountname" => user.UserName,

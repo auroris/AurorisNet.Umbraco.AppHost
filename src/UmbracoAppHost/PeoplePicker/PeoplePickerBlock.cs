@@ -1,20 +1,17 @@
-using System.Text.Json;
-using AppBlocks.Blocks;
+using AppBlocks.AccountPickers;
 using IdentityServer.Directory;
 
 namespace UmbracoAppHost.PeoplePicker;
 
-/// <summary>A directory companion to the fields of an AppBlocks form.</summary>
-public sealed class PeoplePickerBlock : IAppBlockPlugin
+public sealed class PeoplePickerBlock : AccountPickerBlock
 {
     public const string AliasName = "appPeoplePicker";
-    public string Alias => AliasName;
-    public string ViewPath => "~/Views/Partials/PeoplePicker.cshtml";
-    public bool RequiresUser => false;
-    public bool VariesByData => true;
-    public void Validate(JsonElement block, List<string> errors)
+    public override string Alias => AliasName;
+    public override string ViewPath => "~/Views/Partials/PeoplePicker.cshtml";
+
+    public override PeoplePickerSettings ReadSettings(Func<string, string> value)
     {
-        try { PeoplePickerSettings.Read(block); }
-        catch (DirectoryQueryException error) { errors.Add("People picker: " + error.Message); }
+        try { return PeoplePickerSettings.Read(value); }
+        catch (DirectoryQueryException error) { throw new AccountPickerException(error.Message); }
     }
 }
