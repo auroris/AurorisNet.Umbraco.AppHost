@@ -133,11 +133,11 @@ public sealed class AccountRetirementTests(AccountsTestHost host) : IClassFixtur
         const string successor = "S-1-5-21-500-600-700-4004";
         using (var scope = host.App.Services.CreateScope())
             await scope.ServiceProvider.GetRequiredService<IMemberGroupService>().CreateAsync(new MemberGroup { Name = "Test Team Users" });
-        var member = host.CreateMember("test.user", "test.user@example.invalid", "Test User");
+        var member = host.CreateMember("test.member", "test.member@example.invalid", "Test Member");
         host.Members.AssignRoles([member.Username], ["Test Team Users"]);
-        var account = AccountsTestHost.Account(first, "DOMAIN\\Test.User", "test.user@example.invalid");
+        var account = AccountsTestHost.Account(first, "DOMAIN\\Test.Member", member.Email);
         Assert.True((await host.ProvisionMemberAsync(account, DomainMembers)).Allowed);
-        var neverSignedIn = host.CreateMember("never.signed.in", "never.signed.in@example.invalid", "Never Signed In");
+        var neverSignedIn = host.CreateMember("unused.member", "unused.member@example.invalid", "Unused Member");
 
         using (var scope = host.App.Services.CreateScope())
         {
@@ -153,13 +153,13 @@ public sealed class AccountRetirementTests(AccountsTestHost host) : IClassFixtur
         Assert.Equal(first, retired.Username);
         Assert.Equal($"{first}@retired.invalid", retired.Email);
         Assert.False(retired.IsApproved);
-        Assert.Equal("Test User", retired.Name);
+        Assert.Equal("Test Member", retired.Name);
         Assert.Equal(new[] { "Test Team Users" }, host.Members.GetAllRoles(retired.Id));
         Assert.Equal(new[] { (DomainMembers, first) }, host.Logins(member.Key));
         Assert.Equal(ProvisioningResult.Unauthorized("This account has been retired."), await host.ProvisionMemberAsync(account, "UmbracoMembers.RemoteIdentity"));
 
-        var replacement = host.CreateMember("test.user", "test.user@example.invalid", "Test User");
-        Assert.Equal(ProvisioningResult.Ok, await host.ProvisionMemberAsync(AccountsTestHost.Account(successor, "DOMAIN\\Test.User", "test.user@example.invalid"), DomainMembers));
+        var replacement = host.CreateMember("test.member", "test.member@example.invalid", "Test Member");
+        Assert.Equal(ProvisioningResult.Ok, await host.ProvisionMemberAsync(AccountsTestHost.Account(successor, "DOMAIN\\Test.Member", replacement.Email), DomainMembers));
         Assert.Equal(new[] { (DomainMembers, successor) }, host.Logins(replacement.Key));
     }
 

@@ -1,9 +1,8 @@
 namespace UmbracoAppHost.Reports;
 
 /// <summary>
-/// This host's report keys in the <c>Accounts</c> section. The rest of that section belongs to the
-/// <c>AurorisNet.Umbraco.IdentityServer.SSO</c> package's <c>AccountsSettings</c>; both bind from the same section,
-/// so a site's configuration stays as it was. Array properties have no code defaults on purpose: the configuration
+/// This host's report keys in the shared <c>Accounts</c> section.
+/// Array properties have no code defaults on purpose: the configuration
 /// binder appends configured elements to a pre-populated array.
 /// </summary>
 public sealed class ReportAccountSettings

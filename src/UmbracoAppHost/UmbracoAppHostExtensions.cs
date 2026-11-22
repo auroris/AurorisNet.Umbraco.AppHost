@@ -20,8 +20,11 @@ using UmbracoAppHost.Reports;
 using AppBlocks.Blocks;
 using AppBlocks.Forms;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Umbraco.Cms.Infrastructure.Migrations.Notifications;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Umbraco.Cms.Core.Notifications;
+using Umbraco.Cms.Core.Persistence.Repositories;
 using UmbracoAppHost.Application;
 using AppBlocks.Attachments;
 using AppBlocks.DataSources;
@@ -121,14 +124,20 @@ public static class UmbracoAppHostExtensions
                 USyncFiles.HostExport(configuration, environment.ContentRootPath, working), loggers.CreateLogger(typeof(USyncFiles)), libraries);
             SharedViews.EnsureTemplates(environment, loggers.CreateLogger(typeof(SharedViews)), libraries);
         });
-        builder.Services.AddControllersWithViews()
+        builder.Services.AddControllersWithViews(options => options.Conventions.Add(new MemberSignInFormIdentity()))
             .AddApplicationPart(typeof(Umbraco.Cms.Web.Common.Controllers.RenderController).Assembly)
             .AddApplicationPart(typeof(UmbracoAppHostExtensions).Assembly);
         builder.Services.AddScoped<ReportAccessPolicy>();
         // This host's rule for a page Umbraco's Public Access protects: a backoffice user who may edit it is admitted without a member account.
         builder.Services.AddScoped<IProtectedPageAdmission, EditorPageAdmission>();
         builder.Services.Replace(ServiceDescriptor.Scoped<IReportAccessPolicy>(services => services.GetRequiredService<ReportAccessPolicy>()));
-        // The report keys of the Accounts section; the AurorisNet.Umbraco.IdentityServer.SSO package binds the rest.
+        builder.Services.AddScoped<BackOfficeMemberProvisioning>();
+        builder.Services.AddScoped<IUserValidator<BackOfficeIdentityUser>, BackOfficeMemberProvisioning>();
+        Decorate<IUserRepository>(builder.Services, (users, services) =>
+            new MemberProvisioningUserRepository(users, services.GetRequiredService<IServiceScopeFactory>()));
+        builder.AddNotificationHandler<UnattendedInstallNotification, InstalledAdministratorMember>();
+        builder.AddNotificationHandler<DatabaseSchemaAndDataCreatedNotification, InstalledAdministratorMember>();
+        builder.AddNotificationAsyncHandler<UmbracoApplicationStartedNotification, InstalledAdministratorMember>();
         builder.Services.Configure<ReportAccountSettings>(configuration.GetSection(ReportAccountSettings.SectionName));
         // Who is signed in, for the views and the application pages, and AppBlocks' access rule for those pages.
         builder.Services.AddScoped<SiteVisitor>();

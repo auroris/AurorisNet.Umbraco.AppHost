@@ -283,37 +283,43 @@ public sealed partial class TestSite : IAsyncDisposable
         var client = await SignInBackOfficeAsync(username, password);
         try
         {
-            var verifier = Base64Url(RandomNumberGenerator.GetBytes(32));
-            var redirectUri = new Uri(Address, PathBase + "/umbraco/oauth_complete").ToString();
-            using var authorize = await client.GetAsync(QueryHelpers.AddQueryString(PathBase + BackOfficeApi + "/authorize", new Dictionary<string, string?>
-            {
-                ["client_id"] = Constants.OAuthClientIds.BackOffice,
-                ["response_type"] = "code",
-                ["redirect_uri"] = redirectUri,
-                ["code_challenge"] = Base64Url(SHA256.HashData(Encoding.ASCII.GetBytes(verifier))),
-                ["code_challenge_method"] = "S256",
-                ["state"] = "test-site",
-            }));
-            var code = authorize is { StatusCode: HttpStatusCode.Redirect, Headers.Location: { } location }
-                ? QueryHelpers.ParseQuery(new Uri(Address, location).Query)["code"].ToString() : "";
-            if (string.IsNullOrEmpty(code))
-                throw new TestSiteException($"Authorize for {username} returned {(int)authorize.StatusCode} {authorize.StatusCode} to {authorize.Headers.Location} without a code: {await authorize.Content.ReadAsStringAsync()}");
-
-            using var token = await client.PostAsync(PathBase + BackOfficeApi + "/token", new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["grant_type"] = "authorization_code",
-                ["client_id"] = Constants.OAuthClientIds.BackOffice,
-                ["redirect_uri"] = redirectUri,
-                ["code"] = code,
-                ["code_verifier"] = verifier,
-            }));
-            var body = await token.Content.ReadAsStringAsync();
-            if (!token.IsSuccessStatusCode) throw new TestSiteException($"Token for {username} returned {(int)token.StatusCode} {token.StatusCode}: {body}");
-            using var document = JsonDocument.Parse(body);
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", document.RootElement.GetProperty("access_token").GetString());
+            await AuthorizeManagementApiAsync(client);
             return client;
         }
         catch { client.Dispose(); throw; }
+    }
+
+    /// <summary>Uses the browser's existing backoffice session to obtain its management API token.</summary>
+    public async Task AuthorizeManagementApiAsync(HttpClient client)
+    {
+        var verifier = Base64Url(RandomNumberGenerator.GetBytes(32));
+        var redirectUri = new Uri(Address, PathBase + "/umbraco/oauth_complete").ToString();
+        using var authorize = await client.GetAsync(QueryHelpers.AddQueryString(PathBase + BackOfficeApi + "/authorize", new Dictionary<string, string?>
+        {
+            ["client_id"] = Constants.OAuthClientIds.BackOffice,
+            ["response_type"] = "code",
+            ["redirect_uri"] = redirectUri,
+            ["code_challenge"] = Base64Url(SHA256.HashData(Encoding.ASCII.GetBytes(verifier))),
+            ["code_challenge_method"] = "S256",
+            ["state"] = "test-site",
+        }));
+        var code = authorize is { StatusCode: HttpStatusCode.Redirect, Headers.Location: { } location }
+            ? QueryHelpers.ParseQuery(new Uri(Address, location).Query)["code"].ToString() : "";
+        if (string.IsNullOrEmpty(code))
+            throw new TestSiteException($"Authorize for the signed-in user returned {(int)authorize.StatusCode} {authorize.StatusCode} to {authorize.Headers.Location} without a code: {await authorize.Content.ReadAsStringAsync()}");
+
+        using var token = await client.PostAsync(PathBase + BackOfficeApi + "/token", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["grant_type"] = "authorization_code",
+            ["client_id"] = Constants.OAuthClientIds.BackOffice,
+            ["redirect_uri"] = redirectUri,
+            ["code"] = code,
+            ["code_verifier"] = verifier,
+        }));
+        var body = await token.Content.ReadAsStringAsync();
+        if (!token.IsSuccessStatusCode) throw new TestSiteException($"Token for the signed-in user returned {(int)token.StatusCode} {token.StatusCode}: {body}");
+        using var document = JsonDocument.Parse(body);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", document.RootElement.GetProperty("access_token").GetString());
     }
 
     public Task<HttpClient> SignInAsAdministratorAsync() => SignInManagementApiAsync(AdminUserName, AdminPassword);

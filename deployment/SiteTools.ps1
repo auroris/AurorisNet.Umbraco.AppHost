@@ -284,6 +284,6 @@ function New-InstanceSettings([string] $Root, [string] $Name) {
                 UnattendedUserPassword = 'Start!' + [Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(20)) + 'a9'
             }
         } }
-        Accounts = @{ EnsureMemberGroups = @('Report Users', 'Users'); SeedCurrentWindowsUserAsAdministrator = $false }
+        Accounts = @{ EnsureMemberGroups = @('Report Users', 'Users'); BackOfficeMemberGroups = @(); SeedCurrentWindowsUserAsAdministrator = $false }
     })
 }

@@ -16,7 +16,10 @@ using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.Net.Http.Headers;
 using Umbraco.Cms.Core;
+using Umbraco.Cms.Core.Models;
+using Umbraco.Cms.Core.Services;
 using Umbraco.Extensions;
+using UmbracoAppHost.Application;
 using UmbracoAppHost.Authentication;
 using UmbracoAppHost.Hosting;
 using IdentityServer.Sso;
@@ -28,6 +31,74 @@ public sealed class MemberSignInHttpTests
 {
     private const string prefix = "/wing";
     private const string scheme = "UmbracoMembers.TestIdentity";
+
+    [Fact]
+    [ResetPublishedContentServices]
+    public async Task A_provisioned_member_and_backoffice_user_can_sign_in_in_either_order()
+    {
+        const string group = "Portal staff";
+        await using var site = await TestSite.StartAsync(new TestSiteOptions
+        {
+            Application = typeof(Program).Assembly,
+            VirtualPath = prefix,
+            Settings = { ["IdentityServer:Enabled"] = "false", ["Accounts:BackOfficeMemberGroups:0"] = group },
+        }, TestContext.Current.CancellationToken);
+        var user = await site.CreateUserAsync("dual-login", "dual-login@example.invalid", "Dual login");
+        var members = site.Services.GetRequiredService<IMemberService>();
+        var member = members.GetByUsername(user.Username);
+        Assert.NotNull(member);
+        Assert.Equal(user.Email, member.Email);
+        Assert.Equal(user.Name, member.Name);
+        Assert.Contains(group, members.GetAllRoles(member.Id));
+        const string backOfficePassword = "Local-test-only-Editor91!";
+        const string memberPassword = "Local-test-only-Member91!";
+        await site.SetPasswordAsync(user, backOfficePassword);
+        await site.SetPasswordAsync(member, memberPassword);
+
+        var contents = site.Services.GetRequiredService<IContentService>();
+        var page = contents.GetById(ApplicationStarter.FormPageKey)!;
+        var login = contents.Create("Member login", page.ParentId, "webPage");
+        login.SetCultureName("Member login", "en");
+        login.TemplateId = site.Services.GetRequiredService<IContentTypeService>().Get("webPage")!
+            .AllowedTemplates!.Single(template => template.Alias == "SiteSignIn").Id;
+#pragma warning disable CS0618
+        Assert.True(contents.Save(login).Success);
+        Assert.True(contents.Publish(login, ["en"]).Success);
+#pragma warning restore CS0618
+        var rule = new PublicAccessRule { RuleType = Constants.Conventions.PublicAccess.MemberRoleRuleType, RuleValue = group };
+        Assert.True(site.Services.GetRequiredService<IPublicAccessService>().Save(new PublicAccessEntry(page, login, login, [rule])).Success);
+
+        foreach (var backOfficeFirst in new[] { true, false })
+        {
+            using var browser = site.CreateClient();
+            if (backOfficeFirst) await SignInBackOffice();
+            var html = await Page(browser, prefix + "/member-login/?sso-local=1");
+            var form = ReadForm(html, form => form.Contains("class=\"app-login-form\"", StringComparison.Ordinal));
+            form.Fields["loginModel.Username"] = member.Username;
+            form.Fields["loginModel.Password"] = memberPassword;
+            var missingToken = new Dictionary<string, string>(form.Fields);
+            missingToken.Remove("__RequestVerificationToken");
+            using var refused = await browser.PostAsync(form.Action, new FormUrlEncodedContent(missingToken), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+            using var signedIn = await browser.PostAsync(form.Action, new FormUrlEncodedContent(form.Fields), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Redirect, signedIn.StatusCode);
+            if (!backOfficeFirst) await SignInBackOffice();
+
+            await site.AuthorizeManagementApiAsync(browser);
+            var currentUser = await browser.GetFromJsonAsync<System.Text.Json.JsonElement>(prefix + "/umbraco/management/api/v1/user/current", TestContext.Current.CancellationToken);
+            Assert.Equal(user.Key, currentUser.GetProperty("id").GetGuid());
+            var protectedPage = await Page(browser, prefix + "/orders-form/?id=4");
+            Assert.Contains("Member account", protectedPage);
+            Assert.Contains("data-app-form", protectedPage);
+
+            async Task SignInBackOffice()
+            {
+                using var response = await browser.PostAsJsonAsync(prefix + "/umbraco/management/api/v1/security/back-office/login",
+                    new { username = user.Username, password = backOfficePassword }, TestContext.Current.CancellationToken);
+                response.EnsureSuccessStatusCode();
+            }
+        }
+    }
 
     [Fact]
     [ResetPublishedContentServices]

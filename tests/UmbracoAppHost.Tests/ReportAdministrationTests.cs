@@ -42,7 +42,8 @@ public sealed class ReportAdministrationTests
         Assert.NotNull(await groups.GetAsync(ReportAdministratorsGroup.Alias));
         var policy = services.GetRequiredService<ReportAccessPolicy>();
 
-        var appBlocksAdministrator = await site.CreateUserAsync("reports-admin", "reports-admin@example.invalid", "Reports administrator", ReportAdministratorGroup.Alias);
+        var linkedMember = site.CreateMember("reports-admin-member", "reports-admin@example.invalid", "Linked member");
+        var appBlocksAdministrator = await site.CreateUserAsync("reports-admin", linkedMember.Email, "Reports administrator", ReportAdministratorGroup.Alias);
         var hostAdministrator = await site.CreateUserAsync("host-reports-admin", "host-reports-admin@example.invalid", "Host reports administrator", ReportAdministratorsGroup.Alias);
         var administrator = await site.CreateUserAsync("site-admin", "site-admin@example.invalid", "Site administrator", Constants.Security.AdminGroupAlias);
         var editor = await site.CreateUserAsync("plain-editor", "plain-editor@example.invalid", "Plain editor");
@@ -52,7 +53,6 @@ public sealed class ReportAdministrationTests
         Assert.False(await policy.IsAdministratorAsync(BackOffice(editor)));
 
         // A member administers through the backoffice user their account links to: by email here, before a first sign-in stores a key.
-        var linkedMember = site.CreateMember("reports-admin-member", "reports-admin@example.invalid", "Linked member");
         var plainMember = site.CreateMember("plain-member", "plain-member@example.invalid", "Plain member");
         Assert.True(await policy.IsAdministratorAsync(Member(linkedMember)));
         Assert.False(await policy.IsAdministratorAsync(Member(plainMember)));

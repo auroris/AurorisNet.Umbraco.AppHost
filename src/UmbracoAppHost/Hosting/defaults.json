@@ -64,6 +64,7 @@
     ],
     "EnsureUserGroups": [],
     "EnsureBackOfficeUsers": [],
+    "BackOfficeMemberGroups": [],
     "EnsureMembers": [],
     "SeedCurrentWindowsUserAsAdministrator": false,
     "RetireDeletedUsers": true,

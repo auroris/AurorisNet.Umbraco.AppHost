@@ -134,10 +134,9 @@ The library turns the provider on against the embedded identity server.
 | `RequireHttpsMetadata`, `AcceptAnyServerCertificate`, `DenyLocalLogin` | `true`, `false`, `false` |
 | `DirectoryApiKey` | Empty. See [Add from directory](#add-from-directory). |
 
-With these defaults a member account is created at a person's first sign-in. A backoffice user
-is not: create the user and link the identity first, with **Add from directory** or from the
-user's profile after a password sign-in, or set `BackOfficeAutoLink:AutoLinkExternalAccount` to
-`true`.
+With these defaults, a first member sign-in creates a member if the person does not already have
+one. For backoffice access, create the user with **Add from directory**, link the identity from
+the user's profile after a password sign-in, or enable `BackOfficeAutoLink:AutoLinkExternalAccount`.
 
 To sign in through an external identity server, set `IdentityServer:Authority` and the client
 settings in the site's `instance.json`, and register the callbacks `/signin-oidc/backoffice` and
@@ -162,20 +161,20 @@ covers clients, claims, keys and troubleshooting.
 
 ## Accounts
 
-The `Accounts` section is shared: the single sign-on package reads the account keys, and the
-host reads the two report keys.
+The single sign-on package and AppHost share the `Accounts` section.
 
 | `Accounts` setting | This host's default | Effect |
 |---|---|---|
 | `EnsureMemberGroups` | `Report Users`, `Users` | Member groups created when missing. |
+| `BackOfficeMemberGroups` | empty | Member groups granted when a backoffice user is created. An empty list still provisions a matching member. |
 | `EnsureUserGroups`, `EnsureBackOfficeUsers`, `EnsureMembers` | empty | User groups and accounts created when missing. |
-| `MemberTypeAlias` | `Member` | The type of members created from `EnsureMembers` or from the directory. |
+| `MemberTypeAlias` | `Member` | The type used for new backoffice users' members, configured members and, by default, directory members. |
 | `RetireDeletedUsers`, `RetireDeletedMembers` | `true` | Delete retires an account that has signed in. See [Retiring accounts](#retiring-accounts). |
 | `SeedCurrentWindowsUserAsAdministrator` | `false` | Development: `true` creates `<your Windows user>@localhost` as an administrator on the first run. |
 | `ReportAdministratorUserGroups` | `admin`, `interactiveReportAdministrators` | Backoffice groups whose users administer Interactive Reports. See [Interactive Reports](interactive-reports.md#who-may-do-what). |
 | `AllowAnonymousReportBlocks` | `false` | `true` lets visitors without an account read report blocks on pages without Public Access. See [Interactive Reports](interactive-reports.md#anonymous-visitors). |
 
-The host adds two startup steps to the package's configured accounts:
+AppHost prepares the groups used by imported content and configured users during startup.
 
 - It creates the configured groups before every uSync import, the first boot's included. A
   group picker in imported content drops a group that does not exist yet, which would leave a
@@ -184,9 +183,34 @@ The host adds two startup steps to the package's configured accounts:
   (`interactiveReportAdministrators`) with access to the Content section, before the configured
   users are created, so a configured user can join it on the first run.
 
-Accounts that the configured lists or the directory create get a random password. An
-administrator sets a usable one in **Users** or **Members** when the person needs the password
-form. Single sign-on leaves existing passwords alone.
+### Members for new backoffice users
+
+AppHost provisions a website member when an administrator creates or invites a backoffice
+user, when startup creates a configured user, or when single sign-on creates a user. A fresh
+installation also provisions a member for its built-in administrator.
+
+Set the member groups in the site's `instance.json` and restart the site. For example,
+this grants new backoffice users the **Portal staff** and **Reviewers** member groups.
+
+```json
+{
+  "Accounts": {
+    "BackOfficeMemberGroups": ["Portal staff", "Reviewers"]
+  }
+}
+```
+
+AppHost looks up both the username and email. A new member receives the backoffice user's
+username, email and display name and is approved for website sign-in immediately, including
+when the backoffice user was invited. An existing match keeps its profile, approval status,
+password and current groups and receives the configured groups. If more than one member
+matches, creation fails. Resolve the conflict in **Members** and retry. Umbraco creates any
+missing member groups when granting them. The list applies at creation time, so later edits
+to a user or this setting do not reapply the grants or backfill older accounts.
+
+Provisioned accounts receive independent random passwords. For local sign-in, an administrator
+can set the website password in **Members** and the backoffice password in **Users**.
+Single sign-on preserves existing passwords.
 
 ## Member sign-in
 
@@ -200,6 +224,11 @@ and by both themes' sign-in layouts.
 - `?sso-local=1` on a sign-in page shows the password form at once.
 - With no identity server enabled for members, the view shows the password form and the buttons
   of any other configured provider.
+
+Open the site's member sign-in page and `/umbraco` in the same browser to sign in to both
+accounts in either order.
+With both sessions active, the website uses the member's identity and groups, and the
+backoffice uses the user's backoffice permissions.
 
 The application theme's account menu shows the signed-in name with **Member account** or
 **Backoffice account**, and **Sign out**. Sign-out posts to `/application/account/logout` with

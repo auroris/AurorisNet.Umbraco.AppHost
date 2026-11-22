@@ -64,6 +64,9 @@ public sealed class DirectoryAccountsTests(AccountsTestHost host) : IClassFixtur
         Assert.Equal(person.DisplayName, created.Name);
         Assert.Equal(person.Email ?? $"{CurrentUserName}@localhost", created.Email);
         var user = (await host.Users.GetAsync(created.Key))!;
+        var member = host.Members.GetByUsername(user.Username);
+        Assert.NotNull(member);
+        Assert.Equal(user.Email, member.Email);
         Assert.False(string.IsNullOrEmpty(user.RawPasswordValue));
         Assert.False(user.RawPasswordValue.StartsWith(Constants.Security.EmptyPasswordPrefix, StringComparison.Ordinal));
         Assert.Equal(CurrentUserName, user.Username);
@@ -100,6 +103,9 @@ public sealed class DirectoryAccountsTests(AccountsTestHost host) : IClassFixtur
             Assert.Equal("Retired account", problem.Title);
             Assert.Contains("enable that user in Users and give it back its username and email", problem.Detail);
         }
+        // The member-creation test uses the same local Windows account.
+        using var cleanup = host.App.Services.CreateScope();
+        Assert.True((await cleanup.ServiceProvider.GetRequiredService<IMemberEditingService>().DeleteAsync(member.Key, Constants.Security.SuperUserKey)).Success);
     }
 
     [Fact]
@@ -160,7 +166,7 @@ public sealed class DirectoryAccountsTests(AccountsTestHost host) : IClassFixtur
         var person = AccountsTestHost.Account(sid, "DOMAIN\\Hand.Made", "hand.made@example.invalid");
         var refused = ProvisioningResult.NotFound(AccountProvisioning.NotLinkedReason);
         var user = await host.CreateUserAsync("hand.made", "hand.made@example.invalid", "Hand Made");
-        var member = host.CreateMember("hand.made", "hand.made@example.invalid", "Hand Made");
+        var member = host.Members.GetByUsername(user.Username)!;
 
         // A username and email that fit open nothing, and nothing gets linked.
         Assert.Equal(refused, await host.ProvisionAsync(provisioning => provisioning.ProvisionBackOfficeAsync(person, Domain), Strict));

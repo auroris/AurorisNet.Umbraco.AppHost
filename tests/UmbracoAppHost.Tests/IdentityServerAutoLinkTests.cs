@@ -62,6 +62,11 @@ public sealed class IdentityServerAutoLinkTests
             },
             ConfigureApp = app =>
             {
+                app.MapGet("/__tests/native-sessions", async (HttpContext context) => await context.Response.WriteAsJsonAsync(new
+                {
+                    member = (await context.AuthenticateAsync(Microsoft.AspNetCore.Identity.IdentityConstants.ApplicationScheme)).Succeeded,
+                    backOffice = await AppBlocks.Authentication.ApplicationAccessPolicy.BackOfficeTicketAsync(context) is not null,
+                }));
                 app.MapGet("/__tests/native-login/{audience}", async (string audience, HttpContext context) =>
                 {
                     var scheme = audience == "backoffice" ? "Umbraco.Native" : "UmbracoMembers.Native";
@@ -125,7 +130,8 @@ public sealed class IdentityServerAutoLinkTests
             var scheme = audience == "backoffice" ? "Umbraco.Native" : "UmbracoMembers.Native";
             var subject = audience == "backoffice" ? "S-1-5-21-100-200-300-9101" : "S-1-5-21-100-200-300-9102";
             var email = audience + "@native.example.invalid";
-            var signedIn = await SignIn(site, identity, audience, subject, email);
+            using var browser = site.CreateClient();
+            var signedIn = await SignIn(browser, identity, audience, subject, email);
             Assert.True(signedIn.GetProperty("succeeded").GetBoolean(), signedIn.ToString());
             Assert.Equal("Operations", observedClaims.Last());
             var users = site.Services.GetRequiredService<IUserService>();
@@ -133,7 +139,19 @@ public sealed class IdentityServerAutoLinkTests
             var key = audience == "backoffice" ? users.GetByEmail(email)!.Key : members.GetByEmail(email)!.Key;
             var logins = site.Services.GetRequiredService<IExternalLoginWithKeyService>();
             Assert.Equal(subject, Assert.Single(logins.GetExternalLogins(key)).ProviderKey);
-            if (audience == "backoffice") Assert.Empty(users.GetByEmail(email)!.Groups);
+            if (audience == "backoffice")
+            {
+                Assert.Empty(users.GetByEmail(email)!.Groups);
+                var companion = members.GetByEmail(email);
+                Assert.NotNull(companion);
+                Assert.Equal(users.GetByEmail(email)!.Username, companion.Username);
+                Assert.Empty(members.GetAllRoles(companion.Id));
+                Assert.True((await SignIn(browser, identity, "member", subject, email)).GetProperty("succeeded").GetBoolean());
+                Assert.Equal(companion.Key, members.GetByEmail(email)!.Key);
+                var sessions = await browser.GetFromJsonAsync<JsonElement>("/__tests/native-sessions", TestContext.Current.CancellationToken);
+                Assert.True(sessions.GetProperty("member").GetBoolean());
+                Assert.True(sessions.GetProperty("backOffice").GetBoolean());
+            }
 
             // An existing local account is found by email by Umbraco, regardless of its username.
             var existingEmail = "existing-" + email;
@@ -173,6 +191,11 @@ public sealed class IdentityServerAutoLinkTests
     private static async Task<JsonElement> SignIn(TestSite site, TestIdentityServer identity, string audience, string subject, string? email)
     {
         using var browser = site.CreateClient();
+        return await SignIn(browser, identity, audience, subject, email);
+    }
+
+    private static async Task<JsonElement> SignIn(HttpClient browser, TestIdentityServer identity, string audience, string subject, string? email)
+    {
         using var challenge = await browser.GetAsync("/__tests/native-login/" + audience);
         Assert.Equal(HttpStatusCode.Redirect, challenge.StatusCode);
         var parameters = QueryHelpers.ParseQuery(challenge.Headers.Location!.Query);

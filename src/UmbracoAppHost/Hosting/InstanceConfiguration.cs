@@ -39,6 +39,7 @@ internal static class InstanceConfiguration
                 using var settingsFile = File.Create(settingsPath);
                 JsonSerializer.Serialize(settingsFile, new
                 {
+                    Accounts = new { BackOfficeMemberGroups = Array.Empty<string>() },
                     Umbraco = new { CMS = new
                     {
                         Global = new { Id = Guid.NewGuid().ToString() },
