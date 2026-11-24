@@ -31,8 +31,11 @@ if (Test-SamplesEnabled $appSettings) { $copied = @(Copy-SyncDefinitions (Get-Sa
 Write-JsonFile (Get-SafePath $siteRoot '.apphost/instance.json') ([ordered]@{
     schemaVersion = 3; name = $Name; build = $published.Manifest.id; umbraco = $published.Manifest.umbraco
     assembly = $published.Manifest.assembly
+    # The commits the build was made from, so the site says what it runs after the build folder is gone.
+    sources = @(Get-BuildSources $published.Manifest)
     appFiles = $published.Manifest.appFiles
 })
+Write-UncommittedWarning $published.Manifest
 Copy-Item (Join-Path $PSScriptRoot 'deployment/start-site.ps1') $siteRoot
 if ($copied.Count -gt 0) { Write-Host "Created $siteRoot from build $($published.Manifest.id); $($copied.Count) uSync files are in its uSync folder." }
 else { Write-Host "Created $siteRoot from build $($published.Manifest.id). Its application turns the samples off, so its first start copies the library's export without them and the application's own export into its uSync folder." }

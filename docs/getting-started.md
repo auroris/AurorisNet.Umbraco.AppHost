@@ -226,26 +226,24 @@ change that brought them. The host's other views are left alone.
 1. Pull this repository and the sibling checkouts, then rebuild the host. Code, browser assets
    and the library's export arrive through the project reference, and the shipped views are
    rewritten at the next start.
-2. From the checkout of this repository, run:
+2. Start the host. The start writes the definition files that changed (`ContentTypes`,
+   `DataTypes`, `Dictionary`, `Languages`, `MediaTypes`, `MemberTypes`, `RelationTypes` and
+   `Templates`) into the working folder, removes the folder's copies of the definitions AppBlocks
+   installs, and imports those folders. The log lists what it wrote and what the import changed.
+   It leaves `Content/` alone.
+   [A site takes each build's definitions](usync-exports.md#a-site-takes-each-builds-definitions)
+   describes the start.
+3. Run the host's tests, and fix the pages an upstream change broke.
+4. Redeploy.
 
-   ```powershell
-   .\refresh-definitions.ps1 -Instance <repository>\instance
-   ```
+For a host that keeps running, `.\refresh-definitions.ps1 -Instance <repository>\instance` copies
+the same files, and **Settings → uSync** imports them: **Report** to review the changes, then
+**Import**. `-WhatIf` lists without changing anything. The script reads
+`instance/.apphost/runtime.json`, which every start writes, so the host must have started once
+on the instance. It stops when the working folder has never been filled, because the next start
+fills it from the current export.
 
-   It copies the definition folders (`ContentTypes`, `DataTypes`, `Dictionary`, `Languages`,
-   `MediaTypes`, `MemberTypes`, `RelationTypes` and `Templates`) of the library's export in the
-   host's build output over the working folder, removes the folder's copies of the definitions
-   AppBlocks installs, and lists what changed. It leaves `Content/` and the host's own files
-   alone. `-WhatIf` lists without changing anything. The host can be running.
-3. Start the host, open **Settings → uSync**, run **Report** to review the changes, then
-   **Import**.
-4. Run the host's tests, and fix the pages an upstream change broke.
-5. Redeploy.
-
-The script reads `instance/.apphost/runtime.json`, which every start writes, so the host must
-have started once on the instance. It stops when the working folder has never been filled,
-because the next start fills it from the current export. The host's own database is outside
-this routine: its schema scripts add what is missing at the next open.
+The host's own database is outside this routine: its schema scripts run at the next open.
 
 ### Reset the instance
 

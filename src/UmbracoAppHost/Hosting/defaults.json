@@ -124,7 +124,10 @@
     "SingleBlock": { "Enabled": true, "Stylesheets": ["/dist/css/site.css"] }
   },
   "AppBlocks": {
-    "IncludeBackOfficeReports": true
+    "IncludeBackOfficeReports": true,
+    "Definitions": {
+      "UpdateAtStartup": true
+    }
   },
   "InteractiveReport": {
     "WhoamiEnabled": true,

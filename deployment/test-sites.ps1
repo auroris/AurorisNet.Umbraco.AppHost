@@ -1,7 +1,8 @@
 #Requires -Version 7.0
 # Integration checks for the site scripts: creates two disposable sites from one build, boots both, then
-# updates one and verifies what an update preserves and what it refreshes. Run from the checkout to
-# publish a fresh build, or pass -Build.
+# updates one, verifies what an update preserves and what it refreshes, and starts the updated site. Run from the
+# checkout, it also publishes a second build that changes a shared definition, as a release does, updates the site
+# with it and checks that the site imports the definition at its start. Pass -Build to test a build made earlier.
 [CmdletBinding()]
 param(
     [string] $Build,
@@ -13,6 +14,58 @@ $ErrorActionPreference = 'Stop'
 $scripts = Split-Path -Parent $PSScriptRoot
 $published = Resolve-Build $scripts $Build '' '' $MsBuildProperties
 function Assert-True($Condition, [string] $Message) { if (!$Condition) { throw $Message } }
+
+function Start-TestSite([string] $Site, [string] $Assembly) {
+    $port = Get-Random -Minimum 47000 -Maximum 49000
+    $info = [Diagnostics.ProcessStartInfo]::new('dotnet')
+    $info.WorkingDirectory = Join-Path $Site app
+    $info.UseShellExecute = $false; $info.CreateNoWindow = $true
+    $info.RedirectStandardOutput = $true; $info.RedirectStandardError = $true
+    foreach ($arg in @($Assembly, '--InstanceRoot', $Site, '--urls', "http://127.0.0.1:$port")) { $info.ArgumentList.Add($arg) }
+    $process = [Diagnostics.Process]::Start($info)
+    return @{
+        Site = $Site; Process = $process; Base = "http://127.0.0.1:$port"
+        Stdout = $process.StandardOutput.ReadToEndAsync(); Stderr = $process.StandardError.ReadToEndAsync()
+    }
+}
+
+function Wait-TestSite($Running, [string] $Expected) {
+    # Returns the home page once it answers 200 with the expected text, or the last answer when it never does. A first
+    # start installs Umbraco and imports the whole export, which a busy machine takes minutes over.
+    $deadline = [DateTime]::UtcNow.AddSeconds(300)
+    $response = $null
+    do {
+        if ($Running.Process.HasExited) { throw "Published host exited: $($Running.Stderr.GetAwaiter().GetResult())" }
+        try { $response = Invoke-WebRequest "$($Running.Base)/" -SkipHttpErrorCheck -TimeoutSec 5 } catch { }
+        if ($response -and $response.StatusCode -eq 200 -and $response.Content -match $Expected) { break }
+        Start-Sleep -Milliseconds 500
+    } while ([DateTime]::UtcNow -lt $deadline)
+    return $response
+}
+
+function Stop-TestSite($Running, [string] $Phase) {
+    $process = $Running.Process
+    if (!$process.HasExited) { $process.Kill($true); $process.WaitForExit() }
+    $Running.Stdout.GetAwaiter().GetResult() | Set-Content (Join-Path $Running.Site "$Phase.stdout.log")
+    $Running.Stderr.GetAwaiter().GetResult() | Set-Content (Join-Path $Running.Site "$Phase.stderr.log")
+    $process.Dispose()
+    # The instance lock may be held a moment after the process is gone, and an update needs it.
+    $lock = Join-Path $Running.Site '.apphost/run.lock'
+    $deadline = [DateTime]::UtcNow.AddSeconds(30)
+    while (Test-Path -LiteralPath $lock) {
+        try { [IO.File]::Open($lock, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None).Dispose(); break } catch [IO.IOException] { }
+        if ([DateTime]::UtcNow -gt $deadline) { throw "The stopped host still holds $lock." }
+        Start-Sleep -Milliseconds 200
+    }
+}
+
+# A build records the commit of every checkout it was made from, and each site records them with its build.
+$recordsSources = [bool](Find-Git) -and !$Build
+if ($recordsSources) {
+    $names = @(Get-BuildSources $published.Manifest | ForEach-Object { $_.name })
+    Assert-True ($names.Count -gt 1 -and $names[0] -eq (Split-Path -Leaf $scripts)) "The build records these source checkouts, not this one first and the ones it builds beside it: $($names -join ', ')."
+    Assert-True (@(Get-BuildSources $published.Manifest | Where-Object { $_.commit -notmatch '^[0-9a-f]{40}$' }).Count -eq 0) 'A source checkout is recorded without its commit.'
+}
 New-Item -ItemType Directory -Force $OutputRoot | Out-Null
 $sites = @{}
 foreach ($name in @('first', 'second')) {
@@ -29,37 +82,26 @@ foreach ($name in @('first', 'second')) {
     $settings.Accounts.SeedCurrentWindowsUserAsAdministrator = $false
     $settings.Umbraco.CMS.Global.UseHttps = $false
     Write-JsonFile (Join-Path $site instance.json) $settings
-    $port = Get-Random -Minimum 47000 -Maximum 49000
-    $info = [Diagnostics.ProcessStartInfo]::new('dotnet')
-    $info.WorkingDirectory = Join-Path $site app
-    $info.UseShellExecute = $false; $info.CreateNoWindow = $true
-    $info.RedirectStandardOutput = $true; $info.RedirectStandardError = $true
-    foreach ($arg in @($assembly, '--InstanceRoot', $site, '--urls', "http://127.0.0.1:$port")) { $info.ArgumentList.Add($arg) }
-    $process = [Diagnostics.Process]::Start($info)
-    $stdout = $process.StandardOutput.ReadToEndAsync(); $stderr = $process.StandardError.ReadToEndAsync()
+    if ($recordsSources) {
+        $recorded = @(Get-BuildSources (Read-JsonFile (Join-Path $site '.apphost/instance.json')) | ForEach-Object { $_.commit })
+        Assert-True (($recorded -join ' ') -eq (@(Get-BuildSources $published.Manifest | ForEach-Object { $_.commit }) -join ' ')) 'The site does not record the commits of its build.'
+    }
+    $running = Start-TestSite $site $assembly
     try {
-        # A first start installs Umbraco and imports the whole export, which a busy machine takes minutes over.
-        $deadline = [DateTime]::UtcNow.AddSeconds(300)
-        $response = $null
         # The saved export's first root is the Sample Application, whose sign-in page names it.
         $expectedTitle = 'Sample Application'
-        do {
-            if ($process.HasExited) { throw "Published host exited: $($stderr.GetAwaiter().GetResult())" }
-            try { $response = Invoke-WebRequest "http://127.0.0.1:$port/" -SkipHttpErrorCheck -TimeoutSec 5 } catch { }
-            if ($response -and $response.StatusCode -eq 200 -and $response.Content -match $expectedTitle) { break }
-            Start-Sleep -Milliseconds 500
-        } while ([DateTime]::UtcNow -lt $deadline)
+        $response = Wait-TestSite $running $expectedTitle
         Assert-True ($response -and $response.StatusCode -eq 200) "$name home did not render. Logs: $site/app/umbraco/Logs"
         Assert-True ($response.Content -match $expectedTitle) "$name imported content missing."
         # The Sample Application's home is public; its Orders form uses the Signed-in page template.
-        $signIn = Invoke-WebRequest "http://127.0.0.1:$port/orders-form/" -SkipHttpErrorCheck
+        $signIn = Invoke-WebRequest "$($running.Base)/orders-form/" -SkipHttpErrorCheck
         Assert-True ($signIn.StatusCode -eq 200 -and $signIn.Content -match 'loginModel.Username') "$name did not offer the member sign-in form on /orders-form/."
         foreach ($path in @('/dist/scripts/site.js', '/dist/css/app.css', '/api/reports/ui/ir.js')) {
-            $asset = Invoke-WebRequest "http://127.0.0.1:$port$path" -SkipHttpErrorCheck
+            $asset = Invoke-WebRequest "$($running.Base)$path" -SkipHttpErrorCheck
             Assert-True ($asset.StatusCode -eq 200 -and $asset.RawContentLength -gt 100) "Published asset missing: $path"
         }
         Set-Content (Join-Path $site media/preserved.txt) 'instance media'
-        $media = Invoke-WebRequest "http://127.0.0.1:$port/media/preserved.txt" -SkipHttpErrorCheck
+        $media = Invoke-WebRequest "$($running.Base)/media/preserved.txt" -SkipHttpErrorCheck
         Assert-True ($media.StatusCode -eq 200) 'External media folder is not served.'
         Assert-True (Test-Path (Join-Path $site data/Umbraco.sqlite.db)) 'Database was not created outside app/.'
         # The first boot's import publishes the Orders data source, whose validation opens the sample database; a host
@@ -70,12 +112,7 @@ foreach ($name in @('first', 'second')) {
         catch [IO.IOException] { $locked = $true }
         Assert-True $locked 'The host did not hold its instance lock.'
         Write-Host "PASS: $name boots and serves its shell, both frontend bundles, reports and instance media."
-    } finally {
-        if (!$process.HasExited) { $process.Kill($true); $process.WaitForExit() }
-        $stdout.GetAwaiter().GetResult() | Set-Content (Join-Path $site stdout.log)
-        $stderr.GetAwaiter().GetResult() | Set-Content (Join-Path $site stderr.log)
-        $process.Dispose()
-    }
+    } finally { Stop-TestSite $running 'first-start' }
 }
 $firstState = Read-JsonFile (Join-Path $sites.first '.apphost/instance.json')
 $secondState = Read-JsonFile (Join-Path $sites.second '.apphost/instance.json')
@@ -118,6 +155,42 @@ Assert-True (Test-Path (Join-Path $site 'uSync/DataTypes/ApplicationApplicationB
 foreach ($relative in $script:AppBlocksDefinitions) { Assert-True (!(Test-Path (Join-Path $published.Root "app/uSync/$relative"))) "The build still ships $relative, which AppBlocks installs." }
 $updatedState = Read-JsonFile (Join-Path $site '.apphost/instance.json')
 Assert-True ($updatedState.build -eq $published.Manifest.id -and $updatedState.assembly -eq $published.Manifest.assembly) 'Update did not record the installed build and its application.'
+# The updated site starts on the data it had and serves what it served before.
+$running = Start-TestSite $site $updatedState.assembly
+try {
+    $response = Wait-TestSite $running 'Sample Application'
+    Assert-True ($response -and $response.StatusCode -eq 200 -and $response.Content -match 'Sample Application') "The updated site did not render its home. Logs: $site/app/umbraco/Logs"
+    $signIn = Invoke-WebRequest "$($running.Base)/orders-form/" -SkipHttpErrorCheck
+    Assert-True ($signIn.StatusCode -eq 200 -and $signIn.Content -match 'loginModel.Username') 'The updated site did not offer the member sign-in form on /orders-form/.'
+    $media = Invoke-WebRequest "$($running.Base)/media/preserved.txt" -SkipHttpErrorCheck
+    Assert-True ($media.StatusCode -eq 200) 'The updated site does not serve the media it had.'
+    Write-Host 'PASS: the updated site starts on its data and serves its pages and media.'
+} finally { Stop-TestSite $running 'after-update' }
+# A release that changes a shared definition: the update delivers the file, and the site imports it at its next start,
+# before it serves a page. The second build needs the checkout, where one dictionary text is changed while it publishes.
+$dictionary = Join-Path $scripts 'src/UmbracoAppHost/uSync/Dictionary/app-skip.config'
+if (!$Build -and (Test-Path -LiteralPath $dictionary)) {
+    # The placeholder above is not a definition uSync can import, which the site's next start would try with the rest.
+    Remove-Item -LiteralPath $siteDefinition
+    $original = [IO.File]::ReadAllBytes($dictionary)
+    try {
+        $text = [IO.File]::ReadAllText($dictionary)
+        Assert-True ($text.Contains('>Skip to content<')) "The dictionary item this test changes no longer reads 'Skip to content': $dictionary"
+        [IO.File]::WriteAllText($dictionary, $text.Replace('>Skip to content<', '>Skip to content, release test<'))
+        $release = Publish-Reference $scripts '' '' $MsBuildProperties
+    } finally { [IO.File]::WriteAllBytes($dictionary, $original) }
+    if ($recordsSources) { Assert-True (!$release.Manifest.committed) 'A build made from an edited checkout says it was made from committed files.' }
+    & (Join-Path $scripts update-site.ps1) -Site $site -Build $release.Root
+    $releasedState = Read-JsonFile (Join-Path $site '.apphost/instance.json')
+    Assert-True ($releasedState.build -eq $release.Manifest.id) 'The release update did not record its build.'
+    Assert-True ((Get-Content (Join-Path $site 'uSync/Dictionary/app-skip.config') -Raw) -like '*release test*') 'The release update did not deliver the changed definition.'
+    $running = Start-TestSite $site $releasedState.assembly
+    try {
+        $response = Wait-TestSite $running 'Skip to content, release test'
+        Assert-True ($response -and $response.StatusCode -eq 200 -and $response.Content -match 'Skip to content, release test') "The site did not import the release's shared definition at its start. Logs: $site/app/umbraco/Logs"
+        Write-Host 'PASS: a release that changes a shared definition reaches the site at its first start, with no step in the backoffice.'
+    } finally { Stop-TestSite $running 'after-release' }
+} else { Write-Host 'SKIPPED: the release update, which publishes a second build from the checkout.' }
 $shared = Join-Path $site app/Views/WebsiteHome.cshtml
 Add-Content $shared '@* local modification *@'
 $rejected = $false

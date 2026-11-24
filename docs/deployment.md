@@ -42,8 +42,20 @@ members, data and credentials with it.
 
 A build folder is self-contained. Beside `app/` it holds copies of `new-site.ps1`,
 `update-site.ps1`, `refresh-definitions.ps1` and the `deployment/` folder, and `build.json`,
-which records the build id, the Umbraco version, the source revision, the published project,
-its application assembly and a hash of every file.
+which records the build id, the Umbraco version, the published project, its application
+assembly and a hash of every file.
+
+`build.json` also records what the build was made from. `sources` lists the checkout of the
+published project and of every project it builds from source, such as sibling checkouts of this
+library and AppBlocks. Each entry has the checkout's folder name, its commit, and
+`workingTreeChanges`, which is `true` when files in it were changed or added since that commit.
+`committed` is `true` when no checkout had such changes. A site's `.apphost/instance.json`
+keeps the `sources` of the build it runs.
+
+Release a build whose `committed` is `true`, so that its commits say exactly what it holds. The
+scripts warn when they publish or install a build that holds uncommitted changes. They find
+`git` on the `PATH` or in GitHub Desktop's installation, and a build made where neither is
+there records no sources.
 
 Pass `-Build <folder>` to create or update several sites from one publish. To work on a machine
 without the checkout, copy the folder there and run the scripts inside it.
@@ -151,9 +163,11 @@ then update the sites. Take a backup before updating a production site. `update-
 Settings, databases, media, sign-in keys and content stay as they are. Keep custom source out
 of `app/`: make changes in the checkout and publish them.
 
-The definitions are not imported automatically. Start the site, open **Settings → uSync**, run
-**Report** to see what would change, then **Import**. `Content/` is not copied, because pages
-belong to the site after it is created.
+The site imports the build's definitions at its next start, before it serves a page, and records
+them. An import that fails stops the start, so read the log of the first start after an update.
+`Content/` is not copied, because pages belong to the site after it is created.
+[A site takes each build's definitions](usync-exports.md#a-site-takes-each-builds-definitions)
+describes the start and how to import by hand instead.
 
 | The script stops when | Remedy |
 |---|---|
@@ -174,14 +188,15 @@ database migration; restore the matching database backup when a rollback is need
 that a host runs from its own project, such as a development instance after the host was
 rebuilt against a newer library. It reads the instance's `.apphost/runtime.json`, copies the
 definition folders of the export in the host's build output over the instance's `uSync/` folder,
-removes the copies of AppBlocks' definitions and lists what changed. `-WhatIf` only lists. The
-host may be running. Import from the backoffice as after an update.
+removes the copies of AppBlocks' definitions and lists what changed. `-WhatIf` only lists. A host
+does the same by itself at its next start and imports the definitions then. Run the script for a
+host that keeps running, and import from **Settings → uSync** in its backoffice.
 
 ## Verify the scripts
 
 | Script | What it checks |
 |---|---|
-| `deployment/test-sites.ps1` | Publishes a build, or takes `-Build`. Creates two sites in a temporary folder, starts both, updates one, and checks what the update keeps and refreshes. |
+| `deployment/test-sites.ps1` | Publishes a build, or takes `-Build`. Creates two sites in a temporary folder, starts both, updates one, checks what the update keeps and refreshes, and starts the updated site. Run from the checkout, it then rehearses a release: it publishes a second build with one changed dictionary text, updates the site with it, and checks that the started site shows the new text. |
 | `deployment/test-startup.ps1 -Project <project file> -ContentRoot <temporary folder> -Reset` | Starts a built host over HTTP on a separate instance and runs the reset script against it. |
 | `deployment/test-downstream.ps1` | Creates a project that references the library in a temporary folder, with its own export, template, data source and paper report. Starts it without the samples, delivers a changed library view and definition through a rebuild and `refresh-definitions.ps1`, then resets the instance. |
 

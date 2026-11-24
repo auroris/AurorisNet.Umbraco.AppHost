@@ -158,12 +158,20 @@ public static class UmbracoAppHostExtensions
             .AddAccountDirectory()
             .AddAppBlocksInteractiveReports()
             // After the companion, so a report seed that a callback configures comes after Interactive Reports' own configuration.
-            .AddAppBlocks(configureConnections)
+            .AddAppBlocks(appBlocks =>
+            {
+                // The two definitions the saved export keeps its own version of stay as the export imports them.
+                appBlocks.SiteOwnsDefinition([.. AppBlocksDefinitions.HostOwned.Keys]);
+                configureConnections?.Invoke(appBlocks);
+            })
             // The configured groups exist before uSync's first-boot import resolves the export's group pickers.
             .AddNotificationAsyncHandler<uSyncImportStartingNotification, ConfiguredGroupsBeforeImport>()
             // AppBlocks' definitions exist before uSync imports what uses them, and only AppBlocks changes them.
             .AddNotificationAsyncHandler<uSyncImportStartingNotification, AppBlocksDefinitionImport>()
-            .AddNotificationAsyncHandler<uSyncImportingItemNotification, AppBlocksDefinitionImport>();
+            .AddNotificationAsyncHandler<uSyncImportingItemNotification, AppBlocksDefinitionImport>()
+            // After uSync's own startup work, which its composer registered: the build's definitions reach a site that an
+            // earlier build created, and applications then hear that they may install their content.
+            .AddNotificationAsyncHandler<UmbracoApplicationStartingNotification, SiteDefinitions>();
         builder.Services.AddSingleton<AppBlocksDefinitions>();
         builder.Services.AddSingleton(new AppBlocksSchema(typeof(PeoplePickerBlock).Assembly));
         builder.Services.AddSingleton<IAppBlockPlugin, PeoplePickerBlock>();

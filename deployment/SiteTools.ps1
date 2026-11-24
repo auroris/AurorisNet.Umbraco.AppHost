@@ -112,6 +112,64 @@ function Initialize-ViewImports([string] $RepositoryRoot, [string] $ProjectRoot)
     [IO.File]::Copy($source, $target, $false)
 }
 
+function Find-Git {
+    # git on the PATH, or the copy GitHub Desktop installs for itself, which is on no PATH.
+    $command = Get-Command git -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($command) { return $command.Source }
+    if ($env:LOCALAPPDATA) {
+        $desktop = Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA 'GitHubDesktop/app-*/resources/app/git/cmd/git.exe') -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTimeUtc | Select-Object -Last 1
+        if ($desktop) { return $desktop.FullName }
+    }
+    return $null
+}
+
+function Get-SourceCheckouts([string] $Project, [string[]] $MsBuildProperties) {
+    # The checkouts a build is made from: the published project's, and that of every project it builds from source,
+    # such as sibling checkouts of AppBlocks and this library. Each has its commit and whether files in it were changed
+    # or added since. The published project's checkout comes first. Without git the list is empty.
+    $git = Find-Git
+    if (!$git) { return @() }
+    $folders = @(Split-Path -Parent $Project)
+    $assets = $null
+    try { $assets = (& dotnet msbuild $Project -getProperty:ProjectAssetsFile -p:Configuration=Release @($MsBuildProperties | Where-Object { $_ }) 2>$null | Select-Object -Last 1) } catch { }
+    if ($assets -and (Test-Path -LiteralPath $assets -PathType Leaf)) {
+        foreach ($library in (Read-JsonFile $assets).libraries.Values) {
+            if ($library.type -eq 'project' -and $library.path) { $folders += Split-Path -Parent ([IO.Path]::GetFullPath((Join-Path (Split-Path -Parent $Project) $library.path))) }
+        }
+    }
+    $checkouts = [ordered]@{}
+    foreach ($folder in $folders) {
+        if (!(Test-Path -LiteralPath $folder -PathType Container)) { continue }
+        $top = & $git -C $folder rev-parse --show-toplevel 2>$null
+        if ($LASTEXITCODE -ne 0 -or !$top) { continue }
+        $top = [IO.Path]::GetFullPath($top)
+        if ($checkouts.Contains($top)) { continue }
+        $commit = & $git -C $top rev-parse HEAD 2>$null
+        if ($LASTEXITCODE -ne 0 -or !$commit) { continue }
+        $checkouts[$top] = [ordered]@{
+            name = Split-Path -Leaf $top
+            revision = (& $git -C $top rev-parse --short HEAD)
+            commit = $commit
+            workingTreeChanges = @(& $git -C $top status --porcelain).Count -gt 0
+        }
+    }
+    $global:LASTEXITCODE = 0
+    return @($checkouts.Values)
+}
+
+function Get-BuildSources($Manifest) {
+    # The checkouts a build records. A build published before builds recorded them has none.
+    if ($Manifest.Contains('sources') -and $Manifest.sources) { return @($Manifest.sources) }
+    return @()
+}
+
+function Write-UncommittedWarning($Manifest) {
+    # Says so when a site is about to run a build made from files that are in no commit.
+    $changed = @(Get-BuildSources $Manifest | Where-Object { $_.workingTreeChanges } | ForEach-Object { $_.name })
+    if ($changed.Count -gt 0) { Write-Warning "Build $($Manifest.id) holds changes that are in no commit, from: $($changed -join ', ')." }
+}
+
 function Publish-Reference([string] $RepositoryRoot, [string] $Project, [string] $Assembly, [string[]] $MsBuildProperties) {
     if (!$Project) {
         $Project = Join-Path $RepositoryRoot $script:ReferenceProject
@@ -121,11 +179,10 @@ function Publish-Reference([string] $RepositoryRoot, [string] $Project, [string]
     if (!$Assembly) { $Assembly = [IO.Path]::GetFileNameWithoutExtension($Project) + '.dll' }
     $sourceRoot = Split-Path -Parent $Project
     Initialize-ViewImports $RepositoryRoot $sourceRoot
-    $revision = 'nogit'; $dirty = $false
-    try {
-        $revision = (& git -C $sourceRoot rev-parse --short HEAD 2>$null) ?? 'nogit'
-        $dirty = @(& git -C $sourceRoot status --porcelain 2>$null).Count -gt 0
-    } catch { }
+    # Read before the publish, which is what the build is made from. The publish restores the project when the
+    # checkouts have not been built, and a second reading afterwards then finds the projects the first could not.
+    $sources = @(Get-SourceCheckouts $Project $MsBuildProperties)
+    $revision = if ($sources.Count -gt 0) { $sources[0].revision } else { 'nogit' }
     $id = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + $revision
     $root = Get-SafePath (Join-Path $RepositoryRoot 'artifacts/builds') $id
     if (Test-Path -LiteralPath $root) { throw "Build directory already exists: $root" }
@@ -160,13 +217,26 @@ function Publish-Reference([string] $RepositoryRoot, [string] $Project, [string]
     foreach ($file in Get-ChildItem -LiteralPath $app -Recurse -File | Sort-Object FullName) {
         $appFiles[[IO.Path]::GetRelativePath($app, $file.FullName).Replace('\', '/')] = Get-AppFileHash $file.FullName
     }
+    $after = @(Get-SourceCheckouts $Project $MsBuildProperties)
+    foreach ($checkout in $after) {
+        $before = @($sources | Where-Object { $_.name -eq $checkout.name })
+        if ($before.Count -eq 0) { $sources += $checkout }
+        # A checkout whose commit moved during the publish is recorded as changed, since the build may hold either.
+        elseif ($before[0].commit -ne $checkout.commit) { $before[0].workingTreeChanges = $true }
+    }
+    $changed = @($sources | Where-Object { $_.workingTreeChanges } | ForEach-Object { $_.name })
     Write-JsonFile (Join-Path $root build.json) ([ordered]@{
         schemaVersion = 3; id = $id; createdUtc = [DateTime]::UtcNow.ToString('O'); umbraco = $umbraco
         project = [IO.Path]::GetFileName($Project); assembly = $Assembly
-        source = [ordered]@{ revision = $revision; workingTreeChanges = $dirty }
+        # The published project's checkout, as earlier scripts recorded it; null where git could not say.
+        source = [ordered]@{ revision = $revision; workingTreeChanges = if ($sources.Count -gt 0) { [bool]$sources[0].workingTreeChanges } else { $null } }
+        sources = $sources
+        committed = $sources.Count -gt 0 -and $changed.Count -eq 0
         appFiles = $appFiles
     })
     Write-Host "Published build $id."
+    if ($sources.Count -eq 0) { Write-Warning 'git was not found, so this build does not record the commits it was made from.' }
+    elseif ($changed.Count -gt 0) { Write-Warning "This build holds changes that are in no commit, from: $($changed -join ', '). Commit them and publish again for a build to release." }
     return Get-Build $root
 }
 

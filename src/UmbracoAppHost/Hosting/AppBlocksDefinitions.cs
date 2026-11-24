@@ -38,6 +38,9 @@ public sealed class AppBlocksDefinitions(IEnumerable<AppBlocksSchema> schemas)
 public sealed class AppBlocksDefinitionImport(SchemaInstaller installer, AppBlocksDefinitions definitions, ILogger<AppBlocksDefinitionImport> logger)
     : INotificationAsyncHandler<uSyncImportStartingNotification>, INotificationAsyncHandler<uSyncImportingItemNotification>
 {
+    /// <summary>What an import reports for a file it skipped because AppBlocks installs the definition.</summary>
+    public const string Skipped = "AppBlocks installs this definition, so uSync does not import it.";
+
     /// <summary>
     /// A failure stops the import, because content imported over missing types is lost. uSync logs it as a failed first
     /// boot and records that first boot as done, as it does any failure, so a new site that fails here needs a reset.
@@ -50,7 +53,7 @@ public sealed class AppBlocksDefinitionImport(SchemaInstaller installer, AppBloc
         if (notification.Item is { } item && Guid.TryParse(item.Attribute("Key")?.Value, out var key) && definitions.Owns(key))
         {
             notification.Cancel = true;
-            notification.Message = "AppBlocks installs this definition, so uSync does not import it.";
+            notification.Message = Skipped;
             logger.LogInformation("Skipped the uSync copy of {Alias} ({Key}), which AppBlocks installs.", item.Attribute("Alias")?.Value, key);
         }
         return Task.CompletedTask;

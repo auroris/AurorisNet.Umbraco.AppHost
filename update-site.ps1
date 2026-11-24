@@ -1,8 +1,8 @@
 #Requires -Version 7.0
 # Updates an existing site from the reference: publishes the application (or reuses a build with -Build),
 # swaps it in while preserving the site's settings, data, media and content, and refreshes the shared
-# uSync definitions in the site's uSync folder, removing its copies of what AppBlocks now installs itself. Import them
-# from the backoffice afterwards. A site created with -Project is updated with the same -Project, or with a build of it.
+# uSync definitions in the site's uSync folder, removing its copies of what AppBlocks now installs itself. The site
+# imports them at its next start. A site created with -Project is updated with the same -Project, or with a build of it.
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [Parameter(Mandatory)] [string] $Site,
@@ -71,9 +71,11 @@ try {
     catch { Move-Item -LiteralPath $backup -Destination $app; throw }
     $state.schemaVersion = 3
     $state.build = $incoming.id; $state.umbraco = $incoming.umbraco; $state.assembly = $incoming.assembly; $state.appFiles = $incoming.appFiles
+    $state.sources = @(Get-BuildSources $incoming)
     $state.Remove('release')
     Write-JsonFile $statePath $state
     Write-Host "Installed build $($incoming.id). The previous application is in $backup"
+    Write-UncommittedWarning $incoming
     if ($removed.Count -gt 0) {
         Write-Host "Removed $($removed.Count) uSync definition(s) that AppBlocks installs from $siteRoot/uSync:"
         $removed | ForEach-Object { Write-Host "  $_" }
@@ -82,6 +84,7 @@ try {
     else {
         Write-Host "Updated $($changed.Count) shared uSync definition(s) in $siteRoot/uSync:"
         $changed | ForEach-Object { Write-Host "  $_" }
-        Write-Host 'Start the site, open Settings > uSync in the backoffice, use Report to review the changes, then Import to apply them.'
+        Write-Host 'The site imports them at its next start, before it serves pages. A site that sets UmbracoAppHost:ImportDefinitions to false'
+        Write-Host 'imports them from the backoffice instead: Settings > uSync, Report to review the changes, then Import.'
     }
 } finally { $running.Dispose() }

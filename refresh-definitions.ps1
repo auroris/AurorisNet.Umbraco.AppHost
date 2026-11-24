@@ -1,8 +1,9 @@
 #Requires -Version 7.0
-# Copies the library's definition folders over a host's working uSync folder after the host was rebuilt, for an
-# import from the backoffice, and removes its copies of what AppBlocks installs itself. The source is the export in the
-# host's build output, which runtime.json names; the instance's content and the host's own files are left alone. The
-# host may be running.
+# Copies the library's definition folders over a host's working uSync folder after the host was rebuilt, and removes
+# its copies of what AppBlocks installs itself. A host does both by itself at its next start and imports the
+# definitions then, so this script is for a host that keeps running, which imports them from the backoffice, and for
+# one that sets UmbracoAppHost:ImportDefinitions to false. The source is the export in the host's build output, which
+# runtime.json names; the instance's content and the host's own files are left alone.
 [CmdletBinding(SupportsShouldProcess)]
 param([Parameter(Mandatory)] [string] $Instance)
 $ErrorActionPreference = 'Stop'
@@ -25,4 +26,7 @@ if ($removed.Count -gt 0) {
 if ($changed.Count -eq 0) { Write-Host "The definitions in $working match the library's export in $source."; return }
 Write-Host "$(if ($copy) { 'Updated' } else { 'Would update' }) $($changed.Count) definition(s) in ${working}:"
 $changed | ForEach-Object { Write-Host "  $_" }
-if ($copy) { Write-Host 'Start the host if it is not running, open Settings > uSync in its backoffice, use Report to review the changes, then Import to apply them.' }
+if ($copy) {
+    Write-Host 'A host that is not running imports them at its next start. For a host that is running, or one that sets'
+    Write-Host 'UmbracoAppHost:ImportDefinitions to false, open Settings > uSync in its backoffice, use Report to review the changes, then Import.'
+}

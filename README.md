@@ -92,8 +92,8 @@ has the project file, settings and update routine.
 | Script | Purpose |
 |---|---|
 | `new-site.ps1 -Name <name> -Destination <folder>` | Publishes the reference website, or the project `-Project` names, and creates an independent site from the build. |
-| `update-site.ps1 -Site <folder>` | Installs a new build into a site and refreshes the shared uSync definitions in its `uSync` folder. |
-| `refresh-definitions.ps1 -Instance <folder>` | Refreshes the shared uSync definitions of an instance that a host runs from its own project. |
+| `update-site.ps1 -Site <folder>` | Installs a new build into a site and refreshes the shared uSync definitions in its `uSync` folder. The site imports them at its next start. |
+| `refresh-definitions.ps1 -Instance <folder>` | Refreshes the shared uSync definitions of an instance that a host runs from its own project, for a host that keeps running. |
 | `reset.ps1` | Deletes the reference instance's data, so the next start installs a new database and imports the saved export. |
 
 ## What a site gets
@@ -180,6 +180,7 @@ The library reads its own settings from the `UmbracoAppHost` section and from `I
 | `UmbracoAppHost:Samples` | `true` | Registers the `sample.orders` form class, the `orders` report and the sample database, and copies the sample content into a new working uSync folder. Set `false` in a project of your own. |
 | `UmbracoAppHost:HostExport` | `uSync` | The project's own committed uSync export, relative to the project root. Its files are copied into a new working uSync folder after the library's. Empty turns it off. |
 | `UmbracoAppHost:ProjectRoot` | the content root | The folder that holds the project's own files, such as its uSync export and schema scripts. `builder.ProjectRoot()` returns it. A test site sets it. |
+| `UmbracoAppHost:ImportDefinitions` | `true` | Imports the shared definitions of a build at the first start of that build. Set `false` to import them from the backoffice. See [A site takes each build's definitions](docs/usync-exports.md#a-site-takes-each-builds-definitions). |
 
 Settings are read in this order, and a later source replaces an earlier one: the library's
 defaults (`src/UmbracoAppHost/Hosting/defaults.json`), the instance's `instance.json`, the
@@ -252,7 +253,7 @@ dotnet pack tests/UmbracoAppHost.Testing/UmbracoAppHost.Testing.csproj -c Releas
 
 The repository pins one Umbraco release, so its tests run on that release alone. Three checks run
 on a developer's machine and never on GitHub. `deployment/test-sites.ps1` publishes a build,
-creates two sites and updates one. `deployment/test-downstream.ps1` builds a project in a
+creates two sites, updates one and starts it, then rehearses a release with a second build. `deployment/test-downstream.ps1` builds a project in a
 temporary folder that references the library, and takes an upstream change through the update
 routine. `tests/UmbracoAppHost.ProviderTests` runs data sources against PostgreSQL and Oracle when
 `UMBRACOAPPHOST_TEST_POSTGRES`, `UMBRACOAPPHOST_TEST_ORACLE` or `UMBRACOAPPHOST_TEST_ORACLE11G`

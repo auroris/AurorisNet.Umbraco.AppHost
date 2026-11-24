@@ -21,9 +21,11 @@ The library's defaults for uSync are:
 | `ExportOnSave` | `All` | Every save in the backoffice writes the item's file to the working folder. |
 | `ImportOnFirstBoot` | `true` | A new database imports the working folder once. |
 | `FirstBootGroup` | `All` | The first import takes definitions and content. |
-| `ImportAtStartup`, `ExportAtStartup` | `None` | Ordinary restarts import and export nothing. |
+| `ImportAtStartup`, `ExportAtStartup` | `None` | uSync's own startup import and export stay off. |
 
-uSync records its first boot in the database, so restarts and updates never import on their own.
+uSync records its first boot in the database and imports the whole folder only then. At later
+starts the host imports the shared definitions of a build the site has not imported yet. See
+[A site takes each build's definitions](#a-site-takes-each-builds-definitions).
 
 ## What the export holds
 
@@ -77,6 +79,12 @@ Change those definitions in AppBlocks. A copy of one in the saved export fails
 When an AppBlocks schema changes either one, the tests fail until the host's copy carries the
 change.
 
+The library's defaults set `AppBlocks:Definitions:UpdateAtStartup` to `true`. A start therefore
+resets each AppBlocks definition that the build changed since it was installed on the site, and
+the log names them. The two definitions in the table are registered as the site's own, so the
+export's copies stay as uSync imported them, at a start and when an administrator runs
+**Settings → AppBlocks → Definitions → Reinstall**.
+
 ## First start
 
 A working folder without `usync.config` has never been filled. Before uSync's first import, the
@@ -118,26 +126,71 @@ lists the files that were changed, added or removed in the working folder and as
 discarding them. The comparison leaves out AppBlocks' definitions and
 `ContentTypes/paperreport.config`, whose allowed templates the host rewrites at run time.
 
-## Deliver a change to existing sites
+## A site takes each build's definitions
 
-Existing sites keep their definitions until someone imports new ones.
+Each start brings the site the definitions of the build it runs, before the site serves a page:
 
-1. Run `update-site.ps1 -Site <folder>`. After it installs the build, it copies the saved
-   export's definition folders (`ContentTypes`, `DataTypes`, `Dictionary`, `Languages`,
-   `MediaTypes`, `MemberTypes`, `RelationTypes` and `Templates`) into the site's `uSync/` folder
-   and lists the files it changed. It also removes the site's copies of AppBlocks' definitions
-   and lists them.
-2. Start the site and open **Settings → uSync** in its backoffice.
-3. Run **Report** to review the changes, then **Import**.
+1. **AppBlocks' definitions.** AppBlocks installs the ones that are missing and resets the ones
+   the build changed since they were installed. Both need
+   `Umbraco:CMS:PackageMigration:RunSchemaAndContentMigrations`, which is on by default.
+2. **The shared definitions of the saved export.** These are the files in `ContentTypes`,
+   `DataTypes`, `Dictionary`, `Languages`, `MediaTypes`, `MemberTypes`, `RelationTypes` and
+   `Templates`, from the library's export, the host's and each theme library's, in the order a
+   [first start](#first-start) fills the working folder. The host keeps a fingerprint of the ones
+   the site last imported, in Umbraco's key-value table under `UmbracoAppHost:SharedDefinitions`.
+   When the build ships other ones, the host writes the files that differ into the working
+   folder, imports those eight folders and records the new fingerprint. Before the import it
+   removes two kinds of file that uSync's export on save leaves there: a second file for an item
+   the build ships, such as one under the name the item had before it was renamed, and the
+   copies of AppBlocks' definitions.
+3. **The blocks registered from code** are allowed in their Block Grids again, because the import
+   put those data types back as the export has them.
+4. **`DefinitionsReadyNotification`** is published, and an application
+   [installs its content](#install-content-when-the-definitions-are-ready).
 
-The script leaves `Content/` in place: pages belong to the site after it is created. Copy a
-content file by hand when a site should receive it. Files the site added, and files the saved
-export no longer ships, also stay.
+A start whose build ships the definitions the site already imported skips the import. A new site
+imports once after its first boot, which takes the dictionary only when it takes content.
 
-For an instance that a host runs from its own project, `refresh-definitions.ps1 -Instance
-<folder>` copies the same folders from the export in the host's build output. See
-[Bring an upstream change down](getting-started.md#bring-an-upstream-change-down).
+| On the site | What a build's definitions do to it |
+|---|---|
+| A shared definition changed in the site's backoffice | The next build that ships other shared definitions replaces it with the build's. Change shared definitions in the saved export |
+| `Content/` | Stays. Pages belong to the site after it is created. Copy a content file by hand when a site should receive it |
+| A definition file the site added | Stays, and is imported with the rest |
+| A definition the export no longer ships | Stays on the site until someone deletes it in the backoffice |
 
-AppBlocks installs missing definitions at startup when
-`Umbraco:CMS:PackageMigration:RunSchemaAndContentMigrations` is enabled. To reset installed
-definitions to the current schema, use **Settings → AppBlocks → Definitions → Reinstall**.
+**When an import fails**, the site does not start. The log names each definition with uSync's
+reason. The host puts the working folder's files back, records nothing, and imports again at the
+next start, so a corrected build starts from the files the site had. What the failed import had
+changed in the database stays changed, so restore the database backup taken before the update
+when the site must return to the earlier build.
+
+**To import by hand**, set `UmbracoAppHost:ImportDefinitions` to `false`. A start then imports
+nothing. `update-site.ps1` and `refresh-definitions.ps1` copy the build's definition folders into
+the working folder, and an administrator runs **Report** and **Import** in **Settings → uSync**.
+
+### Install content when the definitions are ready
+
+An application that installs pages from code handles `DefinitionsReadyNotification`. The host
+publishes it at each start once the definitions above are on the site, and before the site
+serves a page. A handler that throws stops the start: the site does not come up, and its log
+carries the error.
+
+```csharp
+public sealed class NoticePages(IServiceScopeFactory scopes) : INotificationAsyncHandler<DefinitionsReadyNotification>
+{
+    public async Task HandleAsync(DefinitionsReadyNotification notification, CancellationToken ct)
+    {
+        using var scope = scopes.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<ContentStepRunner>().RunAsync("Notices", InstallAsync, Steps, ct);
+    }
+}
+
+// Among the host's registrations:
+builder.AddNotificationAsyncHandler<DefinitionsReadyNotification, NoticePages>();
+```
+
+AppBlocks' `ContentStepRunner` installs the pages on a new site and runs each later change once on
+an updated one.
+[Pages that change between releases](https://github.com/auroris/AurorisNet.Umbraco.AppBlocks/blob/main/docs/site-integration.md#pages-that-change-between-releases)
+describes it. Umbraco publishes its own started notification once the site is ready to process
+requests, so that one suits work the site can run without.
