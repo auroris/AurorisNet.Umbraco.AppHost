@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using Umbraco.Cms.Core.Security;
+using Umbraco.Cms.Core.Services;
 using AppBlocks.Authentication;
 using IdentityServer.Sso;
 
@@ -9,7 +10,7 @@ namespace UmbracoAppHost.Authentication;
 /// The website member and the independent backoffice session, resolved once per request.
 /// </summary>
 public sealed class SiteVisitor(IMemberManager memberManager, SsoProviderCatalog providers, IHttpContextAccessor httpContextAccessor,
-    ApplicationAccessPolicy access, IOptions<IdentityServerSettings> identityServer)
+    ApplicationAccessPolicy access, IOptions<IdentityServerSettings> identityServer, IPreviewService preview)
 {
     private bool resolved;
 
@@ -41,7 +42,7 @@ public sealed class SiteVisitor(IMemberManager memberManager, SsoProviderCatalog
     public bool ShouldStartMemberSignIn(bool hasErrors, bool requiresTwoFactor)
     {
         var request = httpContextAccessor.HttpContext?.Request;
-        return !IsMember && !IsBackOfficeUser && AutomaticProvider is not null && request is not null
+        return !IsMember && !preview.IsInPreview() && AutomaticProvider is not null && request is not null
             && HttpMethods.IsGet(request.Method) && !hasErrors && !requiresTwoFactor
             && !request.Query.ContainsKey("ufprt")
             && !request.Query.ContainsKey(SsoLoginUrls.LocalParameter)

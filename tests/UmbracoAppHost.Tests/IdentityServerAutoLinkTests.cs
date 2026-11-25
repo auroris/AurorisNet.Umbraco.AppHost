@@ -35,7 +35,6 @@ public sealed class IdentityServerAutoLinkTests
         {
             Application = typeof(Program).Assembly,
             EnvironmentName = "Production",
-            FirstBootGroup = "Settings",
             StartSettings =
             {
                 ["IdentityServer:Name"] = "Native",
@@ -131,8 +130,31 @@ public sealed class IdentityServerAutoLinkTests
             var subject = audience == "backoffice" ? "S-1-5-21-100-200-300-9101" : "S-1-5-21-100-200-300-9102";
             var email = audience + "@native.example.invalid";
             using var browser = site.CreateClient();
-            var signedIn = await SignIn(browser, identity, audience, subject, email);
-            Assert.True(signedIn.GetProperty("succeeded").GetBoolean(), signedIn.ToString());
+            if (audience == "member")
+            {
+                const string page = "/sign-in/?from=portal";
+                var ct = TestContext.Current.CancellationToken;
+                Assert.Null(site.Services.GetRequiredService<IMemberService>().GetByEmail(email));
+                using var office = await browser.GetAsync($"/__tests/login/{Constants.Security.SuperUserKey}?scheme=backoffice", ct);
+                office.EnsureSuccessStatusCode();
+                using var start = await browser.GetAsync(page, ct);
+                Assert.Equal(HttpStatusCode.Redirect, start.StatusCode);
+                using var challenge = await browser.GetAsync(start.Headers.Location, ct);
+                Assert.Equal(TestIdentityServer.Issuer, challenge.Headers.Location!.GetLeftPart(UriPartial.Authority));
+                using var callback = await ReturnFromProvider(browser, identity, audience, subject, email, challenge);
+                using var signedIn = await browser.GetAsync(callback.Headers.Location, ct);
+                Assert.Equal(HttpStatusCode.Redirect, signedIn.StatusCode);
+                Assert.Equal(page, signedIn.Headers.Location!.OriginalString);
+                Assert.DoesNotContain("app-login-form", await browser.GetStringAsync(page, ct));
+                var sessions = await browser.GetFromJsonAsync<JsonElement>("/__tests/native-sessions", ct);
+                Assert.True(sessions.GetProperty("member").GetBoolean());
+                Assert.True(sessions.GetProperty("backOffice").GetBoolean());
+            }
+            else
+            {
+                var signedIn = await SignIn(browser, identity, audience, subject, email);
+                Assert.True(signedIn.GetProperty("succeeded").GetBoolean(), signedIn.ToString());
+            }
             Assert.Equal("Operations", observedClaims.Last());
             var users = site.Services.GetRequiredService<IUserService>();
             var members = site.Services.GetRequiredService<IMemberService>();
@@ -198,18 +220,25 @@ public sealed class IdentityServerAutoLinkTests
     {
         using var challenge = await browser.GetAsync("/__tests/native-login/" + audience);
         Assert.Equal(HttpStatusCode.Redirect, challenge.StatusCode);
-        var parameters = QueryHelpers.ParseQuery(challenge.Headers.Location!.Query);
-        identity.Subject = subject;
-        identity.Email = email;
-        identity.Nonce = parameters["nonce"].ToString();
-        using var callback = await browser.GetAsync(QueryHelpers.AddQueryString("/signin-oidc/" + audience,
-            new Dictionary<string, string?> { ["code"] = "test-code", ["state"] = parameters["state"].ToString() }));
-        Assert.Equal(HttpStatusCode.Redirect, callback.StatusCode);
+        using var callback = await ReturnFromProvider(browser, identity, audience, subject, email, challenge);
         Assert.Equal("/__tests/native-callback/" + audience, callback.Headers.Location!.OriginalString);
         using var native = await browser.GetAsync(callback.Headers.Location);
         var body = await native.Content.ReadAsStringAsync();
         Assert.True(native.IsSuccessStatusCode, body);
         return JsonDocument.Parse(body).RootElement.Clone();
+    }
+
+    private static async Task<HttpResponseMessage> ReturnFromProvider(HttpClient browser, TestIdentityServer identity, string audience,
+        string subject, string? email, HttpResponseMessage challenge)
+    {
+        var parameters = QueryHelpers.ParseQuery(challenge.Headers.Location!.Query);
+        identity.Subject = subject;
+        identity.Email = email;
+        identity.Nonce = parameters["nonce"].ToString();
+        var callback = await browser.GetAsync(QueryHelpers.AddQueryString("/signin-oidc/" + audience,
+            new Dictionary<string, string?> { ["code"] = "test-code", ["state"] = parameters["state"].ToString() }));
+        Assert.Equal(HttpStatusCode.Redirect, callback.StatusCode);
+        return callback;
     }
 
     private sealed class TestIdentityServer : HttpMessageHandler

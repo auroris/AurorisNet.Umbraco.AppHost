@@ -139,10 +139,8 @@ public sealed class MemberSignInHttpTests
                 ["Accounts:MembersManagedBy"] = "Umbraco",
             },
             ConfigureBuilder = builder => UseTestProvider(builder, provider),
-            ConfigureApp = app => app.MapGet("/__tests/member-signin-needed", async (SiteVisitor visitor) => {
-                await visitor.ResolveAsync();
-                return Results.Json(new { visitor.IsBackOfficeUser, StartMemberSignIn = visitor.ShouldStartMemberSignIn(false, false) });
-            }),
+            ConfigureApp = app => app.MapPost("/__tests/preview", async (IPreviewService preview, IUserService users) =>
+                await preview.TryEnterPreviewAsync((await users.GetAsync(Constants.Security.SuperUserKey))!)),
         }, TestContext.Current.CancellationToken);
         var member = site.CreateMember("member-login", "member-login@example.invalid", "Member login");
         const string password = "Local-test-only-Member91!";
@@ -150,13 +148,16 @@ public sealed class MemberSignInHttpTests
         using var browser = site.CreateClient();
         const string destination = prefix + "/orders-form/?id=4&topic=member-test";
 
-        using (var administrator = site.CreateClient())
+        using (var administrator = await site.SignInBackOfficeAsync(site.AdminUserName, site.AdminPassword))
         {
-            (await administrator.GetAsync($"{prefix}/__tests/login/{Constants.Security.SuperUserKey}?scheme=backoffice&name=Member%20sign-in%20test%20administrator", TestContext.Current.CancellationToken)).EnsureSuccessStatusCode();
-            var memberNeeded = await administrator.GetFromJsonAsync<System.Text.Json.JsonElement>(prefix + "/__tests/member-signin-needed", cancellationToken: TestContext.Current.CancellationToken);
-            Assert.True(memberNeeded.GetProperty("isBackOfficeUser").GetBoolean());
-            Assert.False(memberNeeded.GetProperty("startMemberSignIn").GetBoolean());
-            Assert.Contains("app-login-form", await Page(administrator, destination));
+            using var start = await administrator.GetAsync(destination, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Redirect, start.StatusCode);
+            using var providerRedirect = await administrator.GetAsync(start.Headers.Location, TestContext.Current.CancellationToken);
+            Assert.Equal("identity.example.invalid", providerRedirect.Headers.Location!.Host);
+            Assert.Contains("Sign in with your member account to continue.", await Page(administrator, destination + "&sso-local=1"));
+            using var preview = await administrator.PostAsync(prefix + "/__tests/preview", null, TestContext.Current.CancellationToken);
+            Assert.True(await preview.Content.ReadFromJsonAsync<bool>(TestContext.Current.CancellationToken));
+            Assert.Contains("app-login-form", await Page(administrator, prefix + "/sign-in/"));
         }
 
         var automatic = await browser.GetAsync(destination, TestContext.Current.CancellationToken);

@@ -216,7 +216,7 @@ Single sign-on preserves existing passwords.
 
 Add **Member sign-in** to a page’s block grid. The block shows Umbraco’s member password form, configured sign-in providers and two-factor challenge. Editors can move it alongside other content and change its heading. It disappears once the member signs in.
 
-The block’s **Start single sign-on automatically** setting is off by default. Turn it on for a dedicated sign-in page to send anonymous visitors to the configured identity server. A visitor already signed in to the backoffice sees the member form and a link to the backoffice. A failed provider attempt or a visit with `?sso-local=1` also shows the form. After sign-in, the visitor returns to the original local page and query string.
+The block’s **Start single sign-on automatically** setting is off by default. Turn it on to start member sign-in when someone opens the page without a membership session, including someone already signed in to the backoffice. After successful domain sign-in, Umbraco links or creates the member according to the provider’s member auto-link settings and returns the visitor to the original local page and query string. A failed attempt, a page preview, or a visit with `?sso-local=1` shows the form. When a backoffice session is open, the form also links to the backoffice.
 
 In Umbraco Public Access, select the published page containing the block as the login page. For pages using the **AppBlocks** or **Report Page** templates, select the same public page under **Appearance → Member sign-in page** on the site root. Those templates display the selected page’s blocks when the visitor needs to sign in.
 

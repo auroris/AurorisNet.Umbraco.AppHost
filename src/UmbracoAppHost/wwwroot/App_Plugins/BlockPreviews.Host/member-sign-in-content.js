@@ -5,5 +5,5 @@ export function memberSignInPreview(content) {
     return heading(content.heading || "Sign in")
         + '<label>Username<input disabled></label><label>Password<input type="password" disabled></label>'
         + button("Sign in")
-        + note(automatic ? "Automatically starts the configured member sign-in provider for anonymous visitors." : "Visible to visitors who need to sign in as a member.");
+        + note(automatic ? "Starts single sign-on for visitors who are not signed in as members." : "Visible to visitors who need to sign in as a member.");
 }
