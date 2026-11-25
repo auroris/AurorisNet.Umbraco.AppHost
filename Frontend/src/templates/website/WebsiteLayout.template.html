@@ -11,6 +11,7 @@
 {{# razor }}@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
 @using AppBlocks.Publishing
 @inject Umbraco.Cms.Core.Services.IUserService UserService
+@inject UmbracoAppHost.Website.NavigationUpdates NavigationUpdates
 @{
     Layout = null;
 
@@ -30,6 +31,7 @@
     // The latest update of the page and everything that registered its own date. A client that already
     // holds that version gets a 304 without the body being rendered.
     var pageUpdateDate = Context.GetPageUpdateDate(Model.UpdateDate);
+    NavigationUpdates.Register(Context);
     if (Context.ApplyCacheHeaders(pageUpdateDate))
     {
         IgnoreBody();

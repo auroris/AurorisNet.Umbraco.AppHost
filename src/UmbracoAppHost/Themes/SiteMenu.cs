@@ -31,11 +31,16 @@ public sealed partial class SiteMenu(SiteVisitor visitor, IHttpContextAccessor h
     /// <summary>The page's menu for the current visitor; empty when the site has no authored menu.</summary>
     public async Task<IReadOnlyList<SiteMenuEntry>> BuildAsync(IPublishedContent page,
         IDocumentNavigationQueryService navigation, IPublishedContentStatusFilteringService published)
+        => await BuildAuthoredAsync(page, navigation, published) ?? [];
+
+    /// <summary>Null when the theme should generate its menu. An authored menu can have zero entries for this visitor.</summary>
+    public async Task<IReadOnlyList<SiteMenuEntry>?> BuildAuthoredAsync(IPublishedContent page,
+        IDocumentNavigationQueryService navigation, IPublishedContentStatusFilteringService published)
     {
         // Resolving the visitor first puts a backoffice Administrator on the request, which UmbNav's display settings read.
         await visitor.ResolveAsync();
         var items = page.NavigationMenu(navigation, published);
-        if (items is null) return [];
+        if (items is null) return null;
         var pathBase = http.HttpContext?.Request.PathBase.Value ?? "";
         var values = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
         {

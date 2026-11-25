@@ -2,6 +2,7 @@ using Umbraco.Cms.Core.Models.PublishedContent;
 using Umbraco.Cms.Core.Services.Navigation;
 using Umbraco.Community.UmbNav.Core.Models;
 using AppBlocks.Documents.PaperReports;
+using AppBlocks.Blocks;
 using System.Text.Json;
 
 namespace UmbracoAppHost.Website;
@@ -30,11 +31,23 @@ public static class SiteContent
     public static string? Text(IPublishedContent page, string alias)
         => page.Value<string>(alias) is { } value && !string.IsNullOrWhiteSpace(value) ? value : null;
 
-    /// <summary>The pages beneath a page that menus and cards list. A paper report is a download, not a page.</summary>
+    /// <summary>Child candidates in menu order. Renderers apply the current visitor's access with <see cref="NavigationPagesAsync"/>.</summary>
     public static IEnumerable<IPublishedContent> VisibleChildren(this IPublishedContent page,
         IDocumentNavigationQueryService navigation, IPublishedContentStatusFilteringService published)
-        => page.Children(navigation, published).Where(node => node.IsVisible() && node.ContentType.Alias != PaperReportDefinition.Alias)
+        => page.Children(navigation, published).Where(IsNavigationPage)
             .OrderBy(node => node.SortOrder);
+
+    private static bool IsNavigationPage(IPublishedContent page) => page.IsVisible() && page.ContentType.Alias != PaperReportDefinition.Alias;
+
+    /// <summary>Generated links in the supplied order, using Umbraco visibility and the host's page admission rules for this request.</summary>
+    public static async Task<IReadOnlyList<IPublishedContent>> NavigationPagesAsync(this AppPageAccess access, IEnumerable<IPublishedContent> candidates)
+    {
+        var pages = new List<IPublishedContent>();
+        foreach (var page in candidates)
+            if (IsNavigationPage(page) && (access.IsOpen(page) || await access.UserAsync(page) is not null))
+                pages.Add(page);
+        return pages;
+    }
 
     /// <summary>
     /// Select the nearest authored menu before visitor filtering. Empty lists inherit; a menu whose entries are

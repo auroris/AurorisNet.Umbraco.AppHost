@@ -318,6 +318,55 @@ public sealed class WebPagesHttpTests
         Assert.Equal(Modified(unchanged.Html), Modified(inherited.Html));
         Assert.NotEqual(unchanged.Response.Headers.ETag, inherited.Response.Headers.ETag);
 
+        // Empty site content uses generated page cards. The website menu and section links
+        // use the same published pages and Public Access rules as the application menu.
+        site.SetValue("topNavigationMenu", "[]", "en");
+        site.SetValue(ApplicationStarter.BlockPropertyAlias, null, "en");
+        Save(site);
+        login.SetValue(Constants.Conventions.Content.NaviHide, 1);
+        Save(login);
+        // Let the HTTP-date second containing the last content publish finish. Only Public Access
+        // changes between the following two conditional requests.
+        await Task.Delay(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+        var beforeProtection = await Page(visitor, "/");
+        Assert.Contains("class=\"app-cards\"", beforeProtection.Html);
+        Assert.Contains("Mixed content", beforeProtection.Html);
+        Assert.DoesNotContain("Private tools", beforeProtection.Html);
+        Assert.DoesNotContain("Member login", beforeProtection.Html);
+        var tag = beforeProtection.Response.Headers.ETag;
+        Assert.NotNull(tag);
+        visitor.DefaultRequestHeaders.IfNoneMatch.Add(tag);
+        using (var cached = await visitor.GetAsync("/", TestContext.Current.CancellationToken))
+            Assert.Equal(HttpStatusCode.NotModified, cached.StatusCode);
+        Assert.True(access.Save(new PublicAccessEntry(mixed, login, deniedPage, [
+            new PublicAccessRule { RuleType = Constants.Conventions.PublicAccess.MemberUsernameRuleType, RuleValue = member.Username }
+        ])).Success);
+        var afterProtection = await Page(visitor, "/");
+        visitor.DefaultRequestHeaders.IfNoneMatch.Clear();
+        Assert.DoesNotContain("Mixed content", afterProtection.Html);
+        Assert.DoesNotContain("Mixed content", (await Page(visitor, "/overview/")).Html);
+        Assert.Contains("Mixed content", (await Page(anonymous, "/overview/")).Html); // signed-in member
+        Assert.Contains("Mixed content", (await Page(administrator, "/")).Html);
+
+        site.TemplateId = types.Get("appHostWebsite")!.AllowedTemplates!.Single(template => template.Alias == "ApplicationSite").Id;
+        Save(site);
+        var appMenu = (await Page(visitor, "/overview/")).Html;
+        Assert.Contains("id=\"app-nav\"", appMenu);
+        Assert.DoesNotContain("Private tools", appMenu);
+        Assert.DoesNotContain("Private guide", appMenu);
+        Assert.DoesNotContain("Member login", appMenu);
+        Assert.Contains("Private guide", (await Page(administrator, "/overview/")).Html);
+
+        site.SetValue("topNavigationMenu", JsonSerializer.Serialize(new[] {
+            new { key = Guid.NewGuid(), name = "Signed in as {{user.name}}", itemType = "Title", children = Array.Empty<object>() }
+        }), "en");
+        Save(site);
+        Assert.DoesNotContain("class=\"app-nav-item", (await Page(visitor, "/overview/")).Html);
+        site.TemplateId = types.Get("appHostWebsite")!.DefaultTemplate!.Id;
+        Save(site);
+        var emptyWebsiteMenu = (await Page(visitor, "/")).Html;
+        Assert.Matches("<ul class=\"site-menu\">\\s*<li class=\"site-languages\">", emptyWebsiteMenu);
+
         // The saved Report Page loads the report module with the page's CSP nonce, as the block runtime does.
         administrator.DefaultRequestHeaders.Host = address.Authority;
         var reportPage = await Page(administrator, "/orders/");

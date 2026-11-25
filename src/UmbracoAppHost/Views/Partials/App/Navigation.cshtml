@@ -1,26 +1,34 @@
 @inherits UmbracoViewPage
+@inject AppBlocks.Blocks.AppPageAccess PageAccess
 @{
     var application = Model.SiteRoot(NavigationQueryService, PublishedStatusFilteringService);
     var atHome = Model.Id == application.Id;
-    var menu = await SiteMenu.BuildAsync(Model, NavigationQueryService, PublishedStatusFilteringService);
+    var menu = await SiteMenu.BuildAuthoredAsync(Model, NavigationQueryService, PublishedStatusFilteringService);
     // Generated entries go four levels below the application, as they did when applications were roots.
     ViewData["AppNavigationRootLevel"] = application.Level;
 }
 @* The menu: Home, then one entry per page beneath the application, nested as the content tree is. *@
 <nav class="app-nav" id="app-nav" aria-label="Application menu">
     <ul class="app-nav-list">
-    @if (menu.Count > 0)
+    @if (menu is not null)
     {
         <partial name="App/NavigationMenuItems" model="menu" />
     }
     else
     {
-        <li class="app-nav-item@(atHome ? " is-current" : "")">
-            <a href="@application.Url()" aria-current="@(atHome ? "page" : null)">Home</a>
-        </li>
-        @foreach (var item in application.VisibleChildren(NavigationQueryService, PublishedStatusFilteringService))
+        var candidates = application.VisibleChildren(NavigationQueryService, PublishedStatusFilteringService).Prepend(application);
+        foreach (var item in await PageAccess.NavigationPagesAsync(candidates))
         {
-            @await Html.PartialAsync("App/NavigationItem", item)
+            if (item.Key == application.Key)
+            {
+                <li class="app-nav-item@(atHome ? " is-current" : "")">
+                    <a href="@application.Url()" aria-current="@(atHome ? "page" : null)">Home</a>
+                </li>
+            }
+            else
+            {
+                @await Html.PartialAsync("App/NavigationItem", item)
+            }
         }
     }
     </ul>

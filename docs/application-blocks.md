@@ -58,8 +58,13 @@ endpoints, so use Public Access to protect a branch.
 ### Menus
 
 A page shows the menu of its nearest ancestor with an authored menu, and the badge of its
-nearest ancestor with one. A site with no authored menu lists its pages. Paper report nodes and
-pages with **Hide from navigation** are left out.
+nearest ancestor with one. A site with no authored menu lists its pages. Generated menus, section
+links, breadcrumb links and page cards follow **Hide from navigation** and the visitor's page
+access, including inherited Public Access and the host's admission rules. Paper reports are
+excluded. An authored menu whose entries are all hidden from a visitor stays empty.
+
+Custom themes can pass their published candidates to `await pageAccess.NavigationPagesAsync(candidates)`
+using the request's `AppPageAccess`. The returned pages keep the supplied order.
 
 A menu entry's label or link can carry tokens for the person looking at the page:
 

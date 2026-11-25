@@ -1,6 +1,7 @@
 @inherits UmbracoViewPage
+@inject AppBlocks.Blocks.AppPageAccess PageAccess
 @{
-    var items = Model.VisibleChildren(NavigationQueryService, PublishedStatusFilteringService).ToList();
+    var items = await PageAccess.NavigationPagesAsync(Model.VisibleChildren(NavigationQueryService, PublishedStatusFilteringService));
 }
 @if (items.Count > 0)
 {

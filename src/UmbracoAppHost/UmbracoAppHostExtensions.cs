@@ -187,6 +187,9 @@ public static class UmbracoAppHostExtensions
         builder.Services.AddSingleton<UmbracoAppHost.Themes.SiteThemeCatalog>();
         // The authored menu with its visitor tokens replaced, once per request.
         builder.Services.AddScoped<UmbracoAppHost.Website.SiteMenu>();
+        builder.Services.AddSingleton<Website.NavigationUpdates>();
+        builder.AddNotificationHandler<ContentCacheRefresherNotification, Website.NavigationRefresh>();
+        builder.AddNotificationHandler<PublicAccessCacheRefresherNotification, Website.NavigationRefresh>();
         builder.AddNotificationAsyncHandler<RoutingRequestNotification, UmbracoAppHost.Website.WebsiteTemplateInheritance>();
         AddCultureFallback(builder);
 
