@@ -7,6 +7,14 @@
       "js": "/App_Plugins/BlockPreviews.Host/entrypoint.js",
       "type": "appEntryPoint",
       "alias": "UmbracoAppHost.PreviewStyles"
+    },
+    {
+      "type": "blockEditorCustomView",
+      "alias": "UmbracoAppHost.MemberSignIn.Preview",
+      "name": "Member sign-in preview",
+      "element": "/App_Plugins/BlockPreviews.Host/member-sign-in.js",
+      "forContentTypeAlias": "appMemberSignIn",
+      "forBlockEditor": "block-grid"
     }
   ]
 }
