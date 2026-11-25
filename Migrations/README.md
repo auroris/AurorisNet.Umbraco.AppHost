@@ -10,6 +10,6 @@ For each release after 1.0.0, follow these steps.
 
 The host snapshot contains its uSync export, people-picker definition and sample installer. The build exposes the export at `uSync/` for downstream sites and deployment tools. The startup code in `Runtime/` preserves the site's uSync working copy and applies changes to shared definitions under the existing import settings.
 
-The sample database uses `Sample/Schema/<dialect>/` within a snapshot or transition. AppBlocks owns its attachment tables and block definitions. The package build targets the four AppBlocks 1.0.0 packages. Publish those packages before running AppHost’s public package build. Test this host with the matching AppBlocks build, then run the definition-installation and sample-database tests. Use the MSBuild property `InstallSnapshot=1.0.0-Base` to exercise the original installer.
+The sample database uses `Sample/Schema/<dialect>/` within a snapshot or transition. AppBlocks owns its attachment tables and block definitions. AppHost builds these migrations from the pinned AppBlocks submodule. After packing, run `Migrations/Tests/Test-PackageInstall.ps1 <AppHost.nupkg>` to verify first boot with an empty database and package cache. Use the MSBuild property `InstallSnapshot=1.0.0-Base` to exercise the original installer.
 
 For an upgrade to stored CMS content, implement the patch in the transition folder and register it in Current’s `SiteDefinitions.ContentUpgrades`. Startup records the initial installation and runs pending patches once, in order.

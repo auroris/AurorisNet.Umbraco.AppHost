@@ -52,7 +52,16 @@ public sealed class ReportAdministrationTests
         Assert.True(await policy.IsAdministratorAsync(BackOffice(administrator)));
         Assert.False(await policy.IsAdministratorAsync(BackOffice(editor)));
 
-        // A member administers through the backoffice user their account links to: by email here, before a first sign-in stores a key.
+        // A member sharing only an email address with an administrator is NOT elevated without an external login link.
+        var sameEmailMember = site.CreateMember("same-email-member", appBlocksAdministrator.Email, "Same email member");
+        Assert.False(await policy.IsAdministratorAsync(Member(sameEmailMember)));
+
+        // A member administers only when linked through an external login key (SID) to an active administrator backoffice user.
+        var providers = services.GetRequiredService<IdentityServer.Sso.SsoProviderCatalog>();
+        var provider = providers.BackOffice.First();
+        const string sharedSid = "S-1-5-21-1000000001-1000000002-1000000003-5001";
+        site.LinkWindowsIdentity(linkedMember.Key, sharedSid, provider.MemberScheme);
+        site.LinkWindowsIdentity(appBlocksAdministrator.Key, sharedSid, provider.BackOfficeScheme);
         var plainMember = site.CreateMember("plain-member", "plain-member@example.invalid", "Plain member");
         Assert.True(await policy.IsAdministratorAsync(Member(linkedMember)));
         Assert.False(await policy.IsAdministratorAsync(Member(plainMember)));

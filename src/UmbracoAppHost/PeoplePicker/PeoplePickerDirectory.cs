@@ -70,7 +70,7 @@ public sealed class PeoplePickerDirectory(ILogger<PeoplePickerDirectory> logger)
                 var person = new DirectoryUser {
                     Sid = new SecurityIdentifier(sid, 0).Value, Guid = Value("objectGUID") is byte[] guid ? new Guid(guid).ToString() : "",
                     AccountName = username, UserName = username, DisplayName = Text("displayName") ?? username,
-                    GivenName = Text("givenName"), Email = Text("mail"), Telephone = Text("telephoneNumber"),
+                    GivenName = Text("givenName"), Surname = Text("sn"), Email = Text("mail"), Telephone = Text("telephoneNumber"),
                     Enabled = (Convert.ToInt32(Value("userAccountControl") ?? 0) & 2) == 0,
                     Attributes = settings.SearchAttributes.Concat(settings.ReturnedAttributes).Distinct(StringComparer.OrdinalIgnoreCase)
                         .Where(name => Text(name) is not null).ToDictionary(name => name, name => Text(name)!, StringComparer.OrdinalIgnoreCase),

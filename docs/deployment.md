@@ -69,7 +69,7 @@ same way, and its sites run its own application.
 |---|---|
 | `-Project <project file>` | Publishes that project in place of `src/UmbracoAppHost.Web`. |
 | `-Assembly <file>` | The application's file name, when it is not the project's name with `.dll`. |
-| `-MsBuildProperties` | Properties for `dotnet publish`, such as `'-p:AppBlocksRoot=D:\src\AurorisNet.Umbraco.AppBlocks'`. They come after the script's own, so `-p:Configuration=Debug` replaces Release. |
+| `-MsBuildProperties` | Properties for `dotnet publish`, such as `'-p:BreakGlassRoot=D:\src\AurorisNet.Umbraco.BreakGlass'`. They come after the script's own, so `-p:Configuration=Debug` replaces Release. |
 
 The three apply when the script publishes. They are refused with `-Build` and inside a build
 folder.

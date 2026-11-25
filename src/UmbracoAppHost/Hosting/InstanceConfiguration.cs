@@ -36,22 +36,30 @@ internal static class InstanceConfiguration
             var settingsPath = Path.Combine(root, "instance.json");
             if (!File.Exists(settingsPath))
             {
-                using var settingsFile = File.Create(settingsPath);
-                JsonSerializer.Serialize(settingsFile, new
+                var tempSettings = Path.Combine(root, Path.GetRandomFileName());
+                try
                 {
-                    Accounts = new { BackOfficeMemberGroups = Array.Empty<string>() },
-                    Umbraco = new { CMS = new
+                    using (var settingsFile = new FileStream(tempSettings, FileMode.CreateNew, FileAccess.Write))
                     {
-                        Global = new { Id = Guid.NewGuid().ToString() },
-                        Imaging = new { HMACSecretKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)) },
-                        Unattended = new
+                        JsonSerializer.Serialize(settingsFile, new
                         {
-                            InstallUnattended = true, UpgradeUnattended = true, UnattendedTelemetryLevel = "Minimal",
-                            UnattendedUserName = "Administrator", UnattendedUserEmail = "admin@localhost.local",
-                            UnattendedUserPassword = "Start!" + Convert.ToHexString(RandomNumberGenerator.GetBytes(20)) + "a9",
-                        },
-                    } },
-                }, new JsonSerializerOptions { WriteIndented = true });
+                            Accounts = new { BackOfficeMemberGroups = Array.Empty<string>() },
+                            Umbraco = new { CMS = new
+                            {
+                                Global = new { Id = Guid.NewGuid().ToString() },
+                                Imaging = new { HMACSecretKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)) },
+                                Unattended = new
+                                {
+                                    InstallUnattended = true, UpgradeUnattended = true, UnattendedTelemetryLevel = "Minimal",
+                                    UnattendedUserName = "Administrator", UnattendedUserEmail = "admin@localhost.local",
+                                    UnattendedUserPassword = "Start!" + Convert.ToHexString(RandomNumberGenerator.GetBytes(20)) + "a9",
+                                },
+                            } },
+                        }, new JsonSerializerOptions { WriteIndented = true });
+                    }
+                    File.Move(tempSettings, settingsPath);
+                }
+                finally { File.Delete(tempSettings); }
             }
 
             // Defaults and persisted identity come first. The host's appsettings, environment
@@ -89,8 +97,9 @@ internal static class InstanceConfiguration
                 hostExport = USyncFiles.HostExport(builder.Configuration, builder.Environment.ContentRootPath, Path.Combine(root, "uSync")),
                 samples = builder.Configuration.GetValue(SampleContent.Setting, true),
             }));
-            builder.Services.AddDataProtection().PersistKeysToFileSystem(Directory.CreateDirectory(Path.Combine(data, "keys")))
+            var dp = builder.Services.AddDataProtection().PersistKeysToFileSystem(Directory.CreateDirectory(Path.Combine(data, "keys")))
                 .SetApplicationName(builder.Configuration["Umbraco:CMS:Global:Id"]!);
+            if (OperatingSystem.IsWindows()) dp.ProtectKeysWithDpapi();
             var instance = new AppHostInstance(root, settingsPath, lease);
             // A factory makes the DI container own the lease and dispose it with the host.
             builder.Services.AddSingleton(_ => instance);

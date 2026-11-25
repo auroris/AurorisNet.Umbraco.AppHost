@@ -33,13 +33,13 @@ public sealed class InstanceConfigurationTests
     }
 
     [Fact]
-    public void Defaults_name_the_administrator_and_keep_debug_sign_in_without_a_password()
+    public void Defaults_name_the_administrator_and_keep_debug_sign_in_off_without_opt_in()
     {
         var settings = BreakGlassSettingsFor();
         Assert.Null(settings.AdminPassword);
         Assert.Equal("admin", settings.GetAdminUserName());
         Assert.Equal("admin@localhost.local", settings.GetAdminEmail());
-        Assert.True(settings.IsDebugSignInActive(hostingDebug: true));
+        Assert.False(settings.IsDebugSignInActive(hostingDebug: true));
         Assert.False(settings.IsDebugSignInActive(hostingDebug: false));
     }
 
@@ -53,7 +53,7 @@ public sealed class InstanceConfigurationTests
         Assert.Equal("", settings.AdminPassword);
         Assert.Equal("admin", settings.GetAdminUserName());
         Assert.Equal("admin@localhost.local", settings.GetAdminEmail());
-        Assert.True(settings.IsDebugSignInActive(hostingDebug: true));
+        Assert.False(settings.IsDebugSignInActive(hostingDebug: true));
     }
 
     [Fact]

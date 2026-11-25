@@ -72,7 +72,7 @@
   },
   "BackOfficeLogin": {
     "DefaultFlow": "Auto",
-    "DebugFlow": "Debug"
+    "DebugFlow": "Form"
   },
   "IdentityServer": {
     "Enabled": true,

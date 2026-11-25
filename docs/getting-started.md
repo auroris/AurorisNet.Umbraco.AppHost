@@ -6,7 +6,7 @@ sites and update them, see [Deployment](deployment.md).
 
 ## Run the reference website
 
-Building needs the .NET 10 SDK, Node 20 or newer, and the sibling checkouts the
+Initialize the AppBlocks submodule with `git submodule update --init`. Building needs the .NET 10 SDK, Node 20 or newer, and the sibling checkouts the
 [README](../README.md#start-a-site) lists.
 
 Open `UmbracoAppHost.slnx` in Visual Studio and start the **Website** launch profile, or run:
@@ -105,8 +105,7 @@ The project file references the library in the checkout of this repository:
 
 The Razor settings publish templates as files and compile them when they are first rendered,
 which Umbraco needs for templates edited in the backoffice. In Visual Studio, add the library to
-the host's solution with **Add > Existing Project**. The library builds AppBlocks, BreakGlass
-and the two IdentityServer packages from their sibling checkouts itself, so they are not added.
+the host's solution with **Add > Existing Project**. AppHost references its AppBlocks submodule, BreakGlass and the two IdentityServer projects. Add only AppHost to the solution.
 
 Copy the library's `_ViewImports.cshtml` when you create the project, and commit it. It gives
 the Razor editor the shared namespaces and injected services before the first run:
@@ -197,7 +196,7 @@ elsewhere, pass its folder to every build, or set the property as an environment
 before starting Visual Studio:
 
 ```powershell
-dotnet build src\MyHost.Web -p:AppBlocksRoot=D:\src\AurorisNet.Umbraco.AppBlocks
+dotnet build src\MyHost.Web -p:BreakGlassRoot=D:\src\AurorisNet.Umbraco.BreakGlass
 ```
 
 Start the host from Visual Studio or with `dotnet run --project src\MyHost.Web`. The first start
@@ -223,7 +222,7 @@ change that brought them. The host's other views are left alone.
 
 ### Bring an upstream change down
 
-1. Pull this repository and the sibling checkouts, then rebuild the host. Code, browser assets
+1. Pull this repository, run `git submodule update --init` in it, update the sibling checkouts and rebuild the host. Code, browser assets
    and the library's export arrive through the project reference, and the shipped views are
    rewritten at the next start.
 2. Start the host. The start writes the definition files that changed (`ContentTypes`,
@@ -282,8 +281,7 @@ so the published site carries them.
 `Program.cs` does, on a free loopback port with a new database and instance folder under a
 temporary directory, and waits for the unattended install. It signs in members and backoffice
 users and hands out clients that drive forms, attachments, tabular rows and reports over HTTP.
-The clients and `TestSiteException` come from AppBlocks' `AurorisNet.Umbraco.AppBlocks.Testing`
-package (namespace `AppBlocks.Testing`). Neither package references a test framework.
+The clients and `TestSiteException` come from the `AppBlocks.Testing` assembly bundled in `AurorisNet.Umbraco.AppHost.Testing`. These helpers work with any test framework.
 
 ### Set up the test project
 

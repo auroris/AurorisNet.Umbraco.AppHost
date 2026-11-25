@@ -58,9 +58,7 @@ jobs:
       contents: write
       id-token: write
     env:
-      # Build against the published AppBlocks, BreakGlass and IdentityServer packages, which the package then depends on,
-      # instead of sibling checkouts. The build fails until those packages are on nuget.org.
-      UseAppBlocksSource: 'false'
+      # AppBlocks comes from the submodule. Restore the other libraries from NuGet.
       UseBreakGlassSource: 'false'
       UseIdentityServerSsoSource: 'false'
       UseIdentityServerDirectorySource: 'false'
@@ -68,6 +66,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
+          submodules: true
           persist-credentials: false
 
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
@@ -106,7 +105,9 @@ jobs:
             dotnet pack $project -c Release "-p:Version=$env:RELEASE_VERSION" -p:ContinuousIntegrationBuild=true -o artifacts/packages
             if ($LASTEXITCODE -ne 0) { throw "Could not pack $project." }
           }
-          ./Migrations/Tests/Test-Package.ps1 (Get-Item artifacts/packages/AurorisNet.Umbraco.AppHost.[0-9]*.nupkg).FullName
+          $package = (Get-Item artifacts/packages/AurorisNet.Umbraco.AppHost.[0-9]*.nupkg).FullName
+          ./Migrations/Tests/Test-Package.ps1 $package
+          ./Migrations/Tests/Test-PackageInstall.ps1 $package
 
       - name: Publish
         uses: auroris/AurorisNet.Build/actions/publish@main

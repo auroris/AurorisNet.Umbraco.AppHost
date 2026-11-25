@@ -63,12 +63,12 @@ try {
         [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
         Copy-Item -LiteralPath $file.FullName -Destination $target
     }
-    $changed = @(Copy-SyncDefinitions (Get-SafePath $stage 'uSync') (Get-SafePath $siteRoot uSync))
-    $removed = @(Remove-AppBlocksDefinitions (Get-SafePath $siteRoot uSync))
     [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($backup)) | Out-Null
     Move-Item -LiteralPath $app -Destination $backup
     try { Move-Item -LiteralPath $stage -Destination $app }
     catch { Move-Item -LiteralPath $backup -Destination $app; throw }
+    $changed = @(Copy-SyncDefinitions (Get-SafePath $app 'uSync') (Get-SafePath $siteRoot uSync))
+    $removed = @(Remove-AppBlocksDefinitions (Get-SafePath $siteRoot uSync))
     $state.schemaVersion = 3
     $state.build = $incoming.id; $state.umbraco = $incoming.umbraco; $state.assembly = $incoming.assembly; $state.appFiles = $incoming.appFiles
     $state.sources = @(Get-BuildSources $incoming)

@@ -6,6 +6,12 @@
 # and three days after those of the other Umbraco packages, so their releases arrive here in the same week.
 version: 2
 updates:
+  - package-ecosystem: gitsubmodule
+    directory: /
+    schedule:
+      interval: weekly
+      day: friday
+
   - package-ecosystem: nuget
     directory: /
     schedule:
@@ -23,10 +29,7 @@ updates:
         update-types:
           - "version-update:semver-major"
     groups:
-      # AppBlocks and the Umbraco release it pins are the dependency this library follows. Umbraco, uSync and the
-      # AurorisNet packages for that release must move together, because the build checks that the library and AppBlocks
-      # name one Umbraco release, and two of the packages accept Umbraco only up to the release they were built for. One
-      # pull request carries them all, and passes once every package for the new Umbraco release is on nuget.org.
+      # The Umbraco packages must agree with the versions in the pinned AppBlocks source.
       umbraco:
         patterns:
           - "Umbraco.Cms*"

@@ -2,7 +2,7 @@
 
 `AurorisNet.Umbraco.AppHost.Testing` boots an [Umbraco App Host](https://github.com/auroris/AurorisNet.Umbraco.AppHost) site in a test process, so a host's tests call its pages and endpoints over HTTP.
 
-`TestSite.StartAsync` applies the host's own registrations, as its `Program.cs` does, on Kestrel at a free loopback port with a new SQLite database and instance folder, and returns once the unattended install has finished. The site signs in members and backoffice users, and hands out the endpoint clients of [AurorisNet.Umbraco.AppBlocks.Testing](https://www.nuget.org/packages/AurorisNet.Umbraco.AppBlocks.Testing) for its own address and virtual path.
+`TestSite.StartAsync` applies the host's own registrations, as its `Program.cs` does, on Kestrel at a free loopback port with a new SQLite database and instance folder, and returns once the unattended install has finished. The site signs in members and backoffice users, and hands out the endpoint clients from the bundled `AppBlocks.Testing` assembly for its own address and virtual path.
 
 The package references no test framework. Failures throw `TestSiteException`.
 

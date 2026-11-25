@@ -38,12 +38,7 @@ internal static class SharedViews
         // both runtime compilation and the host's next normal Visual Studio build.
         var imports = Path.Combine(environment.ContentRootPath, "Views", Imports);
         if (!File.Exists(imports))
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(imports)!);
-            using var source = Files.GetFileInfo("Views/" + Imports).CreateReadStream();
-            using var destination = new FileStream(imports, FileMode.CreateNew, FileAccess.Write);
-            source.CopyTo(destination);
-        }
+            WriteAtomic(imports, Files.GetFileInfo("Views/" + Imports).CreateReadStream, overwrite: false);
     }
 
     public static void EnsureTemplates(IWebHostEnvironment environment, ILogger logger, IEnumerable<ThemeLibrary> libraries)
@@ -58,15 +53,28 @@ internal static class SharedViews
             var exists = File.Exists(path);
             // A host may add its own usings to the imports.
             if (exists && (file.Name.Equals(Imports, StringComparison.OrdinalIgnoreCase) || Text(File.ReadAllText(path)) == Text(Read(file)))) continue;
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            using var source = file.CreateReadStream();
-            using var destination = new FileStream(path, exists ? FileMode.Create : FileMode.CreateNew, FileAccess.Write);
-            source.CopyTo(destination);
+            WriteAtomic(path, file.CreateReadStream, overwrite: exists);
             if (exists) rewritten.Add(file.Name);
         }
         if (rewritten.Count > 0)
             logger.LogInformation("Rewrote the views the library ships that differed in {Views}: {Names}.",
                 Path.Combine(environment.ContentRootPath, "Views"), string.Join(", ", rewritten));
+    }
+
+    private static void WriteAtomic(string target, Func<Stream> openSource, bool overwrite)
+    {
+        var directory = Path.GetDirectoryName(target)!;
+        Directory.CreateDirectory(directory);
+        using var source = openSource();
+        var temporary = Path.Combine(directory, Path.GetRandomFileName());
+        var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write);
+        try
+        {
+            using (output) source.CopyTo(output);
+            try { File.Move(temporary, target, overwrite); }
+            catch (IOException) when (!overwrite && File.Exists(target)) { }
+        }
+        finally { File.Delete(temporary); }
     }
 
     /// <summary>

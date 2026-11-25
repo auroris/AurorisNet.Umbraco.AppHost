@@ -12,10 +12,6 @@
     <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
     <!-- Let MSBuild check browser sources and dependencies outside the VS solution. -->
     <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
-    <AppBlocksRoot Condition="'$(AppBlocksRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\AurorisNet.Umbraco.AppBlocks</AppBlocksRoot>
-    <!-- AppBlocks builds from the sibling checkout until its packages are on nuget.org. Then set UseAppBlocksSource to
-         false here. The CI and Release workflows already set it to false, with the other Use...Source switches. -->
-    <UseAppBlocksSource Condition="'$(UseAppBlocksSource)' == ''">true</UseAppBlocksSource>
     <!-- Break-glass access builds from the sibling checkout until its package is on nuget.org. Then set
          UseBreakGlassSource to false here and set its version in Directory.Packages.props. -->
     <BreakGlassRoot Condition="'$(BreakGlassRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\AurorisNet.Umbraco.BreakGlass</BreakGlassRoot>
@@ -71,12 +67,10 @@
 
   <ItemGroup>
     <!-- AppBlocks owns forms/data sources; its optional companion supplies interactive reports. -->
-    <ProjectReference Include="$(AppBlocksRoot)\src\AppBlocks\AppBlocks.csproj" Condition="'$(UseAppBlocksSource)' == 'true'" />
-    <PackageReference Include="AurorisNet.Umbraco.AppBlocks" Condition="'$(UseAppBlocksSource)' != 'true'" />
-    <ProjectReference Include="$(AppBlocksRoot)\src\AppBlocks.InteractiveReports\AppBlocks.InteractiveReports.csproj" Condition="'$(UseAppBlocksSource)' == 'true'" />
-    <PackageReference Include="AurorisNet.Umbraco.AppBlocks.InteractiveReports" Condition="'$(UseAppBlocksSource)' != 'true'" />
-    <ProjectReference Include="$(AppBlocksRoot)\src\AppBlocks.Documents\AppBlocks.Documents.csproj" Condition="'$(UseAppBlocksSource)' == 'true'" />
-    <PackageReference Include="AurorisNet.Umbraco.AppBlocks.Documents" Condition="'$(UseAppBlocksSource)' != 'true'" />
+    <BundledProject Include="$(AppBlocksRoot)/src/AppBlocks/AppBlocks.csproj" />
+    <BundledProject Include="$(AppBlocksRoot)/src/AppBlocks.InteractiveReports/AppBlocks.InteractiveReports.csproj" />
+    <BundledProject Include="$(AppBlocksRoot)/src/AppBlocks.Documents/AppBlocks.Documents.csproj" />
+    <ProjectReference Include="@(BundledProject)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -133,13 +127,11 @@
        pins them here. A difference would quietly compile AppBlocks against one version and run it on another, so it
        stops the build. The check lives only here, because AppBlocks must not need this repository. -->
   <Target Name="CheckAppBlocksPackageVersions" BeforeTargets="CollectPackageReferences;ResolveProjectReferences"
-          Condition="'$(UseAppBlocksSource)' == 'true' and Exists('$(AppBlocksRoot)\src\AppBlocks\AppBlocks.csproj') and '$(DesignTimeBuild)' != 'true'">
-    <ItemGroup>
-      <_AppBlocksProject Include="$(AppBlocksRoot)\src\AppBlocks\AppBlocks.csproj;$(AppBlocksRoot)\src\AppBlocks.Documents\AppBlocks.Documents.csproj;$(AppBlocksRoot)\src\AppBlocks.InteractiveReports\AppBlocks.InteractiveReports.csproj" />
-    </ItemGroup>
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <Error Condition="!Exists('$(AppBlocksRoot)/src/AppBlocks/AppBlocks.csproj')" Text="Initialize the AppBlocks submodule with git submodule update --init." />
     <!-- Read the evaluated references that NuGet uses, whether a version is literal or comes from a property.
          AppBlocksUmbracoVersion in Directory.Build.props may no longer be used by those references. -->
-    <MSBuild Projects="@(_AppBlocksProject)" Targets="CollectPackageReferences"
+    <MSBuild Projects="@(BundledProject)" Targets="CollectPackageReferences"
              Properties="Configuration=$(Configuration)" RemoveProperties="TargetFramework;RuntimeIdentifier;SelfContained">
       <Output TaskParameter="TargetOutputs" ItemName="_AppBlocksPackageReference" />
     </MSBuild>
@@ -164,6 +156,7 @@
   </Target>
 
   <Import Project="Frontend.targets" />
+  <Import Project="../../build/BundleAppBlocks.targets" />
 
   <!-- uSync's package targets disable output copying for this folder. The shared library
        also supplies the export to referencing hosts and the site-management scripts. -->

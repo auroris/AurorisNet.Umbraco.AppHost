@@ -25,17 +25,17 @@ internal sealed class BackOfficeAuthFiles : IFileProvider
     private readonly Dictionary<string, IFileInfo> _files = new(StringComparer.OrdinalIgnoreCase);
     public string ContentHash { get; }
 
-    public BackOfficeAuthFiles(IWebHostEnvironment environment, InstallationCookies cookies)
+    public BackOfficeAuthFiles(IWebHostEnvironment environment, InstallationCookies cookies, ILogger<BackOfficeAuthFiles>? logger = null)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var suffix = cookies.Suffix;
         Add("auth", source =>
         {
             foreach (var key in new[] { "umb:auth", "umb:token-refresh", "umb:pkce" })
-                source = source.Replace(JsonSerializer.Serialize(key), JsonSerializer.Serialize(key + suffix), StringComparison.Ordinal);
+                source = ReplaceChecked(source, JsonSerializer.Serialize(key), JsonSerializer.Serialize(key + suffix), "auth");
 
             // External providers can supply their own popup name. Keep reserved browser targets such as _blank.
-            return source.Replace("window.open(", "openAppHostAuthPopup(", StringComparison.Ordinal) + $$"""
+            return ReplaceChecked(source, "window.open(", "openAppHostAuthPopup(", "auth") + $$"""
 
                 function openAppHostAuthPopup(url, target, features) {
                   const name = target && !target.startsWith("_") ? target + {{JsonSerializer.Serialize(suffix)}} : target;
@@ -43,9 +43,16 @@ internal sealed class BackOfficeAuthFiles : IFileProvider
                 }
                 """;
         });
-        Add("utils", source => source.Replace("\"umb:auth:redirect\"", JsonSerializer.Serialize("umb:auth:redirect" + suffix),
-            StringComparison.Ordinal));
+        Add("utils", source => ReplaceChecked(source, "\"umb:auth:redirect\"", JsonSerializer.Serialize("umb:auth:redirect" + suffix), "utils"));
         ContentHash = Convert.ToHexStringLower(hash.GetHashAndReset());
+
+        string ReplaceChecked(string input, string token, string replacement, string module)
+        {
+            var updated = input.Replace(token, replacement, StringComparison.Ordinal);
+            if (ReferenceEquals(updated, input) || updated == input)
+                logger?.LogWarning("BackOfficeAuthFiles did not find expected token {Token} in Umbraco {Module} module; backoffice session isolation may be incomplete.", token, module);
+            return updated;
+        }
 
         void Add(string module, Func<string, string> update)
         {

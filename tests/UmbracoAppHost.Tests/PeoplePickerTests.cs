@@ -60,7 +60,9 @@ public sealed class PeoplePickerTests
         var settings = Settings with { AllowedMemberGroups = ["Requesters"], AllowedUserGroups = ["admin"] };
         Assert.True(PeoplePickerService.Permits(settings, member)); Assert.True(PeoplePickerService.Permits(settings, admin));
         Assert.False(PeoplePickerService.Permits(settings, DataSourceUser.Anonymous));
-        Assert.True(PeoplePickerService.Permits(Settings, DataSourceUser.Anonymous));
+        Assert.False(PeoplePickerService.Permits(Settings, DataSourceUser.Anonymous));
+        Assert.True(PeoplePickerService.Permits(Settings with { AllowAnonymous = true }, DataSourceUser.Anonymous));
+        Assert.True(PeoplePickerService.Permits(Settings, member));
         Assert.False(PeoplePickerService.Permits(settings with { AllowedUserGroups = ["Administrators"] }, admin));
     }
 

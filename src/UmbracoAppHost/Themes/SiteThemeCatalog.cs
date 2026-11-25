@@ -46,7 +46,7 @@ public sealed class SiteThemeCatalog
     /// theirs), then the Application site template on the root, then the website default.
     /// </summary>
     public SiteTheme Resolve(string? alias, string rootType, SiteTheme? defaultTheme, string? siteTemplate) =>
-        Find(alias) ?? (defaultTheme is not null ? _themes[defaultTheme.Alias]
+        Find(alias) ?? (defaultTheme is not null ? Find(defaultTheme.Alias) ?? defaultTheme
             : siteTemplate == "ApplicationSite" ? _themes[Application.Alias] : Resolve(null, rootType));
 
     public SiteTheme Resolve(string? alias, string rootType) =>

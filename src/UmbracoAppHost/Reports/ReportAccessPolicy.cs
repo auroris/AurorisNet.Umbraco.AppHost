@@ -138,9 +138,8 @@ public sealed class ReportAccessPolicy(
     }
 
     /// <summary>
-    /// Follows member → provider key → backoffice user through the external-login table, falling
-    /// back to the member's email, which is how a pre-created backoffice user is matched before
-    /// its first sign-in links the key.
+    /// Follows member → provider key → backoffice user through the external-login table.
+    /// Does not match by unverified email address.
     /// </summary>
     private async Task<IUser?> FindLinkedBackOfficeUserAsync(string memberId)
     {
@@ -148,30 +147,28 @@ public sealed class ReportAccessPolicy(
         var member = Guid.TryParse(memberId, out var key)
             ? entityService.GetId(key, UmbracoObjectTypes.Member) is { Success: true } id ? memberService.GetById(id.Result) : null
             : int.TryParse(memberId, out var legacyId) ? memberService.GetById(legacyId) : null;
-        if (member is null)
+        if (member is not { IsApproved: true, IsLockedOut: false })
             return null;
 
-        // Every provider stores the same key (the SID), so a member who signed in with Windows
-        // still maps to a backoffice user who signed in through the identity server.
-        var keys = externalLogins.GetExternalLogins(member.Key)
+        // Match each member external login only against backoffice providers sharing the same provider name (or Windows SID).
+        var memberLogins = externalLogins.GetExternalLogins(member.Key)
             .Where(login => login.LoginProvider.StartsWith(Constants.Security.MemberExternalAuthenticationTypePrefix, StringComparison.Ordinal))
-            .Select(login => login.ProviderKey)
-            .Distinct(StringComparer.Ordinal);
-        foreach (var providerKey in keys)
+            .ToArray();
+        foreach (var login in memberLogins)
         {
-            foreach (var provider in providers.BackOffice)
+            var memberSuffix = login.LoginProvider[Constants.Security.MemberExternalAuthenticationTypePrefix.Length..];
+            var matchingProviders = providers.BackOffice.Where(p =>
+                p.BackOfficeScheme.EndsWith(memberSuffix, StringComparison.OrdinalIgnoreCase)).ToArray();
+            var targets = matchingProviders.Length > 0 ? matchingProviders : providers.BackOffice;
+            foreach (var provider in targets)
             {
-                var backOfficeLogin = externalLogins.Find(provider.BackOfficeScheme, providerKey).FirstOrDefault();
+                var backOfficeLogin = externalLogins.Find(provider.BackOfficeScheme, login.ProviderKey).FirstOrDefault();
                 var linked = backOfficeLogin is null ? null : await FindUserAsync(backOfficeLogin.UserId);
                 if (linked is null) continue;
                 logger.LogDebug("Member {Member} maps to backoffice user {UserName} through the {Scheme} key.", member.Username, linked.Username, provider.BackOfficeScheme);
                 return linked;
             }
         }
-
-        var user = string.IsNullOrWhiteSpace(member.Email) ? null : userService.GetByEmail(member.Email);
-        if (user is not null)
-            logger.LogDebug("Member {Member} maps to backoffice user {UserName} through the email address.", member.Username, user.Username);
-        return user;
+        return null;
     }
 }

@@ -1,0 +1,3 @@
+[submodule "AppBlocks"]
+	path = AppBlocks
+	url = https://github.com/auroris/AurorisNet.Umbraco.AppBlocks.git

@@ -1,4 +1,7 @@
 <Project>
+  <PropertyGroup>
+    <AppBlocksRoot>$(MSBuildThisFileDirectory)AppBlocks</AppBlocksRoot>
+  </PropertyGroup>
   <!-- Package metadata for the two packages this repository ships: AurorisNet.Umbraco.AppHost and
        AurorisNet.Umbraco.AppHost.Testing. They always carry the same version, because the testing package
        applies the host's registrations by reflection. The other projects build exactly as before. -->

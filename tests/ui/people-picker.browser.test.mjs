@@ -12,7 +12,7 @@ const require = createRequire(resolve(process.env.INTERACTIVE_REPORTS_ROOT || re
 const { chromium } = require("playwright");
 const { expect } = require("@playwright/test");
 const assets = resolve(root, "src/UmbracoAppHost/wwwroot/App_Plugins/PeoplePicker");
-const shared = resolve(root, "../AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks");
+const shared = resolve(root, "AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks");
 const view = await readFile(resolve(root, "src/UmbracoAppHost/Views/Partials/PeoplePicker.cshtml"), "utf8");
 const markupTemplate = view.slice(view.indexOf('<div id="@id"'), view.indexOf('<script type="module">')).replaceAll("@id", "people-test");
 const options = {identityField:'incumbentSid',nameField:'incumbentName',fieldMappings:{extensionattribute10:'incumbentSn'},fallbackFields:{incumbentSn:'incumbentDirectorySn'},compactUpperFields:['incumbentSn'],allowManualEntry:true,minTermLength:2,maxResults:20};

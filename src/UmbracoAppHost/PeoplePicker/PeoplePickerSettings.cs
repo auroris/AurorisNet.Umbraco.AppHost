@@ -15,9 +15,14 @@ public sealed record PeoplePickerSettings : AccountPickerSettings
 {
     public PeoplePickerSettings() { AllowManualEntry = true; Label = "Find person"; }
     public override bool AllowsEmpty => AllowManualEntry;
-    public override bool Permits(DataSourceUser? user) =>
-        AllowedMemberGroups.Length + AllowedUserGroups.Length == 0
-        || user is not null && (AllowedMemberGroups.Any(user.IsInMemberGroup) || AllowedUserGroups.Any(user.IsInUserGroup));
+    public bool AllowAnonymous { get; init; }
+    public override bool Permits(DataSourceUser? user)
+    {
+        if (user is null or { IsAnonymous: true })
+            return AllowAnonymous && AllowedMemberGroups.Length + AllowedUserGroups.Length == 0;
+        return AllowedMemberGroups.Length + AllowedUserGroups.Length == 0
+            || AllowedMemberGroups.Any(user.IsInMemberGroup) || AllowedUserGroups.Any(user.IsInUserGroup);
+    }
 
     public string SearchRoot { get; init; } = "";
     public bool EntireDomain { get; init; }
@@ -62,7 +67,7 @@ public sealed record PeoplePickerSettings : AccountPickerSettings
             AllowedMemberGroups = Lines(Text("allowedMemberGroups")), AllowedUserGroups = Lines(Text("allowedUserGroups")),
             EnabledOnly = Flag("enabledOnly", true), AdditionalFilter = Text("additionalFilter"), ExcludedAccountPattern = Text("excludedAccountPattern"),
             MinTermLength = Number("minTermLength", 2), MaxResults = Number("maxResults", 20), TimeoutSeconds = Number("timeoutSeconds", 5),
-            AllowManualEntry = Flag("allowManualEntry", true), AllowCachedSelection = Flag("allowCachedSelection"), CacheMinutes = Number("cacheMinutes", 15),
+            AllowManualEntry = Flag("allowManualEntry", true), AllowAnonymous = Flag("allowAnonymous"), AllowCachedSelection = Flag("allowCachedSelection"), CacheMinutes = Number("cacheMinutes", 15),
             IdentityField = Text("identityField"), NameField = Text("nameField"), FieldMappings = Pairs(Text("fieldMappings")),
             FallbackFields = Pairs(Text("fallbackFields")), CompactUpperFields = List("compactUpperFields"),
             Label = Text("label") is { Length: > 0 } label ? label : "Find person",
@@ -75,7 +80,7 @@ public sealed record PeoplePickerSettings : AccountPickerSettings
     {
         if (SearchRoot.Length == 0 && !EntireDomain) throw new DirectoryQueryException("Enter a search OU, or explicitly enable Search entire domain.");
         if (SearchRoot.Length > 2048 || SearchRoot.IndexOfAny(['\0', '\r', '\n']) >= 0
-            || (SearchRoot.Length > 0 && !Regex.IsMatch(DistinguishedName, @"^(OU|CN|DC)=.+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)))
+            || (SearchRoot.Length > 0 && (!Regex.IsMatch(DistinguishedName, @"^(OU|CN|DC)=.+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant) || HasUnescapedSlash(DistinguishedName))))
             throw new DirectoryQueryException("Search OU must be a distinguished name, such as OU=People,DC=example,DC=com (optionally prefixed with LDAP://).");
         if (SearchAttributes.Length is < 1 or > 16 || ReturnedAttributes.Length > 32
             || SearchAttributes.Concat(ReturnedAttributes).Any(a => !AttributeName.IsMatch(a)))
@@ -104,7 +109,7 @@ public sealed record PeoplePickerSettings : AccountPickerSettings
     public string DistinguishedName => SearchRoot.StartsWith("LDAP://", StringComparison.OrdinalIgnoreCase) ? SearchRoot[7..] : SearchRoot;
     [JsonIgnore]
     public string Fingerprint => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(this))));
-    public string[] Properties => new[] { "displayName", "mail", "sAMAccountName", "givenName", "objectSid", "objectGUID", "userAccountControl" }
+    public string[] Properties => new[] { "displayName", "mail", "sAMAccountName", "givenName", "sn", "objectSid", "objectGUID", "userAccountControl" }
         .Concat(SearchAttributes).Concat(ReturnedAttributes).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
     public bool Includes(DirectoryUser user)
@@ -115,11 +120,15 @@ public sealed record PeoplePickerSettings : AccountPickerSettings
         catch (RegexMatchTimeoutException) { throw new DirectoryQueryException("The excluded account name pattern took too long to evaluate."); }
     }
 
-    public static string? Attribute(DirectoryUser user, string name) => name.ToLowerInvariant() switch {
-        "objectsid" => user.Sid, "objectguid" => user.Guid, "displayname" => user.DisplayName, "samaccountname" => user.UserName,
-        "givenname" => user.GivenName, "sn" => user.Surname, "mail" => user.Email, "telephonenumber" => user.Telephone,
-        _ => user.Attributes?.FirstOrDefault(p => p.Key.Equals(name, StringComparison.OrdinalIgnoreCase)).Value,
-    };
+    public static string? Attribute(DirectoryUser user, string name)
+    {
+        var typed = name.ToLowerInvariant() switch {
+            "objectsid" => user.Sid, "objectguid" => user.Guid, "displayname" => user.DisplayName, "samaccountname" => user.UserName,
+            "givenname" => user.GivenName, "sn" => user.Surname, "mail" => user.Email, "telephonenumber" => user.Telephone,
+            _ => null,
+        };
+        return typed ?? user.Attributes?.FirstOrDefault(p => p.Key.Equals(name, StringComparison.OrdinalIgnoreCase)).Value;
+    }
 
     private static string[] Split(string text) => text.Split([' ', ',', ';', '\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     private static string[] Lines(string text) => text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
@@ -133,9 +142,19 @@ public sealed record PeoplePickerSettings : AccountPickerSettings
         }
         return result;
     }
+    private static bool HasUnescapedSlash(string text)
+    {
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (text[i] == '\\') { i++; continue; }
+            if (text[i] == '/') return true;
+        }
+        return false;
+    }
+
     private static bool ValidFilter(string text)
     {
-        if (text[0] != '(' || text[^1] != ')' || text.Contains('\0')) return false;
+        if (text.Length < 3 || text[0] != '(' || text[^1] != ')' || text.Contains('\0') || text.Contains("()", StringComparison.Ordinal)) return false;
         var depth = 0;
         for (var i = 0; i < text.Length; i++) {
             if (text[i] == '\\') { if (i + 2 >= text.Length || !char.IsAsciiHexDigit(text[i + 1]) || !char.IsAsciiHexDigit(text[i + 2])) return false; i += 2; continue; }

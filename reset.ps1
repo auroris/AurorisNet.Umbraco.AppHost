@@ -71,7 +71,7 @@ try {
     }
     $targets = @('data', 'media', 'uSync', 'instance.json', '.apphost/runtime.json', '.apphost/backups', '.apphost/staging') |
         ForEach-Object { Join-Path $InstanceRoot $_ }
-    $targets += Join-Path $projectRoot 'umbraco/Data/TEMP'
+    $targets += Get-SafePath $projectRoot 'umbraco/Data/TEMP'
     foreach ($target in $targets) { if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Recurse -Force } }
     if ($downstream) {
         Write-Host "Reset complete: $working was deleted and nothing was copied into it."

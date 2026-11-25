@@ -11,12 +11,35 @@ namespace UmbracoAppHost.Authentication;
 
 /// <summary>Creates or reuses the website member for a newly provisioned backoffice user.</summary>
 internal sealed class BackOfficeMemberProvisioning(IMemberService members, IMemberManager manager,
-    ICoreScopeProvider scopes, IOptions<AccountsSettings> accounts, IConfiguration configuration) : IUserValidator<BackOfficeIdentityUser>
+    ICoreScopeProvider scopes, IOptions<AccountsSettings> accounts, IConfiguration configuration, IMemberGroupService? memberGroups = null) : IUserValidator<BackOfficeIdentityUser>
 {
     // Return the conflict through Identity's normal validation response in the backoffice and SSO.
-    public Task<IdentityResult> ValidateAsync(UserManager<BackOfficeIdentityUser> userManager, BackOfficeIdentityUser user)
-        => Task.FromResult(user.HasIdentity || user.UserName is null || user.Email is null
-            ? IdentityResult.Success : Match(user.UserName, user.Email, out _));
+    public async Task<IdentityResult> ValidateAsync(UserManager<BackOfficeIdentityUser> userManager, BackOfficeIdentityUser user)
+    {
+        if (user.HasIdentity || user.UserName is null || user.Email is null) return IdentityResult.Success;
+        var match = Match(user.UserName, user.Email, out _);
+        if (!match.Succeeded) return match;
+        if (memberGroups is not null)
+        {
+            var roles = ConfiguredRoles();
+            if (roles.Length > 0)
+            {
+                var existing = (await memberGroups.GetAllAsync()).Select(g => g.Name).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var missing = roles.Where(role => !existing.Contains(role)).ToArray();
+                if (missing.Length > 0)
+                    return IdentityResult.Failed(new IdentityError
+                    {
+                        Code = "MissingMemberGroups",
+                        Description = $"Configured Accounts:BackOfficeMemberGroups do not exist: {string.Join(", ", missing)}.",
+                    });
+            }
+        }
+        return IdentityResult.Success;
+    }
+
+    private string[] ConfiguredRoles() => (configuration.GetSection("Accounts:BackOfficeMemberGroups").Get<string[]>() ?? [])
+        .Where(group => !string.IsNullOrWhiteSpace(group)).Select(group => group.Trim())
+        .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
     private IdentityResult Match(string username, string email, out IMember? member)
     {
@@ -28,6 +51,12 @@ internal sealed class BackOfficeMemberProvisioning(IMemberService members, IMemb
             {
                 Code = "ConflictingMembers",
                 Description = $"Backoffice username '{username}' and email '{email}' match different members. Resolve the conflict in Members and retry.",
+            });
+        if (member is not null && (!member.IsApproved || member.IsLockedOut || AccountRetirement.IsRetired(member.Username)))
+            return IdentityResult.Failed(new IdentityError
+            {
+                Code = "InactiveMember",
+                Description = $"Matched member '{member.Username}' is disabled, locked out, or retired and cannot be reused for backoffice user '{username}'.",
             });
 
         return IdentityResult.Success;
@@ -48,9 +77,7 @@ internal sealed class BackOfficeMemberProvisioning(IMemberService members, IMemb
             await ProvisionedMemberPassword.InitializeAsync(member, manager);
         }
 
-        var groups = configuration.GetSection("Accounts:BackOfficeMemberGroups").Get<string[]>() ?? [];
-        var roles = groups.Where(group => !string.IsNullOrWhiteSpace(group)).Select(group => group.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var roles = ConfiguredRoles();
         if (roles.Length > 0)
         {
             members.AssignRoles([member.Id], roles);

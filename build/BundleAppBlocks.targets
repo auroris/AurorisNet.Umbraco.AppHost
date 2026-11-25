@@ -1,0 +1,19 @@
+<Project>
+  <!-- Use the SDK's own file and dependency lists, including Razor's generated static asset manifests.
+       Project references stay public for sites that build AppHost from source. -->
+  <Target Name="PrepareBundledAppHostPackage" BeforeTargets="GenerateNuspec"
+          Condition="'$(GenerateComponentSpec)' != 'true'">
+    <PropertyGroup>
+      <_BundleDirectory>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'appblocks-bundle', '$(PackageVersion)'))</_BundleDirectory>
+    </PropertyGroup>
+    <MSBuild Projects="$(MSBuildProjectFullPath);@(BundledProject)" Targets="_GetRestoreProjectStyle;GenerateNuspec"
+             Properties="GenerateComponentSpec=true;NoBuild=true;ContinuePackingAfterGeneratingNuspec=false;NuspecOutputPath=$(_BundleDirectory);PackageVersion=$(PackageVersion)" />
+    <Exec Command="pwsh -NoProfile -File &quot;$(MSBuildThisFileDirectory)Bundle-AppBlocks.ps1&quot; -Directory &quot;$(_BundleDirectory).&quot; -HostId &quot;$(PackageId)&quot; -Components &quot;@(BundledProject->'%(Filename)', ',')&quot;" />
+    <PropertyGroup>
+      <NuspecFile>$(_BundleDirectory)bundled.nuspec</NuspecFile>
+    </PropertyGroup>
+    <ItemGroup>
+      <NuGetPackInput Include="$(NuspecFile)" />
+    </ItemGroup>
+  </Target>
+</Project>

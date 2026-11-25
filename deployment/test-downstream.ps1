@@ -1,8 +1,7 @@
 #Requires -Version 7.0
 # Acceptance test of a downstream host: creates a disposable web project that references this checkout's library
 # and commits its own uSync export, boots it without the samples, downloads its own paper report, delivers a
-# changed upstream view and definition with a rebuild and refresh-definitions.ps1, and resets its instance. Pass
-# -MsBuildProperties for the AppBlocks checkout, as for the site scripts.
+# changed upstream view and definition with a rebuild and refresh-definitions.ps1, and resets its instance.
 [CmdletBinding()]
 param(
     [string] $OutputRoot = (Join-Path ([IO.Path]::GetTempPath()) ('apphost-downstream-test-' + [guid]::NewGuid().ToString('N'))),
