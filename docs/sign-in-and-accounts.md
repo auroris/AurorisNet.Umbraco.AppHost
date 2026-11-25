@@ -214,51 +214,15 @@ Single sign-on preserves existing passwords.
 
 ## Member sign-in
 
-The sign-in view is `Views/Partials/App/SignIn.cshtml`, used by the **Site sign in** template
-and by both themes' sign-in layouts.
+Add **Member sign-in** to a page’s block grid. The block shows Umbraco’s member password form, configured sign-in providers and two-factor challenge. Editors can move it alongside other content and change its heading. It disappears once the member signs in.
 
-- A first visit to the view redirects to the identity server when `IdentityServer:Enabled` and
-  `MemberEnabled` are `true`. Public pages stay public.
-- A failed attempt returns to Umbraco's member password form on the same page, with the reason
-  and a button to try single sign-on again. The original page and its query parameters are kept.
-- `?sso-local=1` on a sign-in page shows the password form at once.
-- With no identity server enabled for members, the view shows the password form and the buttons
-  of any other configured provider.
+The block’s **Start single sign-on automatically** setting is off by default. Turn it on for a dedicated sign-in page to send anonymous visitors to the configured identity server. A visitor already signed in to the backoffice sees the member form and a link to the backoffice. A failed provider attempt or a visit with `?sso-local=1` also shows the form. After sign-in, the visitor returns to the original local page and query string.
 
-Open the site's member sign-in page and `/umbraco` in the same browser to sign in to both
-accounts in either order.
-With both sessions active, the website uses the member's identity and groups, and the
-backoffice uses the user's backoffice permissions.
+In Umbraco Public Access, select the published page containing the block as the login page. For pages using the **AppBlocks** or **Report Page** templates, select the same public page under **Appearance → Member sign-in page** on the site root. Those templates display the selected page’s blocks when the visitor needs to sign in.
 
-The application theme's account menu shows the signed-in name with **Member account** or
-**Backoffice account**, and **Sign out**. Sign-out posts to `/application/account/logout` with
-an antiforgery token and ends the member session and the backoffice session together, so the
-next request cannot switch from one account to the other. A menu entry can offer the same
-sign-out with the `{{user.signout}}` token; see
-[Menus](application-blocks.md#menus).
+## Website and backoffice access
 
-## Who a protected page admits
-
-Umbraco's Public Access decides first: a page it protects admits the members it names. The host
-adds one rule, `EditorPageAdmission`, registered with AppBlocks as an `IProtectedPageAdmission`:
-
-- A backoffice user who may edit the page is admitted without a member account. "May edit" is
-  Umbraco's **Update** permission on the page, through the user's groups and within their start
-  nodes, for an approved account that is not locked out.
-- Any other backoffice user gets the page's login page and signs in there with a member account
-  the rule names.
-- When a member session exists, it decides. A member Umbraco refuses is not replaced by the
-  backoffice account, so an editor signs the member out first.
-
-The page and every block endpoint on it follow the same answer. On a page without Public
-Access, a signed-in backoffice user of any group reaches the blocks without a member account,
-and whatever is behind each block decides. The sample Orders form accepts signed-in members and
-backoffice users in **Administrators**.
-
-Views read the visitor through `SiteVisitor`, which `_ViewImports.cshtml` injects as `Visitor`.
-`await Visitor.ResolveAsync()` resolves the member, the backoffice user or nobody once per
-request, and `IsSignedIn`, `IsMember`, `IsBackOfficeUser`, `Name`, `UserName` and `Email` describe
-the result.
+Website blocks, data endpoints and website report routes use the member session. Umbraco Public Access and the member’s groups decide which protected content they can open. The application account menu’s **Sign out** action ends both active sessions.
 
 ## Add from directory
 

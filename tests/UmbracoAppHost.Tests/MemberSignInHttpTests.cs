@@ -61,8 +61,13 @@ public sealed class MemberSignInHttpTests
         var page = contents.GetById(ApplicationStarter.FormPageKey)!;
         var login = contents.Create("Member login", page.ParentId, "webPage");
         login.SetCultureName("Member login", "en");
-        login.TemplateId = site.Services.GetRequiredService<IContentTypeService>().Get("webPage")!
-            .AllowedTemplates!.Single(template => template.Alias == "SiteSignIn").Id;
+        login.TemplateId = site.Services.GetRequiredService<IContentTypeService>().Get("webPage")!.DefaultTemplate!.Id;
+        var blocks = new AppBlocks.Blocks.AppBlockValues();
+        var signInBlock = blocks.Add(MemberSignInBlock.BlockAlias, new { heading = "Sign in to the portal" });
+        blocks.Place(blocks.Add(AppBlocks.Blocks.AppBlockSchema.HtmlAlias, new { html = "<p>Before the form</p>" }));
+        blocks.Place(signInBlock);
+        blocks.Place(blocks.Add(AppBlocks.Blocks.AppBlockSchema.HtmlAlias, new { html = "<p>After the form</p>" }));
+        login.SetValue("applicationBlocks", blocks.ToJson(), "en");
 #pragma warning disable CS0618
         Assert.True(contents.Save(login).Success);
         Assert.True(contents.Publish(login, ["en"]).Success);
@@ -75,6 +80,10 @@ public sealed class MemberSignInHttpTests
             using var browser = site.CreateClient();
             if (backOfficeFirst) await SignInBackOffice();
             var html = await Page(browser, prefix + "/member-login/?sso-local=1");
+            Assert.Contains("Sign in to the portal", html);
+            Assert.True(html.IndexOf("Before the form", StringComparison.Ordinal) < html.IndexOf("app-login-form", StringComparison.Ordinal));
+            Assert.True(html.IndexOf("app-login-form", StringComparison.Ordinal) < html.IndexOf("After the form", StringComparison.Ordinal));
+            Assert.Equal(backOfficeFirst, html.Contains("Sign in with your member account to continue."));
             var form = ReadForm(html, form => form.Contains("class=\"app-login-form\"", StringComparison.Ordinal));
             form.Fields["loginModel.Username"] = member.Username;
             form.Fields["loginModel.Password"] = memberPassword;
@@ -89,6 +98,7 @@ public sealed class MemberSignInHttpTests
             await site.AuthorizeManagementApiAsync(browser);
             var currentUser = await browser.GetFromJsonAsync<System.Text.Json.JsonElement>(prefix + "/umbraco/management/api/v1/user/current", TestContext.Current.CancellationToken);
             Assert.Equal(user.Key, currentUser.GetProperty("id").GetGuid());
+            Assert.DoesNotContain("app-login-form", await Page(browser, prefix + "/member-login/"));
             var protectedPage = await Page(browser, prefix + "/orders-form/?id=4");
             Assert.Contains("Member account", protectedPage);
             Assert.Contains("data-app-form", protectedPage);
@@ -100,6 +110,14 @@ public sealed class MemberSignInHttpTests
                 response.EnsureSuccessStatusCode();
             }
         }
+
+        login.SetValue("applicationBlocks", new AppBlocks.Blocks.AppBlockValues().ToJson(), "en");
+#pragma warning disable CS0618
+        Assert.True(contents.Save(login).Success);
+        Assert.True(contents.Publish(login, ["en"]).Success);
+#pragma warning restore CS0618
+        using var visitor = site.CreateClient();
+        Assert.DoesNotContain("app-login-form", await Page(visitor, prefix + "/member-login/"));
     }
 
     [Fact]
@@ -137,7 +155,8 @@ public sealed class MemberSignInHttpTests
             (await administrator.GetAsync($"{prefix}/__tests/login/{Constants.Security.SuperUserKey}?scheme=backoffice&name=Member%20sign-in%20test%20administrator", TestContext.Current.CancellationToken)).EnsureSuccessStatusCode();
             var memberNeeded = await administrator.GetFromJsonAsync<System.Text.Json.JsonElement>(prefix + "/__tests/member-signin-needed", cancellationToken: TestContext.Current.CancellationToken);
             Assert.True(memberNeeded.GetProperty("isBackOfficeUser").GetBoolean());
-            Assert.True(memberNeeded.GetProperty("startMemberSignIn").GetBoolean());
+            Assert.False(memberNeeded.GetProperty("startMemberSignIn").GetBoolean());
+            Assert.Contains("app-login-form", await Page(administrator, destination));
         }
 
         var automatic = await browser.GetAsync(destination, TestContext.Current.CancellationToken);

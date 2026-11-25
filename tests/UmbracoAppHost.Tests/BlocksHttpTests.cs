@@ -64,6 +64,7 @@ public sealed class BlocksHttpTests
         Assert.DoesNotContain("No sign-in provider", loginHtml);
         var login = ReadForm(loginHtml, "app-login-form");
         login.Fields["loginModel.Username"] = member.Username;
+        login.Fields["loginModel.Username"] = member.Username;
         login.Fields["loginModel.Password"] = password;
         var noToken = new Dictionary<string, string>(login.Fields);
         noToken.Remove("__RequestVerificationToken");
@@ -76,14 +77,16 @@ public sealed class BlocksHttpTests
             // The same browser signs in to the backoffice, so it later carries both cookies.
             var signedIn = await client.PostAsJsonAsync(site.PathBase + "/umbraco/management/api/v1/security/back-office/login", new { username = site.AdminUserName, password = site.AdminPassword }, cancellationToken: TestContext.Current.CancellationToken);
             Assert.True(signedIn.IsSuccessStatusCode, await signedIn.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+            var memberLogin = await client.GetStringAsync(pageUrl, TestContext.Current.CancellationToken);
+            Assert.Contains("Sign in with your member account to continue.", memberLogin);
+            Assert.Equal(HttpStatusCode.Forbidden, (await forms.LoadAsync()).Response.StatusCode);
+            login = ReadForm(memberLogin, "app-login-form");
         }
-        else
-        {
-            login.Fields["loginModel.Password"] = password;
-            var signedIn = await client.PostAsync(login.Action, new FormUrlEncodedContent(login.Fields), TestContext.Current.CancellationToken);
-            Assert.Equal(HttpStatusCode.Redirect, signedIn.StatusCode);
-            Assert.Equal(pageUrl, signedIn.Headers.Location?.OriginalString);
-        }
+        login.Fields["loginModel.Username"] = member.Username;
+        login.Fields["loginModel.Password"] = password;
+        var signedInMember = await client.PostAsync(login.Action, new FormUrlEncodedContent(login.Fields), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Redirect, signedInMember.StatusCode);
+        Assert.Equal(pageUrl, signedInMember.Headers.Location?.OriginalString);
         var rendered = await client.GetAsync(pageUrl, TestContext.Current.CancellationToken);
         Assert.True(rendered.IsSuccessStatusCode, await rendered.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
         var html = await rendered.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
@@ -91,7 +94,7 @@ public sealed class BlocksHttpTests
         Assert.Contains("data-field=\"customer\"", html);
         Assert.DoesNotContain("invalid resource", html);
         Assert.Contains("<details class=\"app-account\">", html);
-        Assert.Contains(administrator ? "Backoffice account" : "Member account", html);
+        Assert.Contains("Member account", html);
         Assert.Contains("Sign out", html);
         var loaded = await forms.LoadAsync("4");
         Assert.True(loaded.IsSuccess, loaded.Body.GetRawText());
@@ -109,16 +112,13 @@ public sealed class BlocksHttpTests
         var access = services.GetRequiredService<IPublicAccessService>();
         var entry = new PublicAccessEntry(report, form, form, [new PublicAccessRule { RuleType = Constants.Conventions.PublicAccess.MemberRoleRuleType, RuleValue = "No test members" }]);
         Assert.True(access.Save(entry).Success);
-        // Public Access is the baseline: a member it does not name is refused, while a backoffice user who
-        // may edit the page passes it, as the administrator may edit every page.
-        Assert.Equal(administrator, (await client.GetAsync($"{site.PathBase}/api/reports/{reportName}/default", TestContext.Current.CancellationToken)).IsSuccessStatusCode);
+        // Public Access evaluates the same member even when the browser also has a backoffice session.
+        Assert.False((await client.GetAsync($"{site.PathBase}/api/reports/{reportName}/default", TestContext.Current.CancellationToken)).IsSuccessStatusCode);
         access.Delete(entry);
 #pragma warning disable CS0618
         Assert.True(contents.Unpublish(report).Success);
 #pragma warning restore CS0618
         Assert.False((await reports.SchemaAsync(reportName)).IsSuccessStatusCode);
-        if (administrator)
-            (await client.GetAsync($"{site.PathBase}/__tests/login/{member.Id}?scheme=member", TestContext.Current.CancellationToken)).EnsureSuccessStatusCode();
         html = await client.GetStringAsync(pageUrl, TestContext.Current.CancellationToken);
         Assert.Contains("Member account", html); // A member takes precedence when both accounts are signed in.
         var logout = ReadForm(html, "app-inline-form");
@@ -139,8 +139,8 @@ public sealed class BlocksHttpTests
             var editor = await site.CreateUserAsync("application-editor", "application-editor@example.invalid", "Application editor", ReportAdministratorsGroup.Alias);
             await site.SetPasswordAsync(editor, password);
             (await client.PostAsJsonAsync(site.PathBase + "/umbraco/management/api/v1/security/back-office/login", new { username = editor.Username, password }, cancellationToken: TestContext.Current.CancellationToken)).EnsureSuccessStatusCode();
-            // Any backoffice user is a signed-in visitor on an open page; the sample's Orders form still wants Administrators.
-            Assert.Contains("Backoffice account", await client.GetStringAsync(pageUrl, TestContext.Current.CancellationToken));
+            // The website still needs a member after the backoffice account changes.
+            Assert.Contains("app-login-form", await client.GetStringAsync(pageUrl, TestContext.Current.CancellationToken));
             Assert.Equal(HttpStatusCode.Forbidden, (await forms.LoadAsync()).Response.StatusCode);
 
             var principal = new ClaimsPrincipal(new ClaimsIdentity([
@@ -158,8 +158,8 @@ public sealed class BlocksHttpTests
             // Current group membership controls access, not stale or forged role claims in a ticket.
             editor.AddGroup((await groups.GetAsync(Constants.Security.AdminGroupAlias))!.ToReadOnlyGroup());
             users.Save(editor);
-            Assert.Contains("Backoffice account", await client.GetStringAsync(pageUrl, TestContext.Current.CancellationToken));
-            Assert.Equal(HttpStatusCode.OK, (await forms.LoadAsync()).Response.StatusCode);
+            Assert.Contains("app-login-form", await client.GetStringAsync(pageUrl, TestContext.Current.CancellationToken));
+            Assert.Equal(HttpStatusCode.Forbidden, (await forms.LoadAsync()).Response.StatusCode);
             Assert.Equal(200, (await resource.LoadAsync("4", context, TestContext.Current.CancellationToken)).Status);
             var created = await resource.CreateAsync(input, context, TestContext.Current.CancellationToken);
             Assert.Equal(200, created.Status);

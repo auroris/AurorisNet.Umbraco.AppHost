@@ -14,14 +14,12 @@ public sealed record SiteMenuEntry(string Label, string? Url, string? Target, bo
 /// <summary>
 /// The authored navigation menu as the person looking at the page should see it. Labels and link
 /// addresses may carry tokens: <c>{{user.name}}</c>, <c>{{user.username}}</c> and <c>{{user.email}}</c>
-/// for the signed-in member or backoffice Administrator, <c>{{user.profile}}</c> for the profile page
+/// for the signed-in member, <c>{{user.profile}}</c> for the profile page
 /// picked on the nearest Navigation Menu (members only), <c>{{user.backoffice}}</c> for the backoffice
 /// (backoffice users only) and <c>{{user.signout}}</c> for the application's sign-out. An entry whose
 /// label or address has a token with no value for this visitor is left out with its children, so
 /// "Signed in as {{user.name}}" appears only to someone signed in. A token nobody knows stays as
-/// typed, so a typo shows. UmbNav's own display settings (hide when logged in or out) are applied by
-/// UmbNav when the menu is read, which happens after the visitor is resolved so that a backoffice
-/// Administrator counts as signed in there too.
+/// typed, so a typo shows. UmbNav applies its own display settings to the member session.
 /// </summary>
 public sealed partial class SiteMenu(SiteVisitor visitor, IHttpContextAccessor http)
 {
@@ -37,7 +35,6 @@ public sealed partial class SiteMenu(SiteVisitor visitor, IHttpContextAccessor h
     public async Task<IReadOnlyList<SiteMenuEntry>?> BuildAuthoredAsync(IPublishedContent page,
         IDocumentNavigationQueryService navigation, IPublishedContentStatusFilteringService published)
     {
-        // Resolving the visitor first puts a backoffice Administrator on the request, which UmbNav's display settings read.
         await visitor.ResolveAsync();
         var items = page.NavigationMenu(navigation, published);
         if (items is null) return null;

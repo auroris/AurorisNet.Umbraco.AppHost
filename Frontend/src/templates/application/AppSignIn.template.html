@@ -1,5 +1,5 @@
 {{! The layout an application page takes when nobody is signed in: the header without a menu,
-    and one card offering the sign-in providers. The page's own body is ignored. }}
+    and the content of the site's selected sign-in page. The page's own body is ignored. }}
 {{# razor }}
 @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
 @{
@@ -20,10 +20,8 @@
 <body class="app app-signin-page">
     {{ partial "App/Header" }}
     <main class="app-main app-main-centered" id="main">
-        <section class="app-card app-signin">
-            <h1 class="app-signin-context">{{ razor 'application.NavigationTitle()' }}</h1>
-            {{ partial "App/SignIn" }}
-        </section>
+        <h1>{{ razor 'application.NavigationTitle()' }}</h1>
+        {{ partial "App/SignInPage" }}
     </main>
     {{ partial "App/Footer" }}
 </body>

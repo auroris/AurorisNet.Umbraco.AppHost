@@ -1,0 +1,10 @@
+@inherits UmbracoViewPage
+@inject AppBlocks.Blocks.AppPageAccess PageAccess
+@{
+    var site = Model.SiteRoot(NavigationQueryService, PublishedStatusFilteringService);
+    var page = site.Value<IPublishedContent>("signInPage");
+}
+@if (page is not null && PageAccess.IsOpen(page))
+{
+    @await Component.InvokeAsync("WebsiteBlocks", new { page })
+}

@@ -3,6 +3,4 @@
     Layout = "WebsiteLayout.cshtml";
     IgnoreBody();
 }
-<section class="app-signin">
-    @await Html.PartialAsync("App/SignIn", Model)
-</section>
+@await Html.PartialAsync("App/SignInPage", Model)

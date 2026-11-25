@@ -1,25 +1,19 @@
-using System.Security.Claims;
 using Microsoft.Extensions.Options;
 using Umbraco.Cms.Core.Security;
-using Umbraco.Cms.Core.Services;
 using AppBlocks.Authentication;
 using IdentityServer.Sso;
 
 namespace UmbracoAppHost.Authentication;
 
 /// <summary>
-/// Who is looking at a website page: a signed-in member, a backoffice user of any group whose login
-/// Umbraco exposes to the website, or nobody. A page under Public Access admits a backoffice user
-/// only when they may edit it, which Umbraco's routing decides before any view runs. Views resolve it once per request and use it to gate
-/// content and to offer sign-in and sign-out, so the report page and the application shell
-/// share one rule. Registered per request; inject it into a view and call <see cref="ResolveAsync"/>.
+/// The website member and the independent backoffice session, resolved once per request.
 /// </summary>
 public sealed class SiteVisitor(IMemberManager memberManager, SsoProviderCatalog providers, IHttpContextAccessor httpContextAccessor,
-    ApplicationAccessPolicy access, IOptions<IdentityServerSettings> identityServer, IUserService users)
+    ApplicationAccessPolicy access, IOptions<IdentityServerSettings> identityServer)
 {
     private bool resolved;
 
-    /// <summary>The display name of the signed-in member or backoffice user; null for an anonymous visitor.</summary>
+    /// <summary>The display name of the signed-in member; null for an anonymous visitor.</summary>
     public string? Name { get; private set; }
 
     /// <summary>The account's username, as Umbraco knows it; null for an anonymous visitor.</summary>
@@ -28,7 +22,7 @@ public sealed class SiteVisitor(IMemberManager memberManager, SsoProviderCatalog
     /// <summary>The account's email address, when it has one.</summary>
     public string? Email { get; private set; }
 
-    public bool IsSignedIn => Name is not null;
+    public bool IsSignedIn => IsMember;
 
     /// <summary>A member signs out on the website; a backoffice user signs out in the backoffice.</summary>
     public bool IsMember { get; private set; }
@@ -47,7 +41,7 @@ public sealed class SiteVisitor(IMemberManager memberManager, SsoProviderCatalog
     public bool ShouldStartMemberSignIn(bool hasErrors, bool requiresTwoFactor)
     {
         var request = httpContextAccessor.HttpContext?.Request;
-        return !IsMember && AutomaticProvider is not null && request is not null
+        return !IsMember && !IsBackOfficeUser && AutomaticProvider is not null && request is not null
             && HttpMethods.IsGet(request.Method) && !hasErrors && !requiresTwoFactor
             && !request.Query.ContainsKey("ufprt")
             && !request.Query.ContainsKey(SsoLoginUrls.LocalParameter)
@@ -69,6 +63,7 @@ public sealed class SiteVisitor(IMemberManager memberManager, SsoProviderCatalog
         if (context is null)
             return this;
 
+        IsBackOfficeUser = await access.BackOfficeUserAsync(context) is not null;
         if (memberManager.IsLoggedIn())
         {
             var member = await memberManager.GetCurrentMemberAsync();
@@ -78,20 +73,7 @@ public sealed class SiteVisitor(IMemberManager memberManager, SsoProviderCatalog
                 UserName = member.UserName;
                 Email = member.Email;
                 IsMember = true;
-                return this;
             }
-        }
-
-        if (await access.BackOfficeUserAsync(context) is { } backOffice)
-        {
-            context.User = backOffice;
-            var key = backOffice.FindFirstValue(ClaimTypes.NameIdentifier);
-            // The cookie names the account; the account itself supplies what the cookie leaves out.
-            var user = Guid.TryParse(key, out var userKey) ? await users.GetAsync(userKey) : null;
-            Name = backOffice.Identity?.Name ?? user?.Name ?? key;
-            UserName = user?.Username ?? backOffice.Identity?.Name;
-            Email = user?.Email ?? backOffice.FindFirstValue(ClaimTypes.Email);
-            IsBackOfficeUser = true;
         }
         return this;
     }

@@ -96,7 +96,8 @@ public sealed class DownstreamProjectTests
         using var admin = await site.SignInBackOfficeAsync(site.AdminUserName, site.AdminPassword);
         var home = await (await site.GetPageAsync(admin, "/")).Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.Contains("Downstream home", home);
-        var paper = await site.DownloadPaperReportAsync(admin, DownstreamHostTests.PaperKey, "?format=html");
+        using var member = await site.SignInMemberAsync(site.CreateMember("downstream-reader", "downstream-reader@example.invalid", "Downstream reader"));
+        var paper = await site.DownloadPaperReportAsync(member, DownstreamHostTests.PaperKey, "?format=html");
         var print = await paper.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.True(paper.IsSuccessStatusCode, print);
         Assert.Contains("<h1>Downstream report</h1>", print);

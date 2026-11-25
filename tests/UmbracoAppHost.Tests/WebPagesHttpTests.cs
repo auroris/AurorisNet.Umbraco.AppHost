@@ -15,6 +15,8 @@ using Umbraco.Cms.Core.Strings;
 using AppBlocks.Blocks;
 using AppBlocks.InteractiveReports.Blocks;
 
+using UmbracoAppHost.Authentication;
+
 namespace UmbracoAppHost.Tests;
 
 [Collection("Umbraco hosts")]
@@ -106,7 +108,9 @@ public sealed class WebPagesHttpTests
         site.SetValue("topNavigationMenu", menu, "fr");
         site.SetValue("profilePage", "umb://document/" + overview.Key.ToString("N"));
         Save(site);
-        var login = Create("Member login", site.Id, "webPage", WebPageTestContent.Static("public-login-marker"));
+        var loginContent = WebPageTestContent.Static("public-login-marker");
+        WebPageTestContent.Layout(loginContent).Add(WebPageTestContent.Add(loginContent, MemberSignInBlock.BlockAlias));
+        var login = Create("Member login", site.Id, "webPage", loginContent);
         login.TemplateId = types.Get("webPage")!.AllowedTemplates!.Single(template => template.Alias == "SiteSignIn").Id;
         Save(login);
         var english = WebPageTestContent.Interactive();
@@ -162,14 +166,21 @@ public sealed class WebPagesHttpTests
         Assert.True(publicMixed.Response.Headers.CacheControl?.NoStore);
         Assert.Null(publicMixed.Response.Headers.ETag);
 
+        var officeOnly = await Page(administrator, "/mixed-content/");
+        Assert.DoesNotContain("data-app-form", officeOnly.Html);
+        AssertMenuTokens(officeOnly.Html, signedInAs: null, profile: false);
+        var readerAccount = host.CreateMember("website-reader", "website-reader@example.invalid", "Website reader");
+        using var reader = Client(address, "en.website.test", useCookies: false);
+        var readerLogin = await reader.GetAsync($"/__tests/login/{readerAccount.Id}?scheme=member", TestContext.Current.CancellationToken);
+        reader.DefaultRequestHeaders.Add("Cookie", Cookies(readerLogin) + "; " + Cookies(signIn));
+
         // A conditional request must still render the admitted person's interactive blocks.
-        administrator.DefaultRequestHeaders.TryAddWithoutValidation("If-None-Match", publicPage.Response.Headers.ETag?.ToString());
-        var admitted = await Page(administrator, "/mixed-content/");
-        administrator.DefaultRequestHeaders.Remove("If-None-Match");
+        reader.DefaultRequestHeaders.TryAddWithoutValidation("If-None-Match", publicPage.Response.Headers.ETag?.ToString());
+        var admitted = await Page(reader, "/mixed-content/");
+        reader.DefaultRequestHeaders.Remove("If-None-Match");
         Assert.Equal(2, Regex.Matches(admitted.Html, " data-app-form ").Count);
         Assert.Contains("data-app-report", admitted.Html);
-        // A backoffice Administrator is signed in to the menu too, but has no member profile page.
-        AssertMenuTokens(admitted.Html, AdministratorName, profile: false);
+        AssertMenuTokens(admitted.Html, "Website reader", profile: true);
         Assert.DoesNotContain("invalid resource", admitted.Html);
         Assert.Contains("?appCulture=en", admitted.Html);
         Assert.True(admitted.Response.Headers.CacheControl?.NoStore);
@@ -183,24 +194,24 @@ public sealed class WebPagesHttpTests
         {
             var formUrl = $"/api/forms/{mixed.Key}/{formKey}?appCulture=en&id=4&otherOrder=5";
             Assert.Equal(HttpStatusCode.Forbidden, (await anonymous.GetAsync(formUrl, TestContext.Current.CancellationToken)).StatusCode);
-            var loaded = await Json(administrator, formUrl);
+            var loaded = await Json(reader, formUrl);
             Assert.Equal(formKey == formKeys[0] ? "4" : "5", loaded.GetProperty("record").GetProperty("key").GetString());
         }
-        var englishRows = await Json(administrator, reportUrl + "?appCulture=en&appPageQuery=");
+        var englishRows = await Json(reader, reportUrl + "?appCulture=en&appPageQuery=");
         Assert.Equal(25, englishRows.GetProperty("result").GetProperty("rows").GetArrayLength());
-        var frenchRows = await Json(administrator, reportUrl + "?appCulture=fr&appPageQuery=");
+        var frenchRows = await Json(reader, reportUrl + "?appCulture=fr&appPageQuery=");
         Assert.Equal(7, frenchRows.GetProperty("result").GetProperty("rows").GetArrayLength());
-        var frenchSchema = await Json(administrator, reportUrl.Replace("/default", "/schema", StringComparison.Ordinal) + "?appCulture=fr&appPageQuery=");
+        var frenchSchema = await Json(reader, reportUrl.Replace("/default", "/schema", StringComparison.Ordinal) + "?appCulture=fr&appPageQuery=");
         Assert.Contains("fr.website.test/overview/", frenchSchema.GetProperty("editLink").GetProperty("urlTemplate").GetString());
         Assert.Contains("fr.website.test/overview/", frenchSchema.GetProperty("createLink").GetProperty("url").GetString());
         var formBase = $"/api/forms/{mixed.Key}/{formKeys[0]}";
-        var loadedEnglish = await Json(administrator, formBase + "?appCulture=en&id=4");
-        var loadedFrench = await Json(administrator, formBase + "?appCulture=fr&commande=5");
+        var loadedEnglish = await Json(reader, formBase + "?appCulture=en&id=4");
+        var loadedFrench = await Json(reader, formBase + "?appCulture=fr&commande=5");
         Assert.Equal("5", loadedFrench.GetProperty("record").GetProperty("key").GetString());
         Assert.NotEqual(loadedEnglish.GetProperty("definitionVersion").GetString(), loadedFrench.GetProperty("definitionVersion").GetString());
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await administrator.GetAsync(formBase + "?appCulture=de", TestContext.Current.CancellationToken)).StatusCode);
-        administrator.DefaultRequestHeaders.Host = "fr.website.test";
-        var frenchPage = await Page(administrator, "/mixed-content/");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, (await reader.GetAsync(formBase + "?appCulture=de", TestContext.Current.CancellationToken)).StatusCode);
+        reader.DefaultRequestHeaders.Host = "fr.website.test";
+        var frenchPage = await Page(reader, "/mixed-content/");
         Assert.Contains("?appCulture=fr", frenchPage.Html);
         Assert.Contains("Commandes en fran", frenchPage.Html);
         Assert.Contains("data-key-parameter=\"commande\"", frenchPage.Html);
@@ -209,7 +220,7 @@ public sealed class WebPagesHttpTests
         Assert.EndsWith(":en", englishStateKey);
         Assert.EndsWith(":fr", frenchStateKey);
         Assert.NotEqual(englishStateKey, frenchStateKey);
-        administrator.DefaultRequestHeaders.Host = "en.website.test";
+        reader.DefaultRequestHeaders.Host = "en.website.test";
 
         // The nested site's theme changes its shell, while native Public Access controls its branch.
         var applicationPage = await Page(anonymous, "/private-tools/private-guide/");
@@ -233,16 +244,16 @@ public sealed class WebPagesHttpTests
         Assert.True(access.Save(protection).Success);
         var referenceProtection = new PublicAccessEntry(privateReference, login, deniedPage, [new PublicAccessRule { RuleType = Constants.Conventions.PublicAccess.MemberUsernameRuleType, RuleValue = member.Username }]);
         Assert.True(access.Save(referenceProtection).Success);
-        // Public Access admits a backoffice user who may edit the page, including the administrator.
+        // Public Access requires a member session, including for editors and administrators.
         var administratorResponse = await administrator.GetAsync("/private-tools/private-guide/", TestContext.Current.CancellationToken);
         var administratorGuide = await administratorResponse.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         AssertNoStore(administratorResponse);
         if (administratorResponse.Headers.Location is { } administratorRedirect) administratorGuide = (await Page(administrator, administratorRedirect.ToString())).Html;
-        Assert.Contains("private-guide-marker", administratorGuide);
-        Assert.DoesNotContain("public-login-marker", administratorGuide);
+        Assert.DoesNotContain("private-guide-marker", administratorGuide);
+        Assert.Contains("public-login-marker", administratorGuide);
         var administratorReference = (await Page(administrator, "/private-reference/")).Html;
-        Assert.Contains("private-reference-marker", administratorReference);
-        Assert.DoesNotContain("public-login-marker", administratorReference);
+        Assert.DoesNotContain("private-reference-marker", administratorReference);
+        Assert.Contains("public-login-marker", administratorReference);
         var users = services.GetRequiredService<IUserService>();
         var groups = services.GetRequiredService<IUserGroupService>();
         var websiteEditor = users.CreateUserWithIdentity("website-editor", "website-editor@example.invalid");
@@ -257,8 +268,8 @@ public sealed class WebPagesHttpTests
         var editorResponse = await editor.GetAsync("/private-tools/private-guide/", TestContext.Current.CancellationToken);
         var editorHtml = await editorResponse.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         if (editorResponse.Headers.Location is { } editorRedirect) editorHtml = (await Page(editor, editorRedirect.ToString())).Html;
-        Assert.Contains("private-guide-marker", editorHtml);
-        Assert.DoesNotContain("public-login-marker", editorHtml);
+        Assert.DoesNotContain("private-guide-marker", editorHtml);
+        Assert.Contains("public-login-marker", editorHtml);
         anonymous.DefaultRequestHeaders.IfNoneMatch.Add(previousReferenceTag);
         var referenceSignIn = await Page(anonymous, "/private-reference/");
         anonymous.DefaultRequestHeaders.IfNoneMatch.Clear();
@@ -346,7 +357,7 @@ public sealed class WebPagesHttpTests
         Assert.DoesNotContain("Mixed content", afterProtection.Html);
         Assert.DoesNotContain("Mixed content", (await Page(visitor, "/overview/")).Html);
         Assert.Contains("Mixed content", (await Page(anonymous, "/overview/")).Html); // signed-in member
-        Assert.Contains("Mixed content", (await Page(administrator, "/")).Html);
+        Assert.DoesNotContain("Mixed content", (await Page(administrator, "/")).Html);
 
         site.TemplateId = types.Get("appHostWebsite")!.AllowedTemplates!.Single(template => template.Alias == "ApplicationSite").Id;
         Save(site);
@@ -355,7 +366,7 @@ public sealed class WebPagesHttpTests
         Assert.DoesNotContain("Private tools", appMenu);
         Assert.DoesNotContain("Private guide", appMenu);
         Assert.DoesNotContain("Member login", appMenu);
-        Assert.Contains("Private guide", (await Page(administrator, "/overview/")).Html);
+        Assert.DoesNotContain("Private guide", (await Page(administrator, "/overview/")).Html);
 
         site.SetValue("topNavigationMenu", JsonSerializer.Serialize(new[] {
             new { key = Guid.NewGuid(), name = "Signed in as {{user.name}}", itemType = "Title", children = Array.Empty<object>() }
@@ -368,9 +379,9 @@ public sealed class WebPagesHttpTests
         Assert.Matches("<ul class=\"site-menu\">\\s*<li class=\"site-languages\">", emptyWebsiteMenu);
 
         // The saved Report Page loads the report module with the page's CSP nonce, as the block runtime does.
-        administrator.DefaultRequestHeaders.Host = address.Authority;
-        var reportPage = await Page(administrator, "/orders/");
-        administrator.DefaultRequestHeaders.Host = "en.website.test";
+        reader.DefaultRequestHeaders.Host = address.Authority;
+        var reportPage = await Page(reader, "/orders/");
+        reader.DefaultRequestHeaders.Host = "en.website.test";
         Assert.Contains("/api/reports/ui/ir.js\" nonce=\"website-test-nonce\"", reportPage.Html);
 
         // A report's Print needs a Paper report node, and its row action a record key column the report has.

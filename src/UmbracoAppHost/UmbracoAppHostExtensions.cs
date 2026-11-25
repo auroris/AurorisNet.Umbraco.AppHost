@@ -124,11 +124,12 @@ public static class UmbracoAppHostExtensions
                 USyncFiles.HostExport(configuration, environment.ContentRootPath, working), loggers.CreateLogger(typeof(USyncFiles)), libraries);
             SharedViews.EnsureTemplates(environment, loggers.CreateLogger(typeof(SharedViews)), libraries);
         });
-        builder.Services.AddControllersWithViews(options => options.Conventions.Add(new MemberSignInFormIdentity()))
+        builder.Services.AddControllersWithViews()
             .AddApplicationPart(typeof(Umbraco.Cms.Web.Common.Controllers.RenderController).Assembly)
             .AddApplicationPart(typeof(UmbracoAppHostExtensions).Assembly);
         builder.Services.AddScoped<ReportAccessPolicy>();
-        // This host's rule for a page Umbraco's Public Access protects: a backoffice user who may edit it is admitted without a member account.
+        // Backoffice report management checks editors' permissions. The published website uses the member session.
+        builder.Services.PostConfigure<WebsiteIdentityOptions>(options => options.IncludeBackOfficeUsers = false);
         builder.Services.AddScoped<IProtectedPageAdmission, EditorPageAdmission>();
         builder.Services.Replace(ServiceDescriptor.Scoped<IReportAccessPolicy>(services => services.GetRequiredService<ReportAccessPolicy>()));
         builder.Services.AddScoped<BackOfficeMemberProvisioning>();
@@ -162,6 +163,8 @@ public static class UmbracoAppHostExtensions
             {
                 // The two definitions the saved export keeps its own version of stay as the export imports them.
                 appBlocks.SiteOwnsDefinition([.. AppBlocksDefinitions.HostOwned.Keys]);
+                appBlocks.AllowInBlockGrid("Website: Page blocks", MemberSignInBlock.BlockAlias, "Page blocks");
+                appBlocks.AllowInBlockGrid("Application: Application blocks", MemberSignInBlock.BlockAlias, "Page blocks");
                 configureConnections?.Invoke(appBlocks);
             })
             // The configured groups exist before uSync's first-boot import resolves the export's group pickers.
@@ -175,6 +178,7 @@ public static class UmbracoAppHostExtensions
         builder.Services.AddSingleton<AppBlocksDefinitions>();
         builder.Services.AddSingleton(new AppBlocksSchema(typeof(PeoplePickerBlock).Assembly));
         builder.Services.AddSingleton<IAppBlockPlugin, PeoplePickerBlock>();
+        builder.Services.AddSingleton<IAppBlockPlugin, MemberSignInBlock>();
         builder.Services.TryAddSingleton<TimeProvider>(TimeProvider.System);
         builder.Services.TryAddSingleton<IPeoplePickerDirectory, PeoplePickerDirectory>();
         builder.Services.AddSingleton<PeoplePickerCache>();

@@ -9,11 +9,7 @@ using Umbraco.Cms.Core.Services.AuthorizationStatus;
 namespace UmbracoAppHost.Authentication;
 
 /// <summary>
-/// This host's rule for a page Umbraco's Public Access protects: a backoffice user who may edit the page is admitted to it
-/// without a member account. "May edit" is Umbraco's own <b>Update</b> permission on the page, through the user's groups and
-/// within their start nodes, read from the store when the request arrives so the account's current standing counts. AppBlocks
-/// asks only once Umbraco has refused the request, that is on a protected page with no member session, and the same answer
-/// governs the page and every block endpoint on it. AppBlocks itself admits nobody Umbraco refuses; this rule is the host's.
+/// Authorizes a backoffice report-management request against Umbraco's Update permission on the hosting page.
 /// </summary>
 public sealed class EditorPageAdmission(ApplicationAccessPolicy access, IUserService users, IContentPermissionService permissions)
     : IProtectedPageAdmission

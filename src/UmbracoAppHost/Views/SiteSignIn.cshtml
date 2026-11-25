@@ -3,9 +3,5 @@
 @{
     Layout = (await Themes.ResolveForAsync(Model, NavigationQueryService, PublishedStatusFilteringService, TemplateService)).PageLayout;
     PageAssets.RegisterPage(Model, NavigationQueryService, PublishedStatusFilteringService, Context);
-    ViewData["MemberAccessOnly"] = true;
 }
-<partial name="Website/Content" />
-<section class="app-signin">
-    <partial name="App/SignIn" />
-</section>
+@await Component.InvokeAsync("WebsiteBlocks", new { page = Model })

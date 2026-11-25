@@ -16,6 +16,8 @@ public static class SampleContent
     public static readonly IReadOnlySet<Guid> Keys = new HashSet<Guid>
     {
         new("2b6e4d1a-7c3f-4f0e-9a51-0d2c8e4f1a05"), // /SampleApplication
+        new("6d792ab7-c14c-1670-dc5d-fd0a21a9a433"), // /SampleApplication/SignIn
+        new("91b2da18-080b-f164-d92a-14317be03437"), // /WebsiteThemeDemo/SignIn
         new("2b6e4d1a-7c3f-4f0e-9a51-0d2c8e4f1a06"), // /SampleApplication/About
         new("2b6e4d1a-7c3f-4f0e-9a51-0d2c8e4f1a07"), // /SampleApplication/Orders
         new("33796329-b17d-b566-849c-03401489c175"), // /SampleApplication/OrdersForm

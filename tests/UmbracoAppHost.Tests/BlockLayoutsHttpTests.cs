@@ -54,9 +54,8 @@ public sealed class BlockLayoutsHttpTests
         Assert.True(published.Success, string.Join(" ", published.EventMessages?.GetAll().Select(m => m.Message) ?? []));
 #pragma warning restore CS0618
 
-        // The test login route signs the administrator in to the backoffice without a password.
-        using var client = host.CreateClient();
-        (await client.GetAsync($"/__tests/login/{Constants.Security.SuperUserKey}?scheme=backoffice&name=Layout%20test", TestContext.Current.CancellationToken)).EnsureSuccessStatusCode();
+        var member = host.CreateMember("layouts-reader", "layouts@example.invalid", "Layout reader");
+        using var client = await host.SignInMemberAsync(member);
 
         var application = await Page(client, "/layouts/");
         Assert.Contains("<body class=\"app\">", application);
@@ -235,6 +234,7 @@ public sealed class BlockLayoutsHttpTests
             Assert.False(block["allowInAreas"]!.GetValue<bool>(), alias);
         }
         Assert.True(blocks[AppBlockSchema.Key("appReport")]["allowAtRoot"]!.GetValue<bool>());
+        Assert.True(blocks[AppBlockSchema.Key("appMemberSignIn")]["allowAtRoot"]!.GetValue<bool>());
         foreach (var alias in pageLayouts)
         {
             Assert.True(blocks[AppBlockSchema.Key(alias)]["allowAtRoot"]!.GetValue<bool>(), alias);
@@ -242,6 +242,7 @@ public sealed class BlockLayoutsHttpTests
             {
                 var allowed = Allowed(area!);
                 Assert.Contains(AppBlockSchema.Key("appReport"), allowed);
+                Assert.Contains(AppBlockSchema.Key("appMemberSignIn"), allowed);
                 Assert.Contains(AppBlockSchema.Key(AppBlockSchema.RegionAlias), allowed);
                 Assert.Contains(AppBlockSchema.Key(AppBlockSchema.RichTextAlias), allowed);
                 Assert.Contains(AppBlockSchema.Key(AppBlockSchema.AttachmentsAlias), allowed);
