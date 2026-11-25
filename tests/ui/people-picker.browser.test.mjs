@@ -40,7 +40,7 @@ async function mount(t, search = async () => ({ items: people }), apiRoot = "/WC
         if (url.pathname === `${apiRoot}/people-picker/test-page/test-picker`) {
             if(url.searchParams.has('sid')) {
                 const person=known.get(url.searchParams.get('sid'));
-                const body=extra.select ? await extra.select(person) : person ? {person:{...person,attributes:{extensionattribute10:person.snPri || null}}} : {status:422};
+                const body=extra.select ? await extra.select(person) : person ? {person:{...person,attributes:{extensionattribute10:person.snPri || null, mail:person.email}}} : {status:422};
                 return route.fulfill({status:body.status||200,contentType:'application/json',body:JSON.stringify(body)});
             }
             searches.push(url.searchParams.get("s"));
@@ -56,6 +56,7 @@ async function mount(t, search = async () => ({ items: people }), apiRoot = "/WC
             <fieldset class="app-form-body" disabled>
             <div data-content-element-type-alias="appPeoplePicker">${markup}</div>
             <div class="app-form-field"><label for="incumbent">Incumbent</label><input id="incumbent" data-field="incumbentName" required></div>
+            <label>Email <input data-field="contactEmail"></label>
             <div class="app-form-field"><label for="number">Service number</label><input id="number" data-field="incumbentSn" required><small id="number-help">From the directory, or entered manually.</small></div>
             <input data-field="incumbentSid" type="hidden"><input data-field="incumbentDirectorySn" type="hidden" data-readonly="true"><button type="submit">Submit request</button></fieldset></form>
             <script type="module">
@@ -88,7 +89,7 @@ async function mount(t, search = async () => ({ items: people }), apiRoot = "/WC
 }
 
 test("LOV beside the name opens a window, searches under the IIS path, and commits one identity", async t => {
-    const { page, open, searches } = await mount(t);
+    const { page, open, searches } = await mount(t, undefined, undefined, {settings: {prefillMappings: {mail: 'contactEmail'}}});
     assert.equal(await page.locator('.app-person-control [data-field="incumbentName"]').count(), 1);
     await expect(page.locator('[data-content-element-type-alias="appPeoplePicker"]')).toBeHidden();
     await page.getByLabel("Incumbent", { exact: true }).fill("Manual person");
@@ -113,11 +114,13 @@ test("LOV beside the name opens a window, searches under the IIS path, and commi
     await popup.keyboard.press("Enter").catch(error => { if (!popup.isClosed()) throw error; }); await closed;
     await expect(page.getByLabel("Incumbent", { exact: true })).toHaveValue(people[0].displayName);
     await expect(page.getByLabel("Service number")).toHaveValue("K12345678");
+    await expect(page.getByLabel("Email")).toHaveValue(people[0].email);
     await expect(page.locator('[data-field="incumbentSid"]')).toHaveValue("sid-1");
     assert.equal(await page.getByLabel("Incumbent", { exact: true }).getAttribute("readonly"), "");
     await expect(page.getByRole("button", { name: "Find person" })).toBeFocused();
     assert.equal(await page.evaluate(() => window.submits), 0);
     assert.deepEqual((await page.evaluate(() => window.changes)).slice(-3), Array(3).fill([people[0].displayName, "K12345678", "sid-1"]));
+    await page.getByLabel("Email").fill("filed@example.invalid");
     await page.getByRole("button", { name: "Enter manually" }).click();
     await expect(page.locator('[data-field="incumbentSid"]')).toHaveValue("");
     await expect(page.getByLabel("Incumbent", { exact: true })).toBeEditable();
@@ -151,7 +154,9 @@ test("Cancel, Escape, empty results and failed searches preserve an existing sel
 });
 
 test("a selected person without a directory number keeps their SID while the number is entered", async t => {
-    const { page, open } = await mount(t, async () => ({ items: [{ sid: "sid-no-number", displayName: "Ordinary Person" }] }));
+    const { page, open } = await mount(t, async () => ({ items: [{ sid: "sid-no-number", displayName: "Ordinary Person" }] }),
+        undefined, {settings: {prefillMappings: {mail: 'contactEmail'}}});
+    await page.getByLabel("Email").fill("previous@example.invalid");
     const popup = await open();
     await popup.getByLabel("Name", { exact: true }).fill("Ordinary");
     const result = popup.getByRole("button", { name: "Ordinary Person", exact: true });
@@ -162,6 +167,8 @@ test("a selected person without a directory number keeps their SID while the num
     assert.equal(await page.getByLabel("Incumbent", { exact: true }).getAttribute("readonly"), "");
     await expect(page.getByLabel("Service number")).toBeEditable();
     await expect(page.getByLabel("Service number")).toBeFocused();
+    await expect(page.getByLabel("Email")).toHaveValue("");
+    await expect(page.getByLabel("Email")).toBeEditable();
     await page.getByLabel("Service number").fill("k12 345 678");
     await page.getByLabel("Service number").press("Tab");
     await expect(page.getByLabel("Service number")).toHaveValue("K12345678");

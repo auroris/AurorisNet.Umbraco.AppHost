@@ -145,6 +145,10 @@ fallback allows manual input when the directory supplies no value; the form reso
 the mirror with the directory's value, separately from the typed fallback. Compact-uppercase
 fields remove whitespace and uppercase their input. Manual entry can be disabled per picker.
 
+Use **Prefill editable fields** for values the requester can correct. For example,
+`mail=contactEmail` fills the contact address when a person is selected. Choosing someone
+without a directory email clears the previous address. The form saves the requester's edit.
+
 `GET /api/people-picker/{page}/{block}?s=...` searches; `?sid=...` validates a selection within the
 same scope. Both responses prohibit caching. The popup uses the validated response for its field
 values. At save, AppBlocks' `IFormSubmissionProcessor` hook runs the shared `PeoplePickerService`

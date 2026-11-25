@@ -10,6 +10,7 @@
     if (Model.Form?.Culture is { } culture) endpoint += "?appCulture=" + Uri.EscapeDataString(culture);
     var options = JsonSerializer.Serialize(new {
         identityField = settings.IdentityField, nameField = settings.NameField, fieldMappings = settings.FieldMappings,
+        prefillMappings = settings.PrefillMappings,
         fallbackFields = settings.FallbackFields, compactUpperFields = settings.CompactUpperFields,
         allowManualEntry = settings.AllowManualEntry, minTermLength = settings.MinTermLength, maxResults = settings.MaxResults,
     });

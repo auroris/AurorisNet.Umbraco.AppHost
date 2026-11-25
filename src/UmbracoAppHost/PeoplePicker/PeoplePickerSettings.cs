@@ -69,6 +69,7 @@ public sealed record PeoplePickerSettings : AccountPickerSettings
             MinTermLength = Number("minTermLength", 2), MaxResults = Number("maxResults", 20), TimeoutSeconds = Number("timeoutSeconds", 5),
             AllowManualEntry = Flag("allowManualEntry", true), AllowAnonymous = Flag("allowAnonymous"), AllowCachedSelection = Flag("allowCachedSelection"), CacheMinutes = Number("cacheMinutes", 15),
             IdentityField = Text("identityField"), NameField = Text("nameField"), FieldMappings = Pairs(Text("fieldMappings")),
+            PrefillMappings = Pairs(Text("prefillMappings")),
             FallbackFields = Pairs(Text("fallbackFields")), CompactUpperFields = List("compactUpperFields"),
             Label = Text("label") is { Length: > 0 } label ? label : "Find person",
         };
@@ -91,10 +92,11 @@ public sealed record PeoplePickerSettings : AccountPickerSettings
             throw new DirectoryQueryException("Use at most 100 allowed groups, each at most 200 characters.");
         if (!FieldName.IsMatch(IdentityField) || !FieldName.IsMatch(NameField) || IdentityField == NameField)
             throw new DirectoryQueryException("Choose distinct identity and name fields on the containing form.");
-        if (FieldMappings.Count > 32 || FieldMappings.Any(m => !AttributeName.IsMatch(m.Key) || !FieldName.IsMatch(m.Value)
+        var mappings = FieldMappings.Concat(PrefillMappings).ToArray();
+        if (mappings.Length > 32 || mappings.Any(m => !AttributeName.IsMatch(m.Key) || !FieldName.IsMatch(m.Value)
             || !ReturnedAttributes.Contains(m.Key, StringComparer.OrdinalIgnoreCase)))
             throw new DirectoryQueryException("Each mapping must be a returned LDAP attribute followed by = and its form field.");
-        var targets = new[] { IdentityField, NameField }.Concat(FieldMappings.Values).ToArray();
+        var targets = new[] { IdentityField, NameField }.Concat(mappings.Select(m => m.Value)).ToArray();
         if (targets.Distinct(StringComparer.Ordinal).Count() != targets.Length || FallbackFields.Any(p => !FieldMappings.Values.Contains(p.Key)
             || !FieldName.IsMatch(p.Value) || targets.Contains(p.Value)) || FallbackFields.Values.Distinct().Count() != FallbackFields.Count
             || CompactUpperFields.Any(f => !FieldMappings.Values.Contains(f)))

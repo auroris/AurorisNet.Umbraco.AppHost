@@ -37,6 +37,8 @@ public sealed class PeoplePickerTests
     [InlineData("timeoutSeconds", "0")]
     [InlineData("cacheMinutes", "1441")]
     [InlineData("additionalFilter", "(givenName=*)(mail=*)")]
+    [InlineData("prefillMappings", "unreturnedAttribute=email")]
+    [InlineData("prefillMappings", "mail=sid")]
     public void Invalid_published_configuration_is_refused(string key, string value)
     {
         var values = new Dictionary<string, string> { ["entireDomain"] = "1", ["identityField"] = "sid", ["nameField"] = "name", [key] = value };
