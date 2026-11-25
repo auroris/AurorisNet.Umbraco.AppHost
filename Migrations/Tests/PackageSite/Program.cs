@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Umbraco.Cms.Core;
+using Umbraco.Cms.Core.Routing;
 using Umbraco.Cms.Core.Services;
 using UmbracoAppHost;
 
@@ -18,9 +19,9 @@ try
 {
     using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(5));
     var runtime = app.Services.GetRequiredService<IRuntimeState>();
-    var upgrade = app.Services.GetServices<IHostedService>().OfType<BackgroundService>()
-        .Single(service => service.GetType().Name == "UnattendedUpgradeBackgroundService");
-    if (upgrade.ExecuteTask is { } install) await install.WaitAsync(timeout.Token);
+    var routing = app.Services.GetRequiredService<IContentRoutingReadiness>();
+    while (runtime.Level != RuntimeLevel.BootFailed && (runtime.Level != RuntimeLevel.Run || !routing.IsReady))
+        await Task.Delay(100, timeout.Token);
     if (runtime.Level != RuntimeLevel.Run)
         throw new InvalidOperationException($"Umbraco finished startup at {runtime.Level}.", runtime.BootFailedException);
 
