@@ -8,7 +8,7 @@ how to deliver it to sites that already exist.
 
 | Folder | Purpose |
 |---|---|
-| `src/UmbracoAppHost/uSync/` | The saved export, in source control. The library embeds it and copies it to the build output, so every host and build carries it. |
+| `Migrations/1.0.0-Current/uSync/` | The saved export, in source control. The library embeds it and copies it to the build output, so every host and build carries it. |
 | `<instance>/uSync/` | The working folder of one instance: `reference/uSync/` for the reference website, `uSync/` in a site folder. uSync imports from it and exports every backoffice save to it. |
 
 The host sets uSync's root folder to `<InstanceRoot>/uSync` after it has read the settings
@@ -115,7 +115,7 @@ A failed first import is reported in uSync's log. Fix the exported files and
 
 1. Make the change in the reference backoffice. uSync writes the item's file to
    `reference/uSync/`.
-2. Copy that file to the same relative path in `src/UmbracoAppHost/uSync/`. When you copy the
+2. Copy that file to the same relative path in `Migrations/1.0.0-Current/uSync/`. When you copy the
    whole folder, leave out the paths that `deployment/appblocks-definitions.txt` lists, which
    uSync also writes there. Delete a file from the saved export when its item was deleted on
    purpose, because a copy leaves old files in place.

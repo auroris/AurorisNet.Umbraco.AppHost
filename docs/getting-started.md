@@ -46,7 +46,7 @@ imports it. Source files are left alone.
 
 Before it deletes anything, the script lists the files in `reference/uSync/` that differ from
 the saved export and asks whether to discard them. Answer **No**, copy the files you want to
-keep into `src/UmbracoAppHost/uSync/`, and run it again.
+keep into `Migrations/1.0.0-Current/uSync/`, and run it again.
 
 | Parameter | Effect |
 |---|---|

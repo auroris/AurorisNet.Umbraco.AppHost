@@ -115,7 +115,7 @@ describes the version table, run-once scripts, C# steps and what happens when a 
 ## The sample database
 
 With the samples on, the host registers `ReportsSampleDb` as an application database. Its schema
-is embedded in the library from `src/UmbracoAppHost/Sample/Schema/`, with scripts for SQLite and
+is embedded in the library from `Migrations/1.0.0-Current/Sample/Schema/`, with scripts for SQLite and
 SQL Server: the `ORDERS` and `ORDER_LINES` tables, the `ORDERS_SCHEDULE_BARS` view and a trigger
 that advances each row's `VERSION`. A seed adds 500 orders, and one to three lines for each of
 the first 120, when the tables are empty.

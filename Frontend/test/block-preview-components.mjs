@@ -1,3 +1,4 @@
+import { currentInstall } from './migrations.mjs';
 // Exercises the custom views against the installed Umbraco modules in a DOM, without logging in or executing page runtimes.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -56,7 +57,7 @@ test('custom views render with the running host’s installed Umbraco modules', 
     dom.window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
     dom.window.fetch = fetch;
     dom.window.eval(bundled.outputFiles[0].text);
-    const reportSchema = await readFile(resolve(repos, 'AurorisNet.Umbraco.AppBlocks/src/AppBlocks.InteractiveReports/Schema/ContentTypes/appreport.config'), 'utf8');
+    const reportSchema = await readFile(resolve(currentInstall(resolve(repos, 'AurorisNet.Umbraco.AppBlocks')), 'AppBlocks.InteractiveReports/Schema/ContentTypes/appreport.config'), 'utf8');
     const reportKey = new JSDOM(reportSchema, { contentType: 'text/xml' }).window.document.documentElement.getAttribute('Key');
     const samples = [
         ['app-block-preview', 'appHtml', { html: '<style>h2{color:navy}</style><h2>Actual HTML</h2><script>bad()</script><img src=x onerror="bad()"><form><button>Submit</button></form>' }],

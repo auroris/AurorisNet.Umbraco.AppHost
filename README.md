@@ -28,6 +28,8 @@ This is an alpha, version `1.0.0-alpha.1`. The packages are not on nuget.org yet
 the library from a checkout of this repository. Only the package ids carry the `AurorisNet`
 prefix: the assembly, the namespace and the settings section are `UmbracoAppHost`.
 
+Installation snapshots, upgrade steps and release checks are described in [Release migrations](Migrations/README.md).
+
 ## Start a site
 
 Building needs the .NET 10 SDK, Node 20 or newer, and these checkouts beside this repository's

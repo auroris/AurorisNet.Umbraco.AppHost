@@ -30,7 +30,7 @@ public static class SampleData
     /// empty. There are no scripts for Oracle or PostgreSQL, so the seed stops at its first query there, and it writes
     /// <c>@</c> parameters, which suit the two it runs on.
     /// </summary>
-    public static ApplicationSchema Schema { get; } = ApplicationSchema.FromEmbedded(typeof(SampleData).Assembly, "Sample/Schema").Then(Seed).Then(SeedLines);
+    public static ApplicationSchema Schema { get; } = ApplicationSchema.FromReleaseAssembly(typeof(SampleData).Assembly, "Sample/Schema", "UmbracoAppHost:Sample/Schema").Then(Seed).Then(SeedLines);
 
     /// <summary>Creates the SQLite file and ensures <see cref="Schema"/> on it.</summary>
     public static void EnsureSeeded(string dbPath)

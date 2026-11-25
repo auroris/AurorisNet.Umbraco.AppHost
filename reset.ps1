@@ -16,7 +16,7 @@ $ErrorActionPreference = 'Stop'
 $InstanceRoot = [IO.Path]::GetFullPath($InstanceRoot)
 if (!(Test-Path -LiteralPath $InstanceRoot)) { Write-Host "Nothing to reset: $InstanceRoot does not exist."; return }
 $projectRoot = Join-Path $PSScriptRoot 'src/UmbracoAppHost.Web'
-$baseline = Join-Path $PSScriptRoot 'src/UmbracoAppHost/uSync'
+$baseline = (Resolve-Path -Path (Join-Path $PSScriptRoot 'Migrations/*-Current/uSync')).Path
 $downstream = $false
 $hostExport = $null
 $runtimePath = Join-Path $InstanceRoot '.apphost/runtime.json'

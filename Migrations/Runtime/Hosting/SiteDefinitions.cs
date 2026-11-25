@@ -36,9 +36,9 @@ public sealed class DefinitionsReadyNotification : INotification;
 /// starts from the files the site had. What the failed import had changed in the database stays changed. With
 /// <see cref="Setting"/> false a start imports nothing, and an administrator imports from <b>Settings → uSync</b>.
 /// </remarks>
-public sealed class SiteDefinitions(IConfiguration configuration, IWebHostEnvironment environment, IOptions<uSyncSettings> settings,
+public sealed partial class SiteDefinitions(IConfiguration configuration, IWebHostEnvironment environment, IOptions<uSyncSettings> settings,
     IEnumerable<ThemeLibrary> libraries, SchemaInstaller installer, BlockGridAllowances allowances, AppBlocksDefinitions definitions, ISyncService sync, ISyncHandlerFactory handlers,
-    IKeyValueService keyValues, ICoreScopeProvider scopes, IEventAggregator events, ILogger<SiteDefinitions> logger)
+    IKeyValueService keyValues, ICoreScopeProvider scopes, ContentStepRunner contentSteps, IEventAggregator events, ILogger<SiteDefinitions> logger)
     : INotificationAsyncHandler<UmbracoApplicationStartingNotification>
 {
     /// <summary>Whether a start imports the shared definitions of a build the site has not imported yet. It is true unless the site sets it.</summary>
@@ -55,6 +55,7 @@ public sealed class SiteDefinitions(IConfiguration configuration, IWebHostEnviro
         if (configuration.GetValue(Setting, true)) await ImportSharedAsync(cancellationToken);
         // An import puts the Block Grid data types back as the export has them, so the blocks registered from code are allowed again.
         await allowances.ApplyAsync(cancellationToken);
+        await contentSteps.RunAsync("UmbracoAppHost", _ => Task.CompletedTask, ContentUpgrades, cancellationToken);
         await events.PublishAsync(new DefinitionsReadyNotification(), cancellationToken);
     }
 

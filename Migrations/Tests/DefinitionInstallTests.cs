@@ -72,6 +72,9 @@ public sealed class DefinitionInstallTests
 
         using var scope = site.CreateScope();
         var services = scope.ServiceProvider;
+        var releases = services.GetRequiredService<ContentStepRunner>();
+        Assert.Equal("", releases.Position("AppBlocks"));
+        Assert.Equal("", releases.Position("UmbracoAppHost"));
         var types = services.GetRequiredService<IContentTypeService>();
         foreach (var definition in SchemaDefinitions("ContentTypes"))
         {

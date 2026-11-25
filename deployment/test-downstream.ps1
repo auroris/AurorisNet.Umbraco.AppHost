@@ -13,6 +13,7 @@ $ErrorActionPreference = 'Stop'
 function Assert-True($Condition, [string] $Message) { if (!$Condition) { throw $Message } }
 $repository = Split-Path -Parent $PSScriptRoot
 $library = Join-Path $repository 'src/UmbracoAppHost'
+$currentExport = (Resolve-Path -Path (Join-Path $repository 'Migrations/*-Current/uSync')).Path
 $libraryProject = Join-Path $library 'UmbracoAppHost.csproj'
 $reset = Join-Path $repository reset.ps1
 $OutputRoot = [IO.Path]::GetFullPath($OutputRoot)
@@ -27,7 +28,7 @@ $menuItemKey = '2f25bc57-ca13-43c8-bf1f-e28fecc2c75b'
 $templateKey = '834d8d82-d814-4d8f-967d-a46579b707a4'
 $rowsKey = '0aeb140f-8faf-4c7b-97b2-f691eb0eeb7a'
 $paperKey = '1b8d4ebe-1d6b-4313-b212-222f5c9b56b5'
-$dataSourcesKey = ([xml](Get-Content -LiteralPath (Join-Path $library 'uSync/Content/data-sources.config') -Raw)).DocumentElement.GetAttribute('Key')
+$dataSourcesKey = ([xml](Get-Content -LiteralPath (Join-Path $currentExport 'Content/data-sources.config') -Raw)).DocumentElement.GetAttribute('Key')
 $hostContent = @('downstream-home.config', 'downstream-paper-report.config', 'downstream-rows.config')
 
 foreach ($folder in @('uSync/Content', 'uSync/Templates', 'Views')) { New-Item -ItemType Directory -Force (Join-Path $projectRoot $folder) | Out-Null }
@@ -100,7 +101,7 @@ Set-Content -LiteralPath (Join-Path $projectRoot 'Views/DownstreamReport.cshtml'
 # demo's pages, so this one links itself only.
 $homePage = [xml]::new()
 $homePage.PreserveWhitespace = $true
-$homePage.Load((Join-Path $library 'uSync/Content/theme-website.config'))
+$homePage.Load((Join-Path $currentExport 'Content/theme-website.config'))
 $homePage.DocumentElement.SetAttribute('Key', $homeKey)
 $homePage.DocumentElement.SetAttribute('Alias', 'Downstream home')
 $homePage.SelectSingleNode('/Content/Info/Path').InnerText = '/DownstreamHome'
@@ -239,7 +240,7 @@ function Stop-DownstreamHost {
 
 $running = $null
 $view = Join-Path $library 'Views/ReportPage.cshtml'
-$definition = Join-Path $library 'uSync/Dictionary/search.config'
+$definition = (Resolve-Path -Path (Join-Path $repository 'Migrations/*-Current/uSync/Dictionary/search.config')).Path
 $originalView = $null
 $originalDefinition = $null
 try {

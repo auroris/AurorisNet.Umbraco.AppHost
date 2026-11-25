@@ -74,7 +74,7 @@ Test-RunningHost
 Assert-Startup ((Read-Identity) -eq $originalIdentity) 'An ordinary restart changed the instance identity.'
 Write-Host 'PASS: a second start preserves the existing instance.'
 if ($Reset) {
-    $baselineRoot = Join-Path (Split-Path -Parent $PSScriptRoot) 'src/UmbracoAppHost/uSync'
+    $baselineRoot = (Resolve-Path -Path (Join-Path (Split-Path -Parent $PSScriptRoot) 'Migrations/*-Current/uSync')).Path
     $baselineHashes = @{}
     foreach ($file in Get-ChildItem -LiteralPath $baselineRoot -Recurse -File -Filter '*.config') {
         $baselineHashes[[IO.Path]::GetRelativePath($baselineRoot, $file.FullName)] = (Get-FileHash -LiteralPath $file.FullName).Hash

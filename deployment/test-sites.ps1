@@ -168,7 +168,7 @@ try {
 } finally { Stop-TestSite $running 'after-update' }
 # A release that changes a shared definition: the update delivers the file, and the site imports it at its next start,
 # before it serves a page. The second build needs the checkout, where one dictionary text is changed while it publishes.
-$dictionary = Join-Path $scripts 'src/UmbracoAppHost/uSync/Dictionary/app-skip.config'
+$dictionary = (Resolve-Path -Path (Join-Path $scripts 'Migrations/*-Current/uSync/Dictionary/app-skip.config')).Path
 if (!$Build -and (Test-Path -LiteralPath $dictionary)) {
     # The placeholder above is not a definition uSync can import, which the site's next start would try with the rest.
     Remove-Item -LiteralPath $siteDefinition

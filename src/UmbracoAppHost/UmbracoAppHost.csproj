@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
+  <Import Project="../../Migrations/Install.props" />
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
@@ -99,17 +100,16 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="uSync\**\*.config" />
-    <None Remove="uSync\**\*.config" />
-    <Content Remove="uSync\**\*.config" />
-    <!-- The saved uSync export ships with every build so sites can be created and updated from it. -->
-    <Content Include="uSync\**\*.config" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <EmbeddedResource Include="$(InstallRoot)uSync/**/*.config" Link="uSync\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Content Include="$(InstallRoot)uSync/**/*.config" Link="uSync\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" PackageCopyToOutput="true"
+             PackagePath="content/uSync/%(RecursiveDir)%(Filename)%(Extension);contentFiles/any/$(TargetFramework)/uSync/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../../Migrations/Runtime/**/*.cs" />
     <EmbeddedResource Include="Hosting\defaults.json" LogicalName="UmbracoAppHost.Hosting.defaults.json" />
     <!-- The sample database's schema scripts, read through the embedded files manifest; see Sample/SampleData.cs. -->
-    <EmbeddedResource Include="Sample\Schema\**\*.sql" />
-    <None Remove="Sample\Schema\**\*.sql" />
+    <EmbeddedResource Include="../../Migrations/**/*.sql" Link="Migrations\%(RecursiveDir)%(Filename)%(Extension)" />
     <EmbeddedResource Include="Views\**\*.cshtml" />
-    <EmbeddedResource Include="Schema\ContentTypes\*.config" />
+    <EmbeddedResource Include="$(InstallRoot)Schema/ContentTypes/*.config" Link="Schema\ContentTypes\%(Filename)%(Extension)" />
     <Content Remove="wwwroot/dist/**/*" />
     <!-- A published site carries only its own Views folder and editor schema files; the library's
          views are embedded, and every project directory receives its own generated schema copies. -->
@@ -169,7 +169,7 @@
        also supplies the export to referencing hosts and the site-management scripts. -->
   <Target Name="IncludeUSyncExport" BeforeTargets="AssignTargetPaths">
     <ItemGroup>
-      <Content Condition="$([System.String]::Copy('%(Content.Identity)').Replace('\', '/').StartsWith('uSync/'))">
+      <Content Condition="$([System.String]::Copy('%(Content.Link)').Replace('\', '/').StartsWith('uSync/'))">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       </Content>

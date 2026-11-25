@@ -1,3 +1,4 @@
+import { currentInstall } from './migrations.mjs';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
@@ -8,7 +9,7 @@ import { JSDOM } from 'jsdom';
 
 const root = resolve(import.meta.dirname, '..');
 test('starter dictionary covers the keys referenced by templates and Razor views', () => {
-  const exportRoot = resolve(root, '../src/UmbracoAppHost/uSync');
+  const exportRoot = resolve(currentInstall(resolve(root, '..')), 'uSync');
   const xml = file => new JSDOM(readFileSync(file, 'utf8'), { contentType: 'text/xml' }).window.document;
   const seeds = Object.fromEntries(readdirSync(join(exportRoot, 'Dictionary')).filter(file => file.endsWith('.config')).map(file => {
     const document = xml(join(exportRoot, 'Dictionary', file));

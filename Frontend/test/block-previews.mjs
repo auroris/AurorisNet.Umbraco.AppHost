@@ -1,3 +1,4 @@
+import { currentInstall } from './migrations.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
@@ -15,9 +16,11 @@ const ruleLabels = new Map([
     ['appFieldRule', '{=action} {=field}'],
     ['appFieldCondition', '{=field} {=comparison} {=otherField} {=literal}'],
 ]);
+const blocksInstall = currentInstall(resolve(repos, 'AurorisNet.Umbraco.AppBlocks'));
+const hostInstall = currentInstall(resolve(repos, 'AurorisNet.Umbraco.AppHost'));
 const owners = [
-    ['AurorisNet.Umbraco.AppBlocks/src/AppBlocks', 'Schema'], ['AurorisNet.Umbraco.AppBlocks/src/AppBlocks.InteractiveReports', 'Schema'],
-    ['AurorisNet.Umbraco.AppBlocks/src/AppBlocks.Documents', 'Schema'], ['AurorisNet.Umbraco.AppHost/src/UmbracoAppHost', 'uSync', 'Schema'],
+    ['AurorisNet.Umbraco.AppBlocks/src/AppBlocks', resolve(blocksInstall, 'AppBlocks/Schema')], ['AurorisNet.Umbraco.AppBlocks/src/AppBlocks.InteractiveReports', resolve(blocksInstall, 'AppBlocks.InteractiveReports/Schema')],
+    ['AurorisNet.Umbraco.AppBlocks/src/AppBlocks.Documents', resolve(blocksInstall, 'AppBlocks.Documents/Schema')], ['AurorisNet.Umbraco.AppHost/src/UmbracoAppHost', resolve(hostInstall, 'uSync'), resolve(hostInstall, 'Schema')],
     ...['4WingSiteIdentity', '4WingDiagrams', '4WingTelephoneDirectory', '4WingFileRepository', '4WingActivityScheduler', '4WingAerodromeStatus'].map(name => [`4Wing/${name}`, 'Schema']),
 ];
 async function files(directory, suffix) {

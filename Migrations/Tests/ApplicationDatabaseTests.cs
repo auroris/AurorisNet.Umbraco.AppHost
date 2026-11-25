@@ -13,14 +13,23 @@ namespace UmbracoAppHost.Tests;
 public sealed class ApplicationDatabaseTests
 {
     [Fact]
+    public void Base_and_current_match_for_the_first_release()
+    {
+        var project = UmbracoAppHost.Testing.TestSite.FindProjectFolder(typeof(SampleData).Assembly)!;
+        var migrations = Path.GetFullPath(Path.Combine(project, "..", "..", "Migrations"));
+        ReleaseCheck.CheckBaseline(migrations);
+        ReleaseCheck.CheckSqlDialects(migrations, "Sample/Schema", "sqlite", "sqlserver");
+    }
+
+    [Fact]
     public void The_sample_schema_is_embedded_and_seeds_the_sample_orders()
     {
-        Assert.Equal("UmbracoAppHost:Sample/Schema", SampleData.Schema.Id);
+        Assert.Equal("UmbracoAppHost:Sample/Schema", SampleData.Schema.Name);
         var file = Path.Combine(Folder(), "sample.db");
         SampleData.EnsureSeeded(file);
         Assert.Equal(500L, Scalar(file, "SELECT COUNT(*) FROM ORDERS"));
         Assert.Equal(5L, Scalar(file, "SELECT COUNT(*) FROM pragma_table_info('ORDERS') WHERE name IN ('VERSION', 'CREATED_BY', 'CREATED_AT', 'UPDATED_BY', 'UPDATED_AT')"));
-        Assert.Equal("UmbracoAppHost:Sample/Schema/001-orders.sql", Scalar(file, "SELECT SCRIPT FROM APP_SCHEMA"));
+        Assert.Equal("UmbracoAppHost:Sample/Schema/release/1.0.0", Scalar(file, "SELECT SCRIPT FROM APP_SCHEMA WHERE SCRIPT LIKE '%/release/%'"));
         // One to three lines for each of the first 120 orders.
         Assert.Equal(120L, Scalar(file, "SELECT COUNT(DISTINCT ORDER_ID) FROM ORDER_LINES WHERE ORDER_ID BETWEEN 1 AND 120"));
         Assert.InRange((long)Scalar(file, "SELECT COUNT(*) FROM ORDER_LINES")!, 120L, 360L);
