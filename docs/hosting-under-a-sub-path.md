@@ -44,6 +44,37 @@ during rollout. HTTPS cookies with the `__Host-` prefix must use `Path=/`, so th
 them to every path on that hostname. Their size still counts toward request-header limits when
 a user signs in to many sites at once.
 
+### HTTP 400 during domain sign-in on IIS
+
+A browser can carry cookies from several live sites and from previous installations at the
+same address. Domain sign-in also adds an OpenID Connect authorization URL and, when Windows
+answers the challenge, an authentication header. HTTP.sys counts the request line and all
+headers against a machine-wide limit of 16 KiB by default. It can reject the request before
+it reaches AppHost. [HTTP.sys settings](https://learn.microsoft.com/en-us/troubleshoot/developer/webapps/iis/health-diagnostic-performance/httpsys-registry-windows)
+
+For **Bad Request – Request Too Long**, check the matching request in
+`%SystemRoot%\System32\LogFiles\HTTPERR`. A 400 with reason `RequestLength` points to the
+combined size. `FieldLength` points to a single oversized field. A private window can help
+identify the contribution of cookies, but verification should include the original cookie load.
+[Diagnosing HTTP 400 on IIS](https://learn.microsoft.com/en-us/troubleshoot/developer/webapps/iis/site-behavior-performance/troubleshoot-http-400-errors-in-iis)
+
+On the RDAO test VM, the failing `/connect/authorize` request had 23 cookies totaling 14,192
+bytes and a 1,393-byte request target. For that workload, set the total allowance to 32 KiB
+in an elevated PowerShell session. The per-field allowance stays at its 16 KiB default.
+
+```powershell
+$httpParameters = 'HKLM:\SYSTEM\CurrentControlSet\Services\HTTP\Parameters'
+New-ItemProperty -LiteralPath $httpParameters -Name MaxRequestBytes -PropertyType DWord -Value 32768 -Force
+```
+
+Schedule the HTTP service restart for the whole VM. Record which dependent services are
+running, restart HTTP, and bring those services back up. On the RDAO VM these included IIS
+(`W3SVC`), WinRM and the Print Spooler. Verify through the member page's **Sign in with
+domain** button. A 16,447-byte request with the same cookie count and sizes returned the
+Windows authentication challenge (`401` with `WWW-Authenticate: Negotiate`). Completing that
+challenge with a domain account verifies member sign-in end to end.
+[HTTP service restart requirements](https://learn.microsoft.com/en-us/troubleshoot/developer/webapps/iis/www-authentication-authorization/http-bad-request-response-kerberos)
+
 ## What applies the prefix
 
 Umbraco builds many backoffice, sign-in and asset addresses from the host's root. The
