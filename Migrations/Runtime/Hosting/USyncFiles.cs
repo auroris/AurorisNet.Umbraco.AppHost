@@ -33,7 +33,9 @@ internal static class USyncFiles
     /// </summary>
     public static void EnsureWorkingCopy(string destination, bool includeSamples, string? hostExport, ILogger logger, IEnumerable<ThemeLibrary>? libraries = null)
     {
-        if (File.Exists(Path.Combine(destination, "usync.config"))) return;
+        const string marker = "usync.config";
+        var markerPath = Path.Combine(destination, marker);
+        if (File.Exists(markerPath)) return;
         var shipped = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         CopyDirectory("/", destination);
         if (hostExport is not null)
@@ -46,13 +48,13 @@ internal static class USyncFiles
                 var target = Path.Combine(destination, relative);
                 // uSync's default working folder, uSync/v18, sits inside a host's uSync folder.
                 if (shipped.Contains(relative) || file.StartsWith(working, StringComparison.OrdinalIgnoreCase) || File.Exists(target)) continue;
-                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                File.Copy(file, target);
-                copied++;
+                if (CopyMissing(target, () => File.OpenRead(file))) copied++;
             }
             logger.LogInformation("Copied {Count} files of the host's export {HostExport} to the working uSync folder {Destination}.", copied, hostExport, destination);
         }
         foreach (var library in libraries ?? []) CopyLibraryExport(library.Files, "uSync", destination);
+        // A failed first boot must leave the folder eligible for another attempt.
+        CopyMissing(markerPath, Files.GetFileInfo(marker).CreateReadStream);
 
         void CopyLibraryExport(IFileProvider files, string sourceDirectory, string targetDirectory)
         {
@@ -61,10 +63,7 @@ internal static class USyncFiles
                 var target = Path.Combine(targetDirectory, file.Name);
                 if (file.IsDirectory) { CopyLibraryExport(files, sourceDirectory + "/" + file.Name, target); continue; }
                 if (!file.Name.EndsWith(".config", StringComparison.OrdinalIgnoreCase) || shipped.Contains(Path.GetRelativePath(destination, target)) || File.Exists(target)) continue;
-                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                using var source = file.CreateReadStream();
-                using var output = new FileStream(target, FileMode.CreateNew, FileAccess.Write);
-                source.CopyTo(output);
+                CopyMissing(target, file.CreateReadStream);
             }
         }
 
@@ -76,13 +75,28 @@ internal static class USyncFiles
                 if (file.IsDirectory) { CopyDirectory(sourceDirectory.TrimEnd('/') + "/" + file.Name, target); continue; }
                 if (!file.Name.EndsWith(".config", StringComparison.OrdinalIgnoreCase)) continue;
                 shipped.Add(Path.GetRelativePath(destination, target));
-                if (File.Exists(target) || (!includeSamples && sourceDirectory == "/Content" && IsSample(file))) continue;
-                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                using var source = file.CreateReadStream();
-                using var output = new FileStream(target, FileMode.CreateNew, FileAccess.Write);
-                source.CopyTo(output);
+                if (target == markerPath || File.Exists(target) || (!includeSamples && sourceDirectory == "/Content" && IsSample(file))) continue;
+                CopyMissing(target, file.CreateReadStream);
             }
         }
+    }
+
+    // Startup can resolve uSync settings concurrently. Publish complete files and keep the first writer's copy.
+    private static bool CopyMissing(string target, Func<Stream> openSource)
+    {
+        var directory = Path.GetDirectoryName(target)!;
+        Directory.CreateDirectory(directory);
+        using var source = openSource();
+        var temporary = Path.Combine(directory, Path.GetRandomFileName());
+        var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write);
+        try
+        {
+            using (output) source.CopyTo(output);
+            try { File.Move(temporary, target); }
+            catch (IOException) when (File.Exists(target)) { return false; }
+            return true;
+        }
+        finally { File.Delete(temporary); }
     }
 
     private static bool IsSample(IFileInfo file)
