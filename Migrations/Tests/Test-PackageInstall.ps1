@@ -51,13 +51,14 @@ try {
         } else {
             'Console.WriteLine(typeof(UmbracoAppHost.Testing.TestSite)); Console.WriteLine(typeof(AppBlocks.Testing.TestSiteException));' | Set-Content "$name/Program.cs"
         }
-        Invoke-DotNet restore $project --packages "$scratch/packages" --configfile NuGet.Config
+        # Reused MSBuild nodes can keep Umbraco task DLLs in this temporary cache locked on Windows.
+        Invoke-DotNet restore $project --disable-build-servers --packages "$scratch/packages" --configfile NuGet.Config
         $assets = Get-Content -Raw "$name/obj/project.assets.json" | ConvertFrom-Json -AsHashtable
         if ($assets.libraries.Keys -like 'AurorisNet.Umbraco.AppBlocks*' -or $assets.libraries.Values.type -contains 'project') {
             throw "Unexpected AppBlocks package or project reference in $name."
         }
         $output = "$scratch/out-$name"
-        Invoke-DotNet publish $project -c Release --no-restore '-p:UseSharedCompilation=false' -o $output
+        Invoke-DotNet publish $project -c Release --no-restore --disable-build-servers -o $output
         Push-Location -LiteralPath $output
         try { Invoke-DotNet "$name.dll" } finally { Pop-Location }
     }
