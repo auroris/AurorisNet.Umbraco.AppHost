@@ -56,7 +56,11 @@ public sealed class UsernameLoginTests
             ["uSync:Settings:FirstBootGroup"] = "Settings",
         });
         if (useWebBuilder)
+        {
+            // Only this entry point adds the library's defaults, whose console sink the setting quiets.
+            builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> { [TestSite.ConsoleLogLevelSetting] = "Error" });
             builder.AddUmbracoAppHost();
+        }
         else
             builder.CreateUmbracoBuilder().AddBackOffice().AddWebsite().AddComposers()
                 .AddUmbracoAppHost(builder.Configuration).Build();

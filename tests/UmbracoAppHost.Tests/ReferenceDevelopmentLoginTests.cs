@@ -184,6 +184,7 @@ public sealed class ReferenceDevelopmentLoginTests
             ["ConnectionStrings:umbracoDbDSN_ProviderName"] = "Microsoft.Data.Sqlite",
             ["Umbraco:CMS:Unattended:UnattendedUserPassword"] = InstalledPassword,
             ["uSync:Settings:ExportOnSave"] = "None",
+            [TestSite.ConsoleLogLevelSetting] = "Error",
         });
         if (debugFlow is not null)
             builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["BackOfficeLogin:DebugFlow"] = debugFlow });

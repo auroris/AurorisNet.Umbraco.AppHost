@@ -51,6 +51,13 @@ public sealed partial class TestSite : IAsyncDisposable
     private const string BackOfficeApi = "/umbraco/management/api/v1/security/back-office";
     private const string LoginRoute = "/__tests/login";
 
+    /// <summary>
+    /// The lowest level the console sink of the library's defaults writes, which a site sets to <c>Error</c>: at the
+    /// default, one install puts over a thousand lines in the test run's output. Umbraco's log file under the content
+    /// root's <c>umbraco/Logs</c> still receives every event. <see cref="TestSiteOptions.Settings"/> can set another level.
+    /// </summary>
+    public const string ConsoleLogLevelSetting = "Serilog:WriteTo:0:Args:restrictedToMinimumLevel";
+
     // 1 while a site of this process is starting or running; see Claim.
     private static int running;
 
@@ -160,6 +167,7 @@ public sealed partial class TestSite : IAsyncDisposable
                 ["uSync:Settings:ImportAtStartup"] = "None",
                 ["uSync:Settings:ExportOnSave"] = "None",
                 ["uSync:Settings:FirstBootGroup"] = options.FirstBootGroup,
+                [ConsoleLogLevelSetting] = "Error",
             };
             if (!string.IsNullOrEmpty(options.VirtualPath)) settings[VirtualPathHosting.SettingKey] = options.VirtualPath;
             foreach (var (key, value) in options.Settings) settings[key] = value;

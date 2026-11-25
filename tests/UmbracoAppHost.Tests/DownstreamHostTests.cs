@@ -219,6 +219,7 @@ public sealed class DownstreamHostTests
             ["Umbraco:CMS:Unattended:UnattendedUserPassword"] = AdminPassword,
             ["Umbraco:CMS:Hosting:Debug"] = "false",
             ["uSync:Settings:ExportOnSave"] = "None",
+            [TestSite.ConsoleLogLevelSetting] = "Error",
             [SampleContent.Setting] = "false",
             ["UmbracoAppHost:HostExport"] = export,
         });
