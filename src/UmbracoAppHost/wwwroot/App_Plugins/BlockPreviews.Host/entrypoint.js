@@ -1,4 +1,4 @@
-import { memberSignInPreview } from "./member-sign-in.js";
+import { memberSignInPreview } from "./member-sign-in-content.js";
 import { nestedBlockPreviews, previewStylesheets } from "../ApplicationBlocks/block-preview.js";
 const pathBase = new URL(import.meta.url).pathname.split("/App_Plugins/")[0];
 export function onInit() {

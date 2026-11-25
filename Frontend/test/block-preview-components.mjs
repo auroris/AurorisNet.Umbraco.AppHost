@@ -15,6 +15,8 @@ test('custom views render with the running host’s installed Umbraco modules', 
     const imports = JSON.parse(page.match(/<script type="importmap"[^>]*>([\s\S]*?)<\/script>/)[1]).imports;
     const scripts = [
         'AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/block-preview.js',
+        'src/UmbracoAppHost/wwwroot/App_Plugins/BlockPreviews.Host/entrypoint.js',
+        'src/UmbracoAppHost/wwwroot/App_Plugins/BlockPreviews.Host/member-sign-in.js',
         'AppBlocks/src/AppBlocks.InteractiveReports/wwwroot/App_Plugins/AppBlocks.InteractiveReports/block-preview.js',
         'AppBlocks/src/AppBlocks.InteractiveReports/wwwroot/App_Plugins/AppBlocks.InteractiveReports/block-preview-entrypoint.js',
         '../4Wing/4WingSiteIdentity/wwwroot/App_Plugins/4WingResources/block-preview.js',
@@ -28,9 +30,13 @@ test('custom views render with the running host’s installed Umbraco modules', 
         assert.equal(await response.text(), await readFile(resolve(root, path), 'utf8'), path);
     }
     const bundled = await build({
-        stdin: { contents: scripts.map(path => path.endsWith('block-preview-entrypoint.js')
-            ? `import { onInit } from ${JSON.stringify(resolve(root, path))}; onInit();`
-            : `import ${JSON.stringify(resolve(root, path))};`).join('\n'), resolveDir: root },
+        stdin: { contents: scripts.map((path, i) => {
+            const module = resolve(root, path);
+            if (path.endsWith('entrypoint.js'))
+                return `import { onInit as init${i} } from ${JSON.stringify(module)}; init${i}();`;
+            // Umbraco versions the custom view URL separately from relative imports in the entry point.
+            return `import ${JSON.stringify(path.endsWith('/member-sign-in.js') ? module + '?v=editor' : module)};`;
+        }).join('\n'), resolveDir: root },
         bundle: true, write: false, format: 'iife', logLevel: 'silent',
         define: { 'import.meta.url': JSON.stringify(`${origin}/App_Plugins/ApplicationBlocks/block-preview.js`) },
         plugins: [{ name: 'installed-umbraco', setup(builder) {
@@ -60,6 +66,7 @@ test('custom views render with the running host’s installed Umbraco modules', 
     const reportSchema = await readFile(resolve(currentInstall(resolve(root, 'AppBlocks')), 'AppBlocks.InteractiveReports/Schema/ContentTypes/appreport.config'), 'utf8');
     const reportKey = new JSDOM(reportSchema, { contentType: 'text/xml' }).window.document.documentElement.getAttribute('Key');
     const samples = [
+        ['app-member-sign-in-preview', 'appMemberSignIn', { heading: 'Member access' }],
         ['app-block-preview', 'appHtml', { html: '<style>h2{color:navy}</style><h2>Actual HTML</h2><script>bad()</script><img src=x onerror="bad()"><form><button>Submit</button></form>' }],
         ['app-block-preview', 'appColumns', {}, { split: '4/8' }],
         ['app-block-preview', 'appFormRegion', { heading: 'The position' }, { collapsible: false }],
@@ -94,6 +101,10 @@ test('custom views render with the running host’s installed Umbraco modules', 
             assert.equal(element.shadowRoot.querySelector('.edit-preview').getAttribute('href'), '/edit-block');
             const preview = new JSDOM(frame.srcdoc).window.document;
             assert.equal(preview.querySelector('script,form,[onerror]'), null, alias);
+            if (alias === 'appMemberSignIn') {
+                assert.equal(preview.querySelector('h3').textContent, 'Member access');
+                assert.equal(preview.querySelectorAll('input:disabled').length, 2);
+            }
             if (alias === 'appFormRegion') {
                 const toggle = element.shadowRoot.querySelector('button[aria-controls]');
                 const body = element.shadowRoot.getElementById(toggle.getAttribute('aria-controls'));
