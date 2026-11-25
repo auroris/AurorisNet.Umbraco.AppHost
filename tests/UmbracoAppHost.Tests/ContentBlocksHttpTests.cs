@@ -92,6 +92,7 @@ public sealed class ContentBlocksHttpTests
         // Rich text and raw HTML render where they sit, inside the form.
         Assert.Contains("<div class=\"ah-rich-text\"><p>Content blocks sit in a form beside its fields.", body);
         Assert.Equal(2, Count(body, "<div class=\"content-demo-callout\">"));
+        Assert.DoesNotContain("data-content-element-type-alias=\"appHtml\"", body);
         // CSS: once, in the head, though both regions carry it; after the shell's and the runtime's stylesheets; with the nonce.
         Assert.Equal(1, Count(html, ".content-demo-callout {"));
         Assert.Matches($"<style nonce=\"{Nonce}\">\\s*\\.content-demo-callout \\{{", head);
@@ -148,6 +149,8 @@ public sealed class ContentBlocksHttpTests
         Assert.Matches($"<script nonce=\"{Nonce}\">\\s*document\\.querySelectorAll[^<]*</script>\\s*</body>", body);
         Assert.True(body.IndexOf("/dist/scripts/site.js", StringComparison.Ordinal) < body.IndexOf($"<script nonce=\"{Nonce}\">", StringComparison.Ordinal));
         Assert.Contains("<div class=\"ah-rich-text\"><p>Content blocks sit in a form", body);
+        Assert.Equal(2, Count(body, "<div class=\"content-demo-callout\">"));
+        Assert.DoesNotContain("data-content-element-type-alias=\"appHtml\"", body);
         Assert.Matches("<input type=\"hidden\" [^>]*name=\"status\"", body);
 
         // Each shell's stylesheet styles the rich text and the placeholders.
