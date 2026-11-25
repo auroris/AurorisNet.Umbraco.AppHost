@@ -198,7 +198,7 @@ The other sections are described where they apply: `BreakGlass`, `BackOfficeLogi
 
 ## Supported versions
 
-`Directory.Packages.props` pins NuGet dependencies. Git pins the AppBlocks source.
+`Directory.Packages.props` pins NuGet dependencies. A local clone uses the recorded AppBlocks commit by default.
 
 | Dependency | Release | Notes |
 |---|---|---|
@@ -262,7 +262,10 @@ routine. `tests/UmbracoAppHost.ProviderTests` runs data sources against PostgreS
 `UMBRACOAPPHOST_TEST_POSTGRES`, `UMBRACOAPPHOST_TEST_ORACLE` or `UMBRACOAPPHOST_TEST_ORACLE11G`
 holds a connection string.
 
-CI and Release check out the pinned AppBlocks submodule. They set `UseBreakGlassSource`,
+CI and Release fetch AppBlocks `main` once at the start of each run. Both packages use that checkout,
+and the job summary records its commit. Rebuilding the same AppHost commit can pick up newer AppBlocks code.
+For local development with uncommitted AppBlocks edits, pass `-p:AppBlocksRoot=D:\repo\AurorisNet.Umbraco.AppBlocks`
+to `dotnet build`. The workflows set `UseBreakGlassSource`,
 `UseIdentityServerSsoSource` and `UseIdentityServerDirectorySource` to `false` to restore
 those three libraries at the versions in `Directory.Packages.props`.
 

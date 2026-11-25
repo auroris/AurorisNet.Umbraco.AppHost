@@ -36,8 +36,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          submodules: true
           persist-credentials: false
+
+      - name: Fetch AppBlocks main
+        run: |
+          git submodule update --init --remote --depth 1 -- AppBlocks
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          git -C AppBlocks log -1 --format="AppBlocks main at %H" >> $env:GITHUB_STEP_SUMMARY
 
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
@@ -72,8 +77,8 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      # The shared action records shipped NuGet updates. An AppBlocks gitlink update also ships in AppHost.
-      - name: Merge a tested AppBlocks update and record it for the weekly release
+      # The shared action records shipped NuGet updates. Submodule pointer updates also trigger a weekly release.
+      - name: Merge an AppBlocks pointer update and record it for the weekly release
         id: appblocks
         env:
           GH_TOKEN: ${{ github.token }}

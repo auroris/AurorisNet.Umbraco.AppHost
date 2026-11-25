@@ -1,6 +1,6 @@
 # Release migrations
 
-The first release has two complete installers. At 1.0.0, `1.0.0-Base` and `1.0.0-Current` must contain identical files. Freeze Base when 1.0.0 ships and tag the release so its dependency versions and application code are reproducible.
+The first release has two complete installers. At 1.0.0, `1.0.0-Base` and `1.0.0-Current` must contain identical files. Freeze Base when 1.0.0 ships and tag the AppHost release. To reproduce its bundled migrations locally, check out that tag and the AppBlocks commit recorded in the release job summary.
 
 For each release after 1.0.0, follow these steps.
 
@@ -10,6 +10,6 @@ For each release after 1.0.0, follow these steps.
 
 The host snapshot contains its uSync export, people-picker definition and sample installer. The build exposes the export at `uSync/` for downstream sites and deployment tools. The startup code in `Runtime/` preserves the site's uSync working copy and applies changes to shared definitions under the existing import settings.
 
-The sample database uses `Sample/Schema/<dialect>/` within a snapshot or transition. AppBlocks owns its attachment tables and block definitions. AppHost builds these migrations from the pinned AppBlocks submodule. After packing, run `Migrations/Tests/Test-PackageInstall.ps1 <AppHost.nupkg>` to verify first boot with an empty database and package cache. Use the MSBuild property `InstallSnapshot=1.0.0-Base` to exercise the original installer.
+The sample database uses `Sample/Schema/<dialect>/` within a snapshot or transition. AppBlocks owns its attachment tables and block definitions. AppHost builds these migrations from its AppBlocks checkout. After packing, run `Migrations/Tests/Test-PackageInstall.ps1 <AppHost.nupkg>` to verify first boot with an empty database and package cache. Use the MSBuild property `InstallSnapshot=1.0.0-Base` to exercise the original installer.
 
 For an upgrade to stored CMS content, implement the patch in the transition folder and register it in Current’s `SiteDefinitions.ContentUpgrades`. Startup records the initial installation and runs pending patches once, in order.

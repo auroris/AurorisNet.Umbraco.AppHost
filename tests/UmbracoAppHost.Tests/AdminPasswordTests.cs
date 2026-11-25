@@ -165,9 +165,10 @@ public sealed class AdminPasswordTests
             var app = site.App;
             await WaitUntil(() => HasPassword(app, RestartPassword));
             Assert.False(await HasPassword(app, ManualPassword));
-            Assert.True(await AcceptsPassword(app, "Debug accepts an unrelated password"));
+            Assert.True(await AcceptsPassword(app, RestartPassword));
+            Assert.False(await AcceptsPassword(app, "An unrelated password"));
 
-            // Debug's permissive sign-in checker must not mask a different stored password.
+            // A live configuration change also replaces the stored password in hosting debug mode.
             await WriteSettings(root, FirstPassword);
             await WaitUntil(() => HasPassword(app, FirstPassword));
             Assert.False(await HasPassword(app, RestartPassword));
