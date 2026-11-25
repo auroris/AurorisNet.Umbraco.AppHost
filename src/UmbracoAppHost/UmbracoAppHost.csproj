@@ -128,7 +128,7 @@
        stops the build. The check lives only here, because AppBlocks must not need this repository. -->
   <Target Name="CheckAppBlocksPackageVersions" BeforeTargets="CollectPackageReferences;ResolveProjectReferences"
           Condition="'$(DesignTimeBuild)' != 'true'">
-    <Error Condition="!Exists('$(AppBlocksRoot)/src/AppBlocks/AppBlocks.csproj')" Text="Initialize the AppBlocks submodule with git submodule update --init." />
+    <Error Condition="!Exists('$(AppBlocksRoot)/src/AppBlocks/AppBlocks.csproj')" Text="Clone AurorisNet.Umbraco.AppBlocks beside the AppHost checkout or set AppBlocksRoot to its location. Expected project under $(AppBlocksRoot)/src/AppBlocks." />
     <!-- Read the evaluated references that NuGet uses, whether a version is literal or comes from a property.
          AppBlocksUmbracoVersion in Directory.Build.props may no longer be used by those references. -->
     <MSBuild Projects="@(BundledProject)" Targets="CollectPackageReferences"

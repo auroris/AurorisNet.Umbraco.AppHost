@@ -58,7 +58,7 @@ jobs:
       contents: write
       id-token: write
     env:
-      # AppBlocks comes from the submodule. Restore the other libraries from NuGet.
+      # Build AppBlocks from its sibling checkout and restore the other libraries from NuGet.
       UseBreakGlassSource: 'false'
       UseIdentityServerSsoSource: 'false'
       UseIdentityServerDirectorySource: 'false'
@@ -70,9 +70,9 @@ jobs:
 
       - name: Fetch AppBlocks main
         run: |
-          git submodule update --init --remote --depth 1 -- AppBlocks
+          git clone --depth 1 --branch main "$env:GITHUB_SERVER_URL/auroris/AurorisNet.Umbraco.AppBlocks.git" ../AurorisNet.Umbraco.AppBlocks
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          git -C AppBlocks log -1 --format="AppBlocks main at %H" >> $env:GITHUB_STEP_SUMMARY
+          git -C ../AurorisNet.Umbraco.AppBlocks log -1 --format="AppBlocks main at %H" >> $env:GITHUB_STEP_SUMMARY
 
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:

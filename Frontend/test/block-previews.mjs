@@ -5,8 +5,8 @@ import { readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
-import { renderAppBlock, fieldTypes, values, listItems } from '../../AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/preview-model.js';
-import { appBlockTypes } from '../../AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/block-types.js';
+import { renderAppBlock, fieldTypes, values, listItems } from '../../../AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/preview-model.js';
+import { appBlockTypes } from '../../../AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/block-types.js';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 // These pure layouts already have the required preview: Umbraco's own card and editable areas.
@@ -16,11 +16,11 @@ const ruleLabels = new Map([
     ['appFieldRule', '{=action} {=field}'],
     ['appFieldCondition', '{=field} {=comparison} {=otherField} {=literal}'],
 ]);
-const blocksInstall = currentInstall(resolve(root, 'AppBlocks'));
+const blocksInstall = currentInstall(resolve(root, '../AurorisNet.Umbraco.AppBlocks'));
 const hostInstall = currentInstall(root);
 const owners = [
-    ['AppBlocks/src/AppBlocks', resolve(blocksInstall, 'AppBlocks/Schema')], ['AppBlocks/src/AppBlocks.InteractiveReports', resolve(blocksInstall, 'AppBlocks.InteractiveReports/Schema')],
-    ['AppBlocks/src/AppBlocks.Documents', resolve(blocksInstall, 'AppBlocks.Documents/Schema')], ['src/UmbracoAppHost', resolve(hostInstall, 'uSync'), resolve(hostInstall, 'Schema')],
+    ['../AurorisNet.Umbraco.AppBlocks/src/AppBlocks', resolve(blocksInstall, 'AppBlocks/Schema')], ['../AurorisNet.Umbraco.AppBlocks/src/AppBlocks.InteractiveReports', resolve(blocksInstall, 'AppBlocks.InteractiveReports/Schema')],
+    ['../AurorisNet.Umbraco.AppBlocks/src/AppBlocks.Documents', resolve(blocksInstall, 'AppBlocks.Documents/Schema')], ['src/UmbracoAppHost', resolve(hostInstall, 'uSync'), resolve(hostInstall, 'Schema')],
     ...['4WingSiteIdentity', '4WingDiagrams', '4WingTelephoneDirectory', '4WingFileRepository', '4WingActivityScheduler', '4WingAerodromeStatus'].map(name => [`../4Wing/${name}`, 'Schema']),
 ];
 async function files(directory, suffix) {

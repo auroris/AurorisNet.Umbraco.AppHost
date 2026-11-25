@@ -5,10 +5,10 @@ import { fileURLToPath } from 'node:url';
 import cssEscape from 'css.escape';
 import { build } from 'esbuild';
 import { JSDOM, requestInterceptor } from 'jsdom';
-import { enclosingForm, enclosingFormResource, writableTextBindings } from '../../AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/form-context.js';
-import { appBlockTypes } from '../../AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/block-types.js';
+import { enclosingForm, enclosingFormResource, writableTextBindings } from '../../../AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/form-context.js';
+import { appBlockTypes } from '../../../AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/block-types.js';
 
-const runtimeEntry = new URL('../../AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/runtime.js', import.meta.url);
+const runtimeEntry = new URL('../../../AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/runtime.js', import.meta.url);
 const runtimeUrl = 'https://example.test/App_Plugins/ApplicationBlocks/runtime.js';
 // jsdom runs classic scripts. Bundle the shipped browser modules for its window, keeping their public asset URL.
 const bundle = await build({

@@ -31,13 +31,12 @@ Installation snapshots, upgrade steps and release checks are described in [Relea
 
 ## Start a site
 
-Run `git submodule update --init` in the AppHost checkout to get the pinned AppBlocks source. A new clone can use `git clone --recurse-submodules`. Package consumers only need the AppHost package.
-
 Building from source needs the .NET 10 SDK, Node 20 or newer, and these checkouts beside this repository's
-folder. The scripts need PowerShell 7.
+folder. The scripts need PowerShell 7. Package consumers get AppBlocks with the AppHost package.
 
 | Sibling checkout | Provides | Folder property | Source switch |
 |---|---|---|---|
+| `../AurorisNet.Umbraco.AppBlocks` | Application blocks, reports, documents and test helpers | `AppBlocksRoot` | Always built from source |
 | `../AurorisNet.Umbraco.BreakGlass` | Administrator recovery | `BreakGlassRoot` | `UseBreakGlassSource` |
 | `../AurorisNet.Umbraco.IdentityServer.SSO` | Single sign-on | `IdentityServerSsoRoot` | `UseIdentityServerSsoSource` |
 | `../AurorisNet.Umbraco.IdentityServer.Directory` | Add from directory | `IdentityServerDirectoryRoot` | `UseIdentityServerDirectorySource` |
@@ -202,13 +201,13 @@ The other sections are described where they apply: `BreakGlass`, `BackOfficeLogi
 
 ## Supported versions
 
-`Directory.Packages.props` pins NuGet dependencies. A local clone uses the recorded AppBlocks commit by default.
+`Directory.Packages.props` pins NuGet dependencies.
 
 | Dependency | Release | Notes |
 |---|---|---|
 | .NET | 10 | The SDK to build, the ASP.NET Core runtime to run a published site. |
 | Umbraco | 18.3.2 | AppBlocks pins the same release. The build stops when the two differ. |
-| AppBlocks | Submodule commit | AppHost bundles the core, Documents and InteractiveReports assemblies and browser assets. AppHost.Testing bundles the test helpers. |
+| AppBlocks | Sibling checkout | AppHost bundles the core, Documents and InteractiveReports assemblies and browser assets. AppHost.Testing bundles the test helpers. |
 | uSync | 18.3.1 | |
 | `Umbraco.Community.UmbNav` | 5.0.3 | |
 | `Umbraco.Community.BlockPreview` | 6.3.0 | |
@@ -278,8 +277,7 @@ holds a connection string.
 
 CI and Release fetch AppBlocks `main` once at the start of each run. Both packages use that checkout,
 and the job summary records its commit. Rebuilding the same AppHost commit can pick up newer AppBlocks code.
-For local development with uncommitted AppBlocks edits, pass `-p:AppBlocksRoot=D:\repo\AurorisNet.Umbraco.AppBlocks`
-to `dotnet build`. The workflows set `UseBreakGlassSource`,
+Local builds use the sibling checkout, including uncommitted AppBlocks edits. The workflows set `UseBreakGlassSource`,
 `UseIdentityServerSsoSource` and `UseIdentityServerDirectorySource` to `false` to restore
 those three libraries at the versions in `Directory.Packages.props`.
 
@@ -289,13 +287,12 @@ The build checks that AppBlocks pins the same `Umbraco.Cms`, `Microsoft.Data.Sql
 
 ## Releases
 
-Dependabot checks the AppBlocks submodule weekly. To update it manually, run
-`git submodule update --remote AppBlocks`, test both packages, and commit the updated
-`AppBlocks` pointer. After pulling a change, run `git submodule update --init` to use the recorded commit.
+Changes on AppBlocks `main` ship with the next AppHost release. To update a local build,
+pull the AppBlocks checkout beside AppHost and rebuild.
 
-Dependabot also checks NuGet each week and groups Umbraco, uSync and the AurorisNet packages into one
-pull request. CI tests each update before merging it. The weekly release includes merged AppBlocks
-updates and shipped NuGet updates. Both AppHost packages publish under the same version. See the
+Dependabot checks NuGet each week and groups Umbraco, uSync and the AurorisNet packages into one
+pull request. CI tests each update before merging it. Shipped NuGet updates trigger the weekly
+release. Both AppHost packages publish under the same version. See the
 [release guide](https://github.com/auroris/AurorisNet.Build/blob/main/docs/releasing.md).
 
 ## License

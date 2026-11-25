@@ -126,7 +126,7 @@ function Find-Git {
 
 function Get-SourceCheckouts([string] $Project, [string[]] $MsBuildProperties) {
     # The checkouts a build is made from: the published project's, and that of every project it builds from source,
-    # such as this library and its AppBlocks submodule. Each has its commit and whether files in it were changed
+    # such as this library and its sibling AppBlocks checkout. Each has its commit and whether files in it were changed
     # or added since. The published project's checkout comes first. Without git the list is empty.
     $git = Find-Git
     if (!$git) { return @() }

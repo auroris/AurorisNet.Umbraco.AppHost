@@ -14,11 +14,11 @@ test('custom views render with the running host’s installed Umbraco modules', 
     const page = await (await fetch(`${origin}/umbraco/`)).text();
     const imports = JSON.parse(page.match(/<script type="importmap"[^>]*>([\s\S]*?)<\/script>/)[1]).imports;
     const scripts = [
-        'AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/block-preview.js',
+        '../AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/block-preview.js',
         'src/UmbracoAppHost/wwwroot/App_Plugins/BlockPreviews.Host/entrypoint.js',
         'src/UmbracoAppHost/wwwroot/App_Plugins/BlockPreviews.Host/member-sign-in.js',
-        'AppBlocks/src/AppBlocks.InteractiveReports/wwwroot/App_Plugins/AppBlocks.InteractiveReports/block-preview.js',
-        'AppBlocks/src/AppBlocks.InteractiveReports/wwwroot/App_Plugins/AppBlocks.InteractiveReports/block-preview-entrypoint.js',
+        '../AurorisNet.Umbraco.AppBlocks/src/AppBlocks.InteractiveReports/wwwroot/App_Plugins/AppBlocks.InteractiveReports/block-preview.js',
+        '../AurorisNet.Umbraco.AppBlocks/src/AppBlocks.InteractiveReports/wwwroot/App_Plugins/AppBlocks.InteractiveReports/block-preview-entrypoint.js',
         '../4Wing/4WingSiteIdentity/wwwroot/App_Plugins/4WingResources/block-preview.js',
         '../4Wing/4WingDiagrams/wwwroot/App_Plugins/FourWing.Diagrams/block-preview.js',
         '../4Wing/4WingTelephoneDirectory/wwwroot/App_Plugins/FourWing.TelephoneDirectory/block-preview.js',
@@ -40,7 +40,7 @@ test('custom views render with the running host’s installed Umbraco modules', 
         bundle: true, write: false, format: 'iife', logLevel: 'silent',
         define: { 'import.meta.url': JSON.stringify(`${origin}/App_Plugins/ApplicationBlocks/block-preview.js`) },
         plugins: [{ name: 'installed-umbraco', setup(builder) {
-            builder.onResolve({ filter: /^\.\.\/ApplicationBlocks\// }, args => ({ path: resolve(root, 'AppBlocks/src/AppBlocks/wwwroot/App_Plugins', args.path.substring(3)) }));
+            builder.onResolve({ filter: /^\.\.\/ApplicationBlocks\// }, args => ({ path: resolve(root, '../AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins', args.path.substring(3)) }));
             builder.onResolve({ filter: /^@/ }, args => {
                 assert(imports[args.path], `The running host does not export ${args.path}`);
                 return { path: new URL(imports[args.path], origin).href, namespace: 'umbraco' };
@@ -63,7 +63,7 @@ test('custom views render with the running host’s installed Umbraco modules', 
     dom.window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
     dom.window.fetch = fetch;
     dom.window.eval(bundled.outputFiles[0].text);
-    const reportSchema = await readFile(resolve(currentInstall(resolve(root, 'AppBlocks')), 'AppBlocks.InteractiveReports/Schema/ContentTypes/appreport.config'), 'utf8');
+    const reportSchema = await readFile(resolve(currentInstall(resolve(root, '../AurorisNet.Umbraco.AppBlocks')), 'AppBlocks.InteractiveReports/Schema/ContentTypes/appreport.config'), 'utf8');
     const reportKey = new JSDOM(reportSchema, { contentType: 'text/xml' }).window.document.documentElement.getAttribute('Key');
     const samples = [
         ['app-member-sign-in-preview', 'appMemberSignIn', { heading: 'Member access' }],

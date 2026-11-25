@@ -1,7 +1,6 @@
 <Project>
   <PropertyGroup>
-    <!-- The AppBlocks submodule declares its own package versions in its projects. -->
-    <ManagePackageVersionsCentrally Condition="!$(MSBuildProjectDirectory.StartsWith('$(MSBuildThisFileDirectory)AppBlocks'))">true</ManagePackageVersionsCentrally>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <CentralPackageFloatingVersionsEnabled>true</CentralPackageFloatingVersionsEnabled>
   </PropertyGroup>
   <ItemGroup>

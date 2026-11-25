@@ -30,7 +30,7 @@ jobs:
     # about two and a half.
     timeout-minutes: 60
     env:
-      # AppBlocks comes from the submodule. Restore the other libraries from NuGet.
+      # Build AppBlocks from its sibling checkout and restore the other libraries from NuGet.
       UseBreakGlassSource: 'false'
       UseIdentityServerSsoSource: 'false'
       UseIdentityServerDirectorySource: 'false'
@@ -41,9 +41,9 @@ jobs:
 
       - name: Fetch AppBlocks main
         run: |
-          git submodule update --init --remote --depth 1 -- AppBlocks
+          git clone --depth 1 --branch main "$env:GITHUB_SERVER_URL/auroris/AurorisNet.Umbraco.AppBlocks.git" ../AurorisNet.Umbraco.AppBlocks
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          git -C AppBlocks log -1 --format="AppBlocks main at %H" >> $env:GITHUB_STEP_SUMMARY
+          git -C ../AurorisNet.Umbraco.AppBlocks log -1 --format="AppBlocks main at %H" >> $env:GITHUB_STEP_SUMMARY
 
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
@@ -85,25 +85,7 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      # The shared action records shipped NuGet updates. Submodule pointer updates also trigger a weekly release.
-      - name: Merge an AppBlocks pointer update and record it for the weekly release
-        id: appblocks
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          $files = @(gh pr diff $env:PR_NUMBER --name-only)
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          if ($files.Count -eq 1 -and $files[0] -ceq 'AppBlocks') {
-            $body = Join-Path $env:RUNNER_TEMP 'appblocks-release-note.txt'
-            "Release-Bump: patch`nRelease-Note: Updates bundled AppBlocks." | Set-Content $body
-            gh pr merge $env:PR_NUMBER --squash --delete-branch --body-file $body
-            if ($LASTEXITCODE) { exit $LASTEXITCODE }
-            'merged=true' >> $env:GITHUB_OUTPUT
-          }
       - uses: auroris/AurorisNet.Build/actions/dependabot-release@main
-        if: steps.appblocks.outputs.merged != 'true'
         with:
           shipped-projects: |
             src/UmbracoAppHost

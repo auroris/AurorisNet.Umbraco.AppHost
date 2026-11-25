@@ -6,7 +6,7 @@ sites and update them, see [Deployment](deployment.md).
 
 ## Run the reference website
 
-Initialize the AppBlocks submodule with `git submodule update --init`. Building needs the .NET 10 SDK, Node 20 or newer, and the sibling checkouts the
+Clone `AurorisNet.Umbraco.AppBlocks` beside AppHost. Building needs the .NET 10 SDK, Node 20 or newer, and the sibling checkouts the
 [README](../README.md#start-a-site) lists.
 
 Open `UmbracoAppHost.slnx` in Visual Studio and start the **Website** launch profile, or run:
@@ -105,7 +105,7 @@ The project file references the library in the checkout of this repository:
 
 The Razor settings publish templates as files and compile them when they are first rendered,
 which Umbraco needs for templates edited in the backoffice. In Visual Studio, add the library to
-the host's solution with **Add > Existing Project**. AppHost references its AppBlocks submodule, BreakGlass and the two IdentityServer projects. Add only AppHost to the solution.
+the host's solution with **Add > Existing Project**. AppHost references the sibling AppBlocks, BreakGlass and two IdentityServer projects. Add only AppHost to the solution.
 
 Copy the library's `_ViewImports.cshtml` when you create the project, and commit it. It gives
 the Razor editor the shared namespaces and injected services before the first run:
@@ -222,7 +222,7 @@ change that brought them. The host's other views are left alone.
 
 ### Bring an upstream change down
 
-1. Pull this repository, run `git submodule update --init` in it, update the sibling checkouts and rebuild the host. Code, browser assets
+1. Pull this repository, update the sibling checkouts including AppBlocks, and rebuild the host. Code, browser assets
    and the library's export arrive through the project reference, and the shipped views are
    rewritten at the next start.
 2. Start the host. The start writes the definition files that changed (`ContentTypes`,

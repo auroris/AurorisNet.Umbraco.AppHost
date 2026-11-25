@@ -6,12 +6,6 @@
 # and three days after those of the other Umbraco packages, so their releases arrive here in the same week.
 version: 2
 updates:
-  - package-ecosystem: gitsubmodule
-    directory: /
-    schedule:
-      interval: weekly
-      day: friday
-
   - package-ecosystem: nuget
     directory: /
     schedule:
