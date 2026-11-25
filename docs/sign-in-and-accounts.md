@@ -222,7 +222,7 @@ In Umbraco Public Access, select the published page containing the block as the 
 
 ## Website and backoffice access
 
-Website blocks, data endpoints and website report routes use the member session. Umbraco Public Access and the member’s groups decide which protected content they can open. The application account menu’s **Sign out** action ends both active sessions.
+Website blocks, data endpoints and website report routes use the member session. Umbraco Public Access and the member’s groups decide which protected content they can open. The **Account menu** under Navigation uses the Umbraco menu editor. Its `{{user.signout}}` item signs out the website member. The backoffice session stays open. A site-specific browser preference pauses automatic member sign-in after logout. Signing in deliberately restores automatic sign-in for future visits.
 
 ## Add from directory
 

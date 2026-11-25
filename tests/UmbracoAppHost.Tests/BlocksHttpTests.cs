@@ -94,7 +94,6 @@ public sealed class BlocksHttpTests
         Assert.Contains("data-field=\"customer\"", html);
         Assert.DoesNotContain("invalid resource", html);
         Assert.Contains("<details class=\"app-account\">", html);
-        Assert.Contains("Member account", html);
         Assert.Contains("Sign out", html);
         var loaded = await forms.LoadAsync("4");
         Assert.True(loaded.IsSuccess, loaded.Body.GetRawText());
@@ -120,7 +119,7 @@ public sealed class BlocksHttpTests
 #pragma warning restore CS0618
         Assert.False((await reports.SchemaAsync(reportName)).IsSuccessStatusCode);
         html = await client.GetStringAsync(pageUrl, TestContext.Current.CancellationToken);
-        Assert.Contains("Member account", html); // A member takes precedence when both accounts are signed in.
+        Assert.Contains("Sign out", html); // A member takes precedence when both accounts are signed in.
         var logout = ReadForm(html, "app-inline-form");
         Assert.Equal(site.PathBase + "/application/account/logout", logout.Action);
         var noLogoutToken = new Dictionary<string, string>(logout.Fields);
@@ -134,6 +133,7 @@ public sealed class BlocksHttpTests
 
         if (administrator)
         {
+            Assert.Contains("Sign in with your member account to continue.", await client.GetStringAsync(pageUrl, TestContext.Current.CancellationToken));
             var users = services.GetRequiredService<IUserService>();
             var groups = services.GetRequiredService<IUserGroupService>();
             var editor = await site.CreateUserAsync("application-editor", "application-editor@example.invalid", "Application editor", ReportAdministratorsGroup.Alias);

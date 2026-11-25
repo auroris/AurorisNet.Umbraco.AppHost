@@ -1,4 +1,5 @@
 @model AppBlocks.Blocks.AppBlockView
+@inject Umbraco.Cms.Web.Common.Hosting.IBackOfficePathGenerator BackOffice
 @using Umbraco.Cms.Web.Common.Models
 @using Umbraco.Cms.Web.Website.Controllers
 @using IdentityServer.Sso
@@ -58,7 +59,7 @@
     }
     @if (Visitor.IsBackOfficeUser)
     {
-        <p class="app-signin-notice">You’re signed in to the <a href="@(Context.Request.PathBase)/umbraco/">backoffice</a>. Sign in with your member account to continue.</p>
+        <p class="app-signin-notice">You’re signed in to the <a href="@BackOffice.BackOfficePath">backoffice</a>. Sign in with your member account to continue.</p>
     }
     @if (requiresTwoFactor)
     {

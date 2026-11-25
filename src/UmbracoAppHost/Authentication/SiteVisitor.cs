@@ -43,7 +43,7 @@ public sealed class SiteVisitor(IMemberManager memberManager, SsoProviderCatalog
     {
         var request = httpContextAccessor.HttpContext?.Request;
         return !IsMember && !preview.IsInPreview() && AutomaticProvider is not null && request is not null
-            && HttpMethods.IsGet(request.Method) && !hasErrors && !requiresTwoFactor
+            && !request.Cookies.ContainsKey(MemberSignOut.Cookie) && HttpMethods.IsGet(request.Method) && !hasErrors && !requiresTwoFactor
             && !request.Query.ContainsKey("ufprt")
             && !request.Query.ContainsKey(SsoLoginUrls.LocalParameter)
             && !request.Query.ContainsKey(SsoRefusal.DeniedParameter);
@@ -74,6 +74,8 @@ public sealed class SiteVisitor(IMemberManager memberManager, SsoProviderCatalog
                 UserName = member.UserName;
                 Email = member.Email;
                 IsMember = true;
+                if (context.Request.Cookies.ContainsKey(MemberSignOut.Cookie) && !context.Response.HasStarted)
+                    context.Response.Cookies.Delete(MemberSignOut.Cookie, MemberSignOut.Options(context.Request));
             }
         }
         return this;

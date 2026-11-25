@@ -22,7 +22,7 @@
             if (item.Key == application.Key)
             {
                 <li class="app-nav-item@(atHome ? " is-current" : "")">
-                    <a href="@application.Url()" aria-current="@(atHome ? "page" : null)">Home</a>
+                    <a href="@application.Url()" aria-current="@(atHome ? "page" : null)">@application.NavigationTitle()</a>
                 </li>
             }
             else

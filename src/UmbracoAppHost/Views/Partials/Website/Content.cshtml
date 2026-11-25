@@ -3,8 +3,3 @@
 {
     @await Component.InvokeAsync("WebsiteBlocks", new { page = Model })
 }
-else if (SiteContent.IsSite(Model))
-{
-    <p><a class="btn btn-primary" href="@(Context.Request.PathBase)/umbraco/">@Umbraco.GetDictionaryValue("open-backoffice")</a></p>
-    @await Html.PartialAsync("App/Cards", Model)
-}

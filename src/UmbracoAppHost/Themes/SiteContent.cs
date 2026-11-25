@@ -55,12 +55,16 @@ public static class SiteContent
     /// </summary>
     public static IReadOnlyList<UmbNavItem>? NavigationMenu(this IPublishedContent page,
         IDocumentNavigationQueryService navigation, IPublishedContentStatusFilteringService published)
+        => NavigationMenu(page, navigation, published, "topNavigationMenu");
+
+    public static IReadOnlyList<UmbNavItem>? NavigationMenu(this IPublishedContent page,
+        IDocumentNavigationQueryService navigation, IPublishedContentStatusFilteringService published, string propertyAlias)
     {
         foreach (var node in page.AncestorsOrSelf(navigation, published).OrderByDescending(node => node.Level))
         {
-            var property = node.GetProperty("topNavigationMenu");
+            var property = node.GetProperty(propertyAlias);
             if (!HasAuthoredMenu(property?.GetSourceValue())) continue;
-            return node.Value<IEnumerable<UmbNavItem>>("topNavigationMenu")?.ToArray() ?? [];
+            return node.Value<IEnumerable<UmbNavItem>>(propertyAlias)?.ToArray() ?? [];
         }
         return null;
     }

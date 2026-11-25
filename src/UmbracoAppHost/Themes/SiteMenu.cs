@@ -21,7 +21,8 @@ public sealed record SiteMenuEntry(string Label, string? Url, string? Target, bo
 /// "Signed in as {{user.name}}" appears only to someone signed in. A token nobody knows stays as
 /// typed, so a typo shows. UmbNav applies its own display settings to the member session.
 /// </summary>
-public sealed partial class SiteMenu(SiteVisitor visitor, IHttpContextAccessor http)
+public sealed partial class SiteMenu(SiteVisitor visitor, IHttpContextAccessor http, AppBlocks.Blocks.AppPageAccess access,
+    Umbraco.Cms.Web.Common.Hosting.IBackOfficePathGenerator backOffice)
 {
     /// <summary>The application's sign-out action, which <see cref="ApplicationAccountController"/> serves.</summary>
     public const string SignOutPath = "/application/account/logout";
@@ -32,11 +33,15 @@ public sealed partial class SiteMenu(SiteVisitor visitor, IHttpContextAccessor h
         => await BuildAuthoredAsync(page, navigation, published) ?? [];
 
     /// <summary>Null when the theme should generate its menu. An authored menu can have zero entries for this visitor.</summary>
-    public async Task<IReadOnlyList<SiteMenuEntry>?> BuildAuthoredAsync(IPublishedContent page,
+    public Task<IReadOnlyList<SiteMenuEntry>?> BuildAuthoredAsync(IPublishedContent page,
         IDocumentNavigationQueryService navigation, IPublishedContentStatusFilteringService published)
+        => BuildAuthoredAsync(page, navigation, published, "topNavigationMenu");
+
+    public async Task<IReadOnlyList<SiteMenuEntry>?> BuildAuthoredAsync(IPublishedContent page,
+        IDocumentNavigationQueryService navigation, IPublishedContentStatusFilteringService published, string propertyAlias)
     {
         await visitor.ResolveAsync();
-        var items = page.NavigationMenu(navigation, published);
+        var items = page.NavigationMenu(navigation, published, propertyAlias);
         if (items is null) return null;
         var pathBase = http.HttpContext?.Request.PathBase.Value ?? "";
         var values = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
@@ -45,10 +50,10 @@ public sealed partial class SiteMenu(SiteVisitor visitor, IHttpContextAccessor h
             ["user.username"] = visitor.UserName,
             ["user.email"] = visitor.Email,
             ["user.profile"] = visitor.IsMember ? ProfileUrl(page, navigation, published) : null,
-            ["user.backoffice"] = visitor.IsBackOfficeUser ? pathBase + "/umbraco" : null,
+            ["user.backoffice"] = visitor.IsBackOfficeUser ? backOffice.BackOfficePath.TrimEnd('/') : null,
             ["user.signout"] = visitor.IsSignedIn ? pathBase + SignOutPath : null,
         };
-        return Build(items, values, pathBase + SignOutPath);
+        return await BuildEntriesAsync(items, values, pathBase + SignOutPath);
     }
 
     /// <summary>The profile page the nearest Navigation Menu picked, in the page's culture; null without one.</summary>
@@ -60,11 +65,13 @@ public sealed partial class SiteMenu(SiteVisitor visitor, IHttpContextAccessor h
         return profile?.Url() is { Length: > 0 } url && url != "#" ? url : null;
     }
 
-    private static IReadOnlyList<SiteMenuEntry> Build(IEnumerable<UmbNavItem> items, IReadOnlyDictionary<string, string?> values, string signOut)
+    private async Task<IReadOnlyList<SiteMenuEntry>> BuildEntriesAsync(IEnumerable<UmbNavItem> items, IReadOnlyDictionary<string, string?> values, string signOut)
     {
         var entries = new List<SiteMenuEntry>();
         foreach (var item in items)
         {
+            if (string.Equals(item.ItemType?.ToString(), "Document", StringComparison.OrdinalIgnoreCase)
+                && (item.Content is not IPublishedContent target || (!access.IsOpen(target) && await access.UserAsync(target) is null))) continue;
             if (Replace(item.Name, values) is not { } label) continue;
             string? url = null;
             // A Title groups children without linking; UmbNav answers "#" for an item without an address.
@@ -74,7 +81,7 @@ public sealed partial class SiteMenu(SiteVisitor visitor, IHttpContextAccessor h
                 url = string.IsNullOrWhiteSpace(address) || address == "#" ? null : address;
             }
             var signsOut = url is not null && string.Equals(url, signOut, StringComparison.OrdinalIgnoreCase);
-            entries.Add(new(label, url, url is null ? null : item.Target, signsOut, Build(item.Children ?? [], values, signOut)));
+            entries.Add(new(label, url, url is null ? null : item.Target, signsOut, await BuildEntriesAsync(item.Children ?? [], values, signOut)));
         }
         return entries;
     }

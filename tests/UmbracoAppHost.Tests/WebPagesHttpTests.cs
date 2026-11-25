@@ -329,7 +329,7 @@ public sealed class WebPagesHttpTests
         Assert.Equal(Modified(unchanged.Html), Modified(inherited.Html));
         Assert.NotEqual(unchanged.Response.Headers.ETag, inherited.Response.Headers.ETag);
 
-        // Empty site content uses generated page cards. The website menu and section links
+        // Empty site content stays empty. The website menu and section links
         // use the same published pages and Public Access rules as the application menu.
         site.SetValue("topNavigationMenu", "[]", "en");
         site.SetValue(ApplicationStarter.BlockPropertyAlias, null, "en");
@@ -340,7 +340,8 @@ public sealed class WebPagesHttpTests
         // changes between the following two conditional requests.
         await Task.Delay(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
         var beforeProtection = await Page(visitor, "/");
-        Assert.Contains("class=\"app-cards\"", beforeProtection.Html);
+        Assert.DoesNotContain("class=\"app-cards\"", beforeProtection.Html);
+        Assert.DoesNotContain("Open the backoffice", beforeProtection.Html);
         Assert.Contains("Mixed content", beforeProtection.Html);
         Assert.DoesNotContain("Private tools", beforeProtection.Html);
         Assert.DoesNotContain("Member login", beforeProtection.Html);

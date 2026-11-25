@@ -100,7 +100,7 @@ public sealed class MemberSignInHttpTests
             Assert.Equal(user.Key, currentUser.GetProperty("id").GetGuid());
             Assert.DoesNotContain("app-login-form", await Page(browser, prefix + "/member-login/"));
             var protectedPage = await Page(browser, prefix + "/orders-form/?id=4");
-            Assert.Contains("Member account", protectedPage);
+            Assert.Contains("Sign out", protectedPage);
             Assert.Contains("data-app-form", protectedPage);
 
             async Task SignInBackOffice()
@@ -231,7 +231,17 @@ public sealed class MemberSignInHttpTests
         var memberCookie = Assert.Single(signedIn.Headers.GetValues(HeaderNames.SetCookie).Select(value => SetCookieHeaderValue.Parse(value)),
             cookie => cookie.Name == memberCookieName && cookie.Value.Length > 0);
         Assert.Equal(prefix, memberCookie.Path.ToString());
-        Assert.Contains("data-app-form", await Page(browser, destination));
+        var memberPage = await Page(browser, destination);
+        Assert.Contains("data-app-form", memberPage);
+        var logout = ReadForm(memberPage, form => form.Contains("/application/account/logout", StringComparison.Ordinal));
+        using var ended = await browser.PostAsync(logout.Action, new FormUrlEncodedContent(logout.Fields), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.Redirect, ended.StatusCode);
+        Assert.Contains("app-login-form", await Page(browser, ended.Headers.Location!.OriginalString));
+        var nextVisit = await Page(browser, prefix + "/sign-in/");
+        Assert.Contains("Sign in with Test Identity", nextVisit);
+        var explicitLogin = ReadForm(nextVisit, form => form.Contains("name=\"provider\"", StringComparison.Ordinal));
+        using var explicitChallenge = await browser.PostAsync(explicitLogin.Action, new FormUrlEncodedContent(explicitLogin.Fields), TestContext.Current.CancellationToken);
+        Assert.Equal("identity.example.invalid", explicitChallenge.Headers.Location!.Host);
     }
 
     /// <summary>

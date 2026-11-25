@@ -6,10 +6,10 @@
     <li class="app-nav-item@(current ? " is-current" : null)@(item.Children.Count > 0 ? " is-open" : null)">
         @if (item.SignsOut)
         {
-            <form method="post" action="@item.Url">
+            <form class="app-inline-form" method="post" action="@item.Url">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="returnUrl" value="@(Context.Request.PathBase + Context.Request.Path + Context.Request.QueryString)" />
-                <button type="submit">@item.Label</button>
+                <button class="app-link-button" type="submit">@item.Label</button>
             </form>
         }
         else

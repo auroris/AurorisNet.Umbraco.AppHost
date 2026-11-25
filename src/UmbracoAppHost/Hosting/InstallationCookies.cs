@@ -33,7 +33,7 @@ internal sealed class InstallationCookies
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(id));
         Suffix = "-" + name + "-" + Convert.ToHexStringLower(hash.AsSpan(0, 6));
 
-        string[] names = [Constants.Web.PreviewCookieName, "UMB-DEBUG", ViewDataExtensions.TokenExternalSignInError,
+        string[] names = [UmbracoAppHost.Authentication.MemberSignOut.Cookie, Constants.Web.PreviewCookieName, "UMB-DEBUG", ViewDataExtensions.TokenExternalSignInError,
             Constants.Web.CsrfValidationCookieName, Constants.Security.BackOfficeExternalCookieName];
         fixedNames = names.ToDictionary(key => key, key => key + Suffix, StringComparer.OrdinalIgnoreCase);
     }
