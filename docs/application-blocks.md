@@ -60,7 +60,7 @@ endpoints, so use Public Access to protect a branch.
 A page shows the menu of its nearest ancestor with an authored menu, and the badge of its
 nearest ancestor with one. A site with no authored menu lists its pages. Generated menus, section
 links, breadcrumb links and page cards follow **Hide from navigation** and the visitor's page
-access, including inherited Public Access and the host's admission rules. Paper reports are
+access, including inherited Public Access. Paper reports are
 excluded. An authored menu whose entries are all hidden from a visitor stays empty.
 
 Custom themes can pass their published candidates to `await pageAccess.NavigationPagesAsync(candidates)`
@@ -70,7 +70,7 @@ A menu entry's label or link can carry tokens for the person looking at the page
 
 | Token | Value |
 |---|---|
-| `{{user.name}}`, `{{user.username}}`, `{{user.email}}` | The signed-in member or backoffice user. |
+| `{{user.name}}`, `{{user.username}}`, `{{user.email}}` | The signed-in member. |
 | `{{user.profile}}` | The **Profile page** picked on the nearest Site Menu, for a member. |
 | `{{user.backoffice}}` | The backoffice address, for a backoffice user. |
 | `{{user.signout}}` | The application's sign-out. Both themes render the entry as a form button, because signing out is a POST. |
@@ -78,8 +78,7 @@ A menu entry's label or link can carry tokens for the person looking at the page
 An entry whose label or link has a token with no value for the visitor is left out with its
 children. "Signed in as {{user.name}}" therefore appears only to someone signed in, and a
 profile entry only once a profile page is picked. A misspelt token stays visible as typed.
-UmbNav's own settings, hide when logged in and hide when logged out, apply as well, and count a
-backoffice user as logged in. The **Website theme demo** menu carries these entries as an
+UmbNav’s hide-when-logged-in and hide-when-logged-out settings follow the member session. The **Website theme demo** menu carries these entries as an
 example.
 
 ### Page CSS and JavaScript
@@ -302,7 +301,7 @@ the parameters, the signed-in person, the culture and the generation time. To ad
 add its registration to the project's uSync export under `Templates/` and its view to `Views/`.
 The document takes the print stylesheet of the nearest site's [theme](themes.md).
 
-`/api/paper-reports/{node key}` serves the document to a signed-in member or backoffice user
+`/api/paper-reports/{node key}` serves the document to a signed-in member
 whom the node's Public Access and the data source admit. `?format=html` asks for HTML when a
 Pressroom server is configured. Select the node in a Form or report block's **Paper report**
 property to add a Print action that passes the record's key.

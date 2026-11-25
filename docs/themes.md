@@ -28,7 +28,7 @@ A page takes the theme of its nearest Web Site. `SiteThemeCatalog` resolves it i
    step applies to views that pass no default, such as Report Page and Site sign in.
 
 A signed-in visitor gets the theme's page layout. Views that require sign-in, such as Report
-Page, give an anonymous visitor the sign-in layout.
+Page, use the sign-in layout until the visitor signs in as a member. The layout renders the blocks on the public **Member sign-in page** selected on the site root.
 
 ## Register a theme
 
