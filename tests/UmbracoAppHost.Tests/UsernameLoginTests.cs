@@ -18,6 +18,7 @@ using Umbraco.Extensions;
 namespace UmbracoAppHost.Tests;
 
 [Collection("Umbraco hosts")]
+[OwnInstall]
 public sealed class UsernameLoginTests
 {
     [Theory]

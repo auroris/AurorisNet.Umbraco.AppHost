@@ -48,6 +48,12 @@ Umbraco keeps state in static fields, so a process runs one site at a time. `Sta
 
 A process installs once for each set of options and gives every site its own copy of that install. `TestSiteOptions.ConfigureBuilder` runs on the copy only, so a registration that the first-boot import depends on needs `UseInstallSnapshot = false`.
 
+An install takes most of a site's start, so keep the sets of options few. Every entry of `TestSiteOptions.Settings` is part of the set. Put configuration that only a running site reads, such as which accounts Umbraco manages, in `TestSiteOptions.StartSettings` instead: the install is made without it and shared.
+
+## Logs
+
+A site writes only errors to the console. Its log file under the content root's `umbraco/Logs` has every event, and `TestSiteOptions.Settings[TestSite.ConsoleLogLevelSetting]` sets another level, such as `Information`, for the console.
+
 ## Other test runners
 
 The host excludes assemblies whose names start with `xunit.` from Umbraco's type scan. For another runner, add its assembly prefixes through `TestSiteOptions.Settings` at an index of 10 or more, such as `Umbraco:CMS:TypeFinder:AdditionalAssemblyExclusionEntries:10`. A lower index replaces one of the host's own entries.

@@ -32,7 +32,7 @@ public sealed class BlocksHttpTests
             Application = typeof(Program).Assembly,
             VirtualPath = prefix,
             // Members sign in with the local password form: no identity server to start, and Umbraco keeps the accounts.
-            Settings = { ["IdentityServer:Enabled"] = "false", ["Accounts:MembersManagedBy"] = "Umbraco" },
+            StartSettings = { ["IdentityServer:Enabled"] = "false", ["Accounts:MembersManagedBy"] = "Umbraco" },
         }, TestContext.Current.CancellationToken);
         Assert.Equal(prefix, site.PathBase);
         using var scope = site.CreateScope(); var services = scope.ServiceProvider;

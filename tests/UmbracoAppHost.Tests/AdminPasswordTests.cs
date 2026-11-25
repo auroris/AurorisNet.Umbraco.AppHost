@@ -27,6 +27,7 @@ namespace UmbracoAppHost.Tests;
 /// <c>UmbracoAppHost:AdminPassword</c> name that sites keep using, and changed by saving the file.
 /// </summary>
 [Collection("Umbraco hosts")]
+[OwnInstall]
 public sealed class AdminPasswordTests
 {
     private const string InstalledPassword = "Initial-install-only91!";

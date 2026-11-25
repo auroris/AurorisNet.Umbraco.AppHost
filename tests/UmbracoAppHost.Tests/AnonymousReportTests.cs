@@ -25,7 +25,7 @@ public sealed class AnonymousReportTests
         await using var site = await TestSite.StartAsync(new TestSiteOptions
         {
             Application = typeof(Program).Assembly,
-            Settings = { ["IdentityServer:Enabled"] = "false", ["Accounts:AllowAnonymousReportBlocks"] = "true" },
+            StartSettings = { ["IdentityServer:Enabled"] = "false", ["Accounts:AllowAnonymousReportBlocks"] = "true" },
         }, TestContext.Current.CancellationToken);
         using var scope = site.CreateScope(); var services = scope.ServiceProvider;
         await site.WaitForPublishedAsync(ApplicationStarter.ReportPageKey);

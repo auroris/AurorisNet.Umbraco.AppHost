@@ -28,6 +28,7 @@ using TestTwoFactorProvider = UmbracoAppHost.Tests.BackOfficeSsoHttpTests.TestTw
 namespace UmbracoAppHost.Tests;
 
 [Collection("Umbraco hosts")]
+[OwnInstall]
 public sealed class ReferenceDevelopmentLoginTests
 {
     private const string InstalledPassword = "Local-test-only-Reference91!";

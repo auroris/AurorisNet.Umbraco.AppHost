@@ -17,7 +17,6 @@ namespace UmbracoAppHost.Tests;
 /// </summary>
 public sealed class AccountsTestHost : IAsyncLifetime
 {
-    public const string AdminPassword = "Local-test-only-Accounts91!";
     public const string MemberTypeAlias = "Member";
 
     private TestSite? site;
@@ -30,10 +29,9 @@ public sealed class AccountsTestHost : IAsyncLifetime
     {
         Application = typeof(Program).Assembly,
         EnvironmentName = "Production",
-        AdminPassword = AdminPassword,
         // These tests create their own accounts and no content.
         FirstBootGroup = "Settings",
-        Settings = { ["Accounts:BackOfficeUsersManagedBy"] = "Umbraco", ["Accounts:MembersManagedBy"] = "Umbraco" },
+        StartSettings = { ["Accounts:BackOfficeUsersManagedBy"] = "Umbraco", ["Accounts:MembersManagedBy"] = "Umbraco" },
     });
 
     public async ValueTask DisposeAsync()

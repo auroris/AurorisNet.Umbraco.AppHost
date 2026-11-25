@@ -52,6 +52,7 @@ public sealed class DefinitionInstallTests
     [Theory]
     [InlineData("All")]
     [InlineData("Settings")]
+    [OwnInstall]
     public async Task A_first_boot_installs_the_schemas_before_it_imports_anything(string group)
     {
         var probe = new ProbeResult();
@@ -117,6 +118,7 @@ public sealed class DefinitionInstallTests
 
     /// <summary>An invalid package schema stops the host before uSync can import content.</summary>
     [Fact]
+    [OwnInstall]
     public async Task A_failed_installation_stops_the_first_boot_import()
     {
         var probe = new ProbeResult();

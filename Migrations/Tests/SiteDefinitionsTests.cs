@@ -12,6 +12,7 @@ namespace UmbracoAppHost.Tests;
 
 /// <summary>A site across builds: each start brings it the definitions of the build it runs, once, before the application installs its content.</summary>
 [Collection("Umbraco hosts")]
+[OwnInstall]
 public sealed class SiteDefinitionsTests
 {
     private static readonly Guid ApplicationGrid = Guid.Parse("97b36051-4abe-e750-6667-9cb7ee6a9a99");

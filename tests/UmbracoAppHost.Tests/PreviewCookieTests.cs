@@ -21,9 +21,7 @@ public sealed class PreviewCookieTests
         {
             Application = typeof(Program).Assembly,
             VirtualPath = "/wing",
-            FirstBootGroup = "Settings",
-            UseInstallSnapshot = false,
-            Settings = { ["Umbraco:CMS:Hosting:SiteName"] = "Wing" },
+            StartSettings = { ["Umbraco:CMS:Hosting:SiteName"] = "Wing" },
             ConfigureApp = app =>
             {
                 app.MapPost(route, async (IPreviewService preview, IUserService users) =>

@@ -26,7 +26,8 @@ jobs:
   test:
     name: Test
     runs-on: windows-latest
-    # The tests take about eleven minutes on a developer's machine.
+    # In three processes on a developer's machine, all the tests take about six minutes and a Dependabot update's
+    # about two and a half.
     timeout-minutes: 60
     env:
       # AppBlocks comes from the submodule. Restore the other libraries from NuGet.
@@ -53,8 +54,15 @@ jobs:
         with:
           node-version: '24'
 
+      # A Dependabot update changes package versions only, so its run leaves out the tests that each install a site of
+      # their own. The installs the other tests share still take the new versions through an install and a first-boot
+      # import. Every other run takes all the tests, as each release does.
       - name: Test
-        run: dotnet test --project tests/UmbracoAppHost.Tests/UmbracoAppHost.Tests.csproj
+        env:
+          DEPENDABOT: ${{ github.event.pull_request.user.login == 'dependabot[bot]' }}
+        run: |
+          $exclude = if ($env:DEPENDABOT -eq 'true') { 'Category=OwnInstall' } else { @() }
+          ./tests/test-parallel.ps1 -Shards 3 -ExcludeTrait $exclude
 
       - name: Pack
         run: |

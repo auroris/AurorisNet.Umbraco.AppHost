@@ -19,6 +19,7 @@ namespace UmbracoAppHost.Tests;
 /// a configured connection string reaches them first, and the application database's schema still has to come with it.
 /// </summary>
 [Collection("Umbraco hosts")]
+[OwnInstall]
 public sealed class ApplicationDatabaseSiteTests
 {
     private static readonly Guid OrdersPaperReport = Guid.Parse("02e367e2-5764-7de6-4563-77cf40dff99d");

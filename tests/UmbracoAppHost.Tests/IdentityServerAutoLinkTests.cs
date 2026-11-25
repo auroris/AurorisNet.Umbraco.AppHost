@@ -36,7 +36,7 @@ public sealed class IdentityServerAutoLinkTests
             Application = typeof(Program).Assembly,
             EnvironmentName = "Production",
             FirstBootGroup = "Settings",
-            Settings =
+            StartSettings =
             {
                 ["IdentityServer:Name"] = "Native",
                 ["IdentityServer:Authority"] = TestIdentityServer.Issuer,

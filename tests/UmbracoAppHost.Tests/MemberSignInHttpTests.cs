@@ -34,6 +34,7 @@ public sealed class MemberSignInHttpTests
 
     [Fact]
     [ResetPublishedContentServices]
+    [OwnInstall]
     public async Task A_provisioned_member_and_backoffice_user_can_sign_in_in_either_order()
     {
         const string group = "Portal staff";
@@ -41,6 +42,7 @@ public sealed class MemberSignInHttpTests
         {
             Application = typeof(Program).Assembly,
             VirtualPath = prefix,
+            // The first boot creates the configured member group, so this site has an install of its own.
             Settings = { ["IdentityServer:Enabled"] = "false", ["Accounts:BackOfficeMemberGroups:0"] = group },
         }, TestContext.Current.CancellationToken);
         var user = await site.CreateUserAsync("dual-login", "dual-login@example.invalid", "Dual login");
@@ -109,7 +111,7 @@ public sealed class MemberSignInHttpTests
         {
             Application = typeof(Program).Assembly,
             VirtualPath = prefix,
-            Settings =
+            StartSettings =
             {
                 ["IdentityServer:Enabled"] = "true",
                 ["IdentityServer:Name"] = "Test Identity",
@@ -225,7 +227,7 @@ public sealed class MemberSignInHttpTests
             await using var site = await TestSite.StartAsync(new TestSiteOptions
             {
                 Application = typeof(Program).Assembly,
-                Settings =
+                StartSettings =
                 {
                     ["IdentityServer:Enabled"] = "true",
                     ["IdentityServer:Name"] = "Test Identity",

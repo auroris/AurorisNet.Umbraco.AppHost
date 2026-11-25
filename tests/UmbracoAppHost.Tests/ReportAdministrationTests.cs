@@ -27,7 +27,7 @@ public sealed class ReportAdministrationTests
             EnvironmentName = "Production",
             // The accounts are the fixture; no content is needed.
             FirstBootGroup = "Settings",
-            Settings =
+            StartSettings =
             {
                 ["Accounts:BackOfficeUsersManagedBy"] = "Umbraco",
                 ["Accounts:MembersManagedBy"] = "Umbraco",

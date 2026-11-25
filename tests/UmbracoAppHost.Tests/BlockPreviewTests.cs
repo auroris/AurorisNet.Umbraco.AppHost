@@ -35,8 +35,10 @@ public sealed class BlockPreviewTests
             Application = typeof(Program).Assembly,
             EnvironmentName = "Production",
             VirtualPath = prefix,
+            // The test publishes its own page; without the sample content it shares the install of the account tests.
+            FirstBootGroup = "Settings",
             // Compiled models, as a deployed host can supply; no runtime generation required.
-            Settings = { ["Umbraco:CMS:ModelsBuilder:ModelsMode"] = "Nothing" },
+            StartSettings = { ["Umbraco:CMS:ModelsBuilder:ModelsMode"] = "Nothing" },
         }, TestContext.Current.CancellationToken);
         var api = prefix + "/umbraco/block-preview/api/v1";
         using var anonymous = site.CreateClient();

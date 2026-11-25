@@ -53,8 +53,7 @@ public sealed class EmbeddedIdentityServerTests
     [InlineData("/wing")]
     public async Task Missing_or_failed_Windows_credentials_return_through_the_validated_client_request(string prefix)
     {
-        var root = Directory.CreateTempSubdirectory("embedded-idsrv-fallback-").FullName;
-        await using var site = await StartAsync(root, new Dictionary<string, string?>(ClientSettings)
+        await using var site = await StartAsync(null, new Dictionary<string, string?>(ClientSettings)
         {
             ["Umbraco:CMS:Hosting:ApplicationVirtualPath"] = prefix,
         });
@@ -138,6 +137,7 @@ public sealed class EmbeddedIdentityServerTests
     }
 
     [Fact]
+    [OwnInstall]
     public async Task Registered_clients_get_windows_tokens_signed_with_a_key_that_survives_a_restart()
     {
         var root = Directory.CreateTempSubdirectory("embedded-idsrv-").FullName;
@@ -281,8 +281,7 @@ public sealed class EmbeddedIdentityServerTests
     [Fact]
     public async Task The_backoffice_signs_in_through_the_embedded_identity_server()
     {
-        var root = Directory.CreateTempSubdirectory("embedded-idsrv-backoffice-").FullName;
-        await using var site = await StartAsync(root, new Dictionary<string, string?>
+        await using var site = await StartAsync(null, new Dictionary<string, string?>
         {
             // IdentityServer:Enabled with an empty Authority is the library default: the embedded server.
             ["Accounts:SeedCurrentWindowsUserAsAdministrator"] = "true",
@@ -362,8 +361,7 @@ public sealed class EmbeddedIdentityServerTests
     [Fact]
     public async Task The_endpoints_follow_the_virtual_path()
     {
-        var root = Directory.CreateTempSubdirectory("embedded-idsrv-wing-").FullName;
-        await using var site = await StartAsync(root, new Dictionary<string, string?>(ClientSettings)
+        await using var site = await StartAsync(null, new Dictionary<string, string?>(ClientSettings)
         {
             ["Umbraco:CMS:Hosting:ApplicationVirtualPath"] = "/wing",
         });
@@ -389,6 +387,7 @@ public sealed class EmbeddedIdentityServerTests
     }
 
     [Fact]
+    [OwnInstall]
     public async Task Switched_off_it_leaves_Umbracos_server_as_it_was()
     {
         var root = Directory.CreateTempSubdirectory("embedded-idsrv-disabled-").FullName;
@@ -430,11 +429,14 @@ public sealed class EmbeddedIdentityServerTests
             (instance.ImplementationFactory?.Invoke(null!) as IDisposable)?.Dispose();
     }
 
-    /// <summary>A site on <paramref name="root"/>, so a second one on the same root is a restart of the first.</summary>
-    private static Task<TestSite> StartAsync(string root, IDictionary<string, string?> settings)
+    /// <summary>
+    /// A site that shares the install of the others. With a <paramref name="root"/> it installs there instead, so a
+    /// second one on the same root is a restart of the first and the root holds only what these settings left.
+    /// </summary>
+    private static Task<TestSite> StartAsync(string? root, IDictionary<string, string?> settings)
     {
         var options = new TestSiteOptions { Application = typeof(Program).Assembly, Root = root, EnvironmentName = "Production", FirstBootGroup = "Settings" };
-        foreach (var (key, value) in settings) options.Settings[key] = value;
+        foreach (var (key, value) in settings) options.StartSettings[key] = value;
         return TestSite.StartAsync(options);
     }
 

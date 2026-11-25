@@ -48,6 +48,7 @@ public sealed class TestSiteSnapshotTests
 
     [Fact]
     [ResetPublishedContentServices]
+    [OwnInstall]
     public async Task A_site_can_still_run_first_boot_itself()
     {
         await using var site = await TestSite.StartAsync(new TestSiteOptions { Application = typeof(Program).Assembly, UseInstallSnapshot = false }, TestContext.Current.CancellationToken);

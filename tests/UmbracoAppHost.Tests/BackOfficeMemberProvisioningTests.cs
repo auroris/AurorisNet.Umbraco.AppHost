@@ -9,6 +9,7 @@ using Umbraco.Cms.Core.Services;
 namespace UmbracoAppHost.Tests;
 
 [Collection("Umbraco hosts")]
+[OwnInstall]
 public sealed class BackOfficeMemberProvisioningTests
 {
     [Fact]

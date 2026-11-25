@@ -245,6 +245,9 @@ dotnet build UmbracoAppHost.slnx
 # Run the tests, which boot the reference website on the pinned Umbraco release
 dotnet test --project tests/UmbracoAppHost.Tests/UmbracoAppHost.Tests.csproj
 
+# Or run them in three processes at once, which is what GitHub does
+./tests/test-parallel.ps1
+
 # Check and test the frontend
 cd Frontend; npm ci; npm run check; npm test; cd ..
 
@@ -253,6 +256,13 @@ dotnet pack src/UmbracoAppHost/UmbracoAppHost.csproj -c Release -o artifacts/pac
 dotnet pack tests/UmbracoAppHost.Testing/UmbracoAppHost.Testing.csproj -c Release -o artifacts/packages
 ./Migrations/Tests/Test-PackageInstall.ps1 (Get-Item artifacts/packages/AurorisNet.Umbraco.AppHost.[0-9]*.nupkg).FullName
 ```
+
+A test process runs one site at a time, so `tests/test-parallel.ps1` divides the test classes over
+several processes. `tests/test-parallel.timings.json` holds how long each class took, which keeps the
+processes about equally long; `-RecordTimings` rewrites it after a run that passed. A test marked
+`[OwnInstall]` installs a site of its own instead of starting from the install the others share.
+CI leaves those out for a Dependabot update, with `-ExcludeTrait Category=OwnInstall`, and Release
+runs every test.
 
 The repository pins one Umbraco release, so its tests run on that release alone. Three checks run
 on a developer's machine and never on GitHub. `deployment/test-sites.ps1` publishes a build,

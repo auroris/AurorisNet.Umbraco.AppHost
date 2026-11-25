@@ -29,6 +29,7 @@ namespace UmbracoAppHost.Tests;
 /// views the library ships rewritten while the host's own view keeps its change.
 /// </summary>
 [Collection("Umbraco hosts")]
+[OwnInstall]
 public sealed class DownstreamHostTests
 {
     private const string AdminPassword = "Local-test-only-Downstream91!";

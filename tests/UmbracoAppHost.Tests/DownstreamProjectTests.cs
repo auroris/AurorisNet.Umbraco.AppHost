@@ -26,6 +26,7 @@ public sealed class DownstreamProjectTests
 
     [Fact]
     [ResetPublishedContentServices]
+    [OwnInstall]
     public async Task A_test_site_boots_a_downstream_project_as_its_program_does()
     {
         var project = Directory.CreateTempSubdirectory("downstream-project-").FullName;

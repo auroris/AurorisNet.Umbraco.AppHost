@@ -50,6 +50,14 @@ public sealed class TestSiteOptions
     /// <summary>Further configuration, applied after the project's settings and the site's own test settings so it can override them.</summary>
     public IDictionary<string, string?> Settings { get; } = new Dictionary<string, string?>();
 
+    /// <summary>
+    /// Configuration that only a running site reads, applied after <see cref="Settings"/>. An install snapshot is made
+    /// without it, so sites that differ only in these share one install; each is then a site installed with
+    /// <see cref="Settings"/> alone and restarted with these. A setting belongs in <see cref="Settings"/> when the test
+    /// is about what the first boot does with it.
+    /// </summary>
+    public IDictionary<string, string?> StartSettings { get; } = new Dictionary<string, string?>();
+
     /// <summary>Registers services and anything else on the builder before the host's and the library's registrations.</summary>
     public Action<WebApplicationBuilder>? ConfigureBuilder { get; init; }
 

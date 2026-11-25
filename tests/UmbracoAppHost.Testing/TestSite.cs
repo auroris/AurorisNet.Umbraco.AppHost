@@ -162,8 +162,7 @@ public sealed partial class TestSite : IAsyncDisposable
                 ["ConnectionStrings:umbracoDbDSN"] = $"Data Source={Path.Combine(root, "umbraco.db")};Pooling=False",
                 ["ConnectionStrings:umbracoDbDSN_ProviderName"] = "Microsoft.Data.Sqlite",
                 ["Umbraco:CMS:Unattended:UnattendedUserPassword"] = options.AdminPassword,
-                ["Umbraco:CMS:Global:UseHttps"] = "false",
-                ["Umbraco:CMS:Hosting:Debug"] = "false",
+                ["Umbraco:CMS:Global:UseHttps"] = "false",                ["Umbraco:CMS:Hosting:Debug"] = "false",
                 ["uSync:Settings:ImportAtStartup"] = "None",
                 ["uSync:Settings:ExportOnSave"] = "None",
                 ["uSync:Settings:FirstBootGroup"] = options.FirstBootGroup,
@@ -171,6 +170,7 @@ public sealed partial class TestSite : IAsyncDisposable
             };
             if (!string.IsNullOrEmpty(options.VirtualPath)) settings[VirtualPathHosting.SettingKey] = options.VirtualPath;
             foreach (var (key, value) in options.Settings) settings[key] = value;
+            foreach (var (key, value) in options.StartSettings) settings[key] = value;
             builder.Configuration.AddInMemoryCollection(settings);
             options.ConfigureBuilder?.Invoke(builder);
             if (host is null) builder.AddUmbracoAppHost(options.ConfigureConnections);
