@@ -145,8 +145,8 @@ test("two installations share an HTTPS origin and keep independent backoffice se
         await context.addCookies(legacy.map(name => ({ name, value: "other-installation", url: origin })));
         const tabA = await context.newPage(), tabB = await context.newPage();
         await login(tabA, portal, origin, password, "PORTAL");
-        const bookmark = await context.request.get(`${origin}/PORTAL/api/reports/whoami?view=full`);
-        assert.equal(bookmark.url(), `${origin}/portal/api/reports/whoami?view=full`);
+        const bookmark = await context.request.get(`${origin}/PORTAL/umbraco/reports/whoami?view=full`);
+        assert.equal(bookmark.url(), `${origin}/portal/umbraco/reports/whoami?view=full`);
         assert.equal((await bookmark.json()).authenticated, true);
         const refreshNames = async () => (await context.cookies()).filter(cookie => cookie.name.includes("umbRefreshToken")).map(cookie => cookie.name).sort();
         const [portalCookie] = await refreshNames();

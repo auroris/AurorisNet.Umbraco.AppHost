@@ -24,6 +24,9 @@
          UseIdentityServerDirectorySource to false here and set its version in Directory.Packages.props. -->
     <IdentityServerDirectoryRoot Condition="'$(IdentityServerDirectoryRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\AurorisNet.Umbraco.IdentityServer.Directory</IdentityServerDirectoryRoot>
     <UseIdentityServerDirectorySource Condition="'$(UseIdentityServerDirectorySource)' == ''">true</UseIdentityServerDirectorySource>
+    <!-- Virtual-path hosting and installation cookie isolation build from the sibling checkout until published on nuget.org. -->
+    <ApplicationVirtualPathFixRoot Condition="'$(ApplicationVirtualPathFixRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\AurorisNet.Umbraco.ApplicationVirtualPathFix</ApplicationVirtualPathFixRoot>
+    <UseApplicationVirtualPathFixSource Condition="'$(UseApplicationVirtualPathFixSource)' == ''">true</UseApplicationVirtualPathFixSource>
     <!-- App_Plugins and the login images must sit at the site root, not under /_content/UmbracoAppHost/. -->
     <StaticWebAssetBasePath>/</StaticWebAssetBasePath>
     <PackageId>AurorisNet.Umbraco.AppHost</PackageId>
@@ -55,7 +58,8 @@
   <ItemGroup>
     <!-- Common to every site built on the base; a site gets these transitively. -->
     <PackageReference Include="Umbraco.Cms" />
-    <PackageReference Include="AurorisNet.Umbraco.ApplicationVirtualPathFix" />
+    <ProjectReference Include="$(ApplicationVirtualPathFixRoot)\src\AurorisNet.Umbraco.ApplicationVirtualPathFix.csproj" Condition="'$(UseApplicationVirtualPathFixSource)' == 'true'" />
+    <PackageReference Include="AurorisNet.Umbraco.ApplicationVirtualPathFix" Condition="'$(UseApplicationVirtualPathFixSource)' != 'true'" />
     <PackageReference Include="AurorisNet.Umbraco.DisableTelemetry" />
     <PackageReference Include="Umbraco.Cms.DevelopmentMode.Backoffice" />
     <PackageReference Include="Umbraco.Community.UmbNav" />

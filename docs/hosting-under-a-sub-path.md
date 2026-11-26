@@ -21,7 +21,7 @@ its backoffice then answer at `/portal/` and `/portal/umbraco`.
 
 ## Running several installations on one hostname
 
-AppHost gives each installation its own cookie names and backoffice tab messages. For example,
+[`AurorisNet.Umbraco.ApplicationVirtualPathFix`](https://github.com/auroris/AurorisNet.Umbraco.ApplicationVirtualPathFix) gives each installation its own cookie names and backoffice tab messages (and AppHost registers its member sign-out cookie with it). For example,
 an editor can sign in to both `/site-a/umbraco` and `/site-b/umbraco` in one browser. Signing out of
 `/site-a` signs out its other backoffice tabs while the `/site-b` session stays active.
 
