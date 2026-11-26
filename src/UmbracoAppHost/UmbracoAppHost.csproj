@@ -30,8 +30,8 @@
     <!-- App_Plugins and the login images must sit at the site root, not under /_content/UmbracoAppHost/. -->
     <StaticWebAssetBasePath>/</StaticWebAssetBasePath>
     <PackageId>AurorisNet.Umbraco.AppHost</PackageId>
-    <Title>Umbraco App Host</Title>
-    <Description>A shared base for Umbraco sites: single sign-on and account policy, application blocks and Interactive Reports, website and application themes, virtual-path hosting, and the workarounds for upstream Umbraco gaps.</Description>
+    <Title>App Host</Title>
+    <Description>Reusable Umbraco 18 foundation bundling AppBlocks, SSO, themes, virtual-path hosting, starter uSync definitions, and site management scripts.</Description>
     <PackageIcon>icon.png</PackageIcon>
   </PropertyGroup>
 

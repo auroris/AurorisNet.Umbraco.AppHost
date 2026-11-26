@@ -6,8 +6,8 @@ sites and update them, see [Deployment](deployment.md).
 
 ## Run the reference website
 
-Clone `AurorisNet.Umbraco.AppBlocks` beside AppHost. Building needs the .NET 10 SDK, Node 20 or newer, and the sibling checkouts the
-[README](../README.md#start-a-site) lists.
+Clone `AurorisNet.Umbraco.AppBlocks` beside AppHost. Building needs the .NET 10 SDK, Node 20 or newer, and the sibling checkouts listed in
+[Developing](developing.md).
 
 Open `UmbracoAppHost.slnx` in Visual Studio and start the **Website** launch profile, or run:
 
