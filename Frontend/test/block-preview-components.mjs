@@ -17,12 +17,9 @@ test('custom views render with the running host’s installed Umbraco modules', 
         '../AurorisNet.Umbraco.AppBlocks/src/AppBlocks/wwwroot/App_Plugins/ApplicationBlocks/block-preview.js',
         'src/UmbracoAppHost/wwwroot/App_Plugins/BlockPreviews.Host/entrypoint.js',
         'src/UmbracoAppHost/wwwroot/App_Plugins/BlockPreviews.Host/member-sign-in.js',
+        'src/UmbracoAppHost/wwwroot/App_Plugins/BlockPreviews.Host/child-page-links.js',
         '../AurorisNet.Umbraco.AppBlocks/src/AppBlocks.InteractiveReports/wwwroot/App_Plugins/AppBlocks.InteractiveReports/block-preview.js',
         '../AurorisNet.Umbraco.AppBlocks/src/AppBlocks.InteractiveReports/wwwroot/App_Plugins/AppBlocks.InteractiveReports/block-preview-entrypoint.js',
-        '../4Wing/4WingSiteIdentity/wwwroot/App_Plugins/4WingResources/block-preview.js',
-        '../4Wing/4WingDiagrams/wwwroot/App_Plugins/FourWing.Diagrams/block-preview.js',
-        '../4Wing/4WingTelephoneDirectory/wwwroot/App_Plugins/FourWing.TelephoneDirectory/block-preview.js',
-        '../4Wing/4WingFileRepository/wwwroot/App_Plugins/FourWing.FileRepository/block-preview.js',
     ];
     for (const path of scripts) {
         const response = await fetch(`${origin}/${path.split('/wwwroot/')[1]}`);
@@ -67,6 +64,7 @@ test('custom views render with the running host’s installed Umbraco modules', 
     const reportKey = new JSDOM(reportSchema, { contentType: 'text/xml' }).window.document.documentElement.getAttribute('Key');
     const samples = [
         ['app-member-sign-in-preview', 'appMemberSignIn', { heading: 'Member access' }],
+        ['app-child-page-links-preview', 'appChildPageLinks', { heading: 'Subpages' }],
         ['app-block-preview', 'appHtml', { html: '<style>h2{color:navy}</style><h2>Actual HTML</h2><script>bad()</script><img src=x onerror="bad()"><form><button>Submit</button></form>' }],
         ['app-block-preview', 'appColumns', {}, { split: '4/8' }],
         ['app-block-preview', 'appFormRegion', { heading: 'The position' }, { collapsible: false }],
@@ -74,10 +72,6 @@ test('custom views render with the running host’s installed Umbraco modules', 
         ['app-block-preview', 'appText', { label: 'First name', placeholder: 'Enter name' }],
         ['app-report-preview', 'appReport', { heading: 'Orders', dataSource: 'orders' }],
         ['app-block-preview', 'appFormsContainer', { forms: { layout: { 'Umbraco.BlockGrid': [{ contentKey: 'report', columnSpan: 12 }] }, contentData: [{ key: 'report', contentTypeKey: reportKey, values: [{ alias: 'heading', value: 'Nested orders' }, { alias: 'dataSource', value: 'orders' }] }] } }],
-        ['four-wing-block-preview', 'fourWingTabs', { items: { layout: { 'Umbraco.BlockList': [{ contentKey: 'a' }] }, contentData: [{ key: 'a', values: [{ alias: 'title', value: 'Section one' }, { alias: 'body', value: { markup: '<p>Actual tab content</p>' } }] }] } }],
-        ['four-wing-diagram-preview', 'fourWingDiagram', {}],
-        ['four-wing-telephone-preview', 'fourWingTelephoneDirectory', { view: 'positions', scope: 'unit', filter: 'Operations' }],
-        ['four-wing-repository-preview', 'fourWingFileRepository', {}],
     ];
     for (const [tag, alias, content, settings = {}] of samples) {
         const element = dom.window.document.createElement(tag);
@@ -129,7 +123,6 @@ test('custom views render with the running host’s installed Umbraco modules', 
                 await element.updateComplete;
                 assert.equal(element.shadowRoot.querySelector('.edit-preview'), null);
             }
-            if (alias === 'fourWingTabs') assert.match(preview.body.textContent, /Actual tab content/);
             if (alias === 'appFormsContainer') {
                 assert.match(preview.body.textContent, /Nested orders/);
                 assert(!preview.body.textContent.includes('Preview unavailable'));

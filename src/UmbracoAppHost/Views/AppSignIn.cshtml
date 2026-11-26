@@ -1,0 +1,26 @@
+﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@{
+    Layout = null;
+    PageAssets.RegisterPage(Model, NavigationQueryService, PublishedStatusFilteringService, Context);
+    IgnoreBody();
+    var application = Model.SiteRoot(NavigationQueryService, PublishedStatusFilteringService);
+}
+<!doctype html>
+<html lang="@Model.GetCultureFromDomains()">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@application.NavigationTitle()</title>
+    <link rel="stylesheet" href="~/dist/css/app.css" asp-append-version="true" />
+</head>
+<body class="app app-signin-page">
+    <partial name="App/Header" />
+    <main class="app-main app-main-centered" id="main">
+        <section class="app-card app-signin">
+            <h1 class="app-signin-context">@application.NavigationTitle()</h1>
+            <partial name="App/SignInPage" />
+        </section>
+    </main>
+    <partial name="App/Footer" />
+</body>
+</html>

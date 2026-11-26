@@ -1,9 +1,9 @@
 # Frontend
 
 This folder is the source of the library's two themes: the `website` theme and the
-`application` theme. One build produces the stylesheets, scripts and generated Razor layouts
-that every site built on the library uses. A site's branded theme is a library of its own with
-its own frontend, as [Themes](../docs/themes.md#a-theme-library) describes.
+`application` theme. One build produces the stylesheets and scripts that every site
+built on the library uses. A site's branded theme is a library of its own with its own
+frontend, as [Themes](../docs/themes.md#a-theme-library) describes.
 
 ## Build
 
@@ -12,27 +12,22 @@ Use Node 20 or newer. From this folder:
 ```powershell
 npm ci
 npm run build
-npm run templates:emit
 npm run check
 npm test
 ```
 
-The .NET build of `src/UmbracoAppHost` runs `npm ci`, `npm run build` and
-`npm run templates:emit` itself when the sources change, copies `dist/` into the library's
-`wwwroot/dist/` and embeds the generated views. Run `npm run check` and `npm test` here before
-publishing a site.
+The .NET build of `src/UmbracoAppHost` runs `npm ci` and `npm run build` itself when
+the sources change and copies `dist/` into the library's `wwwroot/dist/`. Run
+`npm run check` and `npm test` here before publishing a site.
 
 | Command | Purpose |
 |---|---|
 | `npm run build` | Production assets with external source maps in `dist/`. |
 | `npm run build:dev` | Readable assets with inline source maps. |
 | `npm run watch` | Rebuilds assets when their source changes. |
-| `npm start` | Builds, watches and serves the template previews at `http://127.0.0.1:8000/demo/pages/`. Stop it with Ctrl+C so it releases the port. |
-| `npm run templates` | Renders local HTML previews with fixture data into `demo/pages/`. |
-| `npm run templates:emit` | Also writes the Razor layouts into `src/UmbracoAppHost/Views/`. |
-| `npm run templates:check` | Validates the template directives and writes nothing. |
+| `npm start` | Builds, watches and serves `Frontend/` at `http://127.0.0.1:8000/`. Stop it with Ctrl+C so it releases the port. |
 | `npm run check` | Checks JavaScript types and JSDoc contracts. |
-| `npm test` | Runs the form runtime, template generation and website behavior tests. Build the assets and emit the templates first. |
+| `npm test` | Runs the form runtime and website behavior tests. Build the assets first. |
 | `npm run test:blocks` | Runs the form runtime tests alone. |
 | `npm run test:previews` | Runs the [block preview](../docs/block-previews.md#tests) tests. |
 | `npm run clean` | Removes the generated assets from `dist/`. |
@@ -45,17 +40,10 @@ publishing a site.
 | `src/app/` | `dist/scripts/app.js` and `dist/css/app.css`, the application theme. |
 | `src/signin.js`, `src/scss/components/signin.scss` | `dist/scripts/signin.js` and `dist/css/signin.css`, the member sign-in form. |
 | `src/scss/` | The block styles both themes share: `site/_blockgridlayout.scss`, Umbraco's grid, and `components/_forms.scss`, the forms. A theme of your own can import both. |
-| `src/templates/website/` | `WebsiteLayout.cshtml`, with its preview fixtures. |
-| `src/templates/application/` | `AppMaster.cshtml` and `AppSignIn.cshtml`, with their preview fixtures. |
 | `test/` | The tests. |
 
-Neither bundle needs jQuery or Bootstrap.
-
-The three layouts are generated: edit their `.template.html` sources here, never the `.cshtml`
-files. Templates use a small set of directives for content values, dictionary text, partials,
-block grids, assets and the layout body, and `fixtures.json` supplies the values of the local
-previews. Raw Razor sections are written to the layout as they are and do not run in the
-previews. Partials, page views and C# code are in `src/UmbracoAppHost`.
+Neither bundle needs jQuery or Bootstrap. Razor layouts, partials, page views and C#
+code are authored directly in `src/UmbracoAppHost/Views/`.
 
 ## Capture a rendered page
 

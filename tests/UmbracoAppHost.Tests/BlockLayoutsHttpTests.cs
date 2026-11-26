@@ -266,5 +266,5 @@ public sealed class BlockLayoutsHttpTests
     }
 
     private static string LayoutsContent()
-        => USyncExport.ContentByKey(ApplicationStarter.Export, ApplicationStarter.Key("sample:layouts")).Property(ApplicationStarter.BlockPropertyAlias)!;
+        => USyncExport.ContentByKey(ApplicationStarter.SampleExport, ApplicationStarter.Key("sample:layouts")).Property(ApplicationStarter.BlockPropertyAlias)!;
 }

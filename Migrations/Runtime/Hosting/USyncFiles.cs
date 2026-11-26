@@ -27,11 +27,11 @@ internal static class USyncFiles
     }
 
     /// <summary>
-    /// Supplies a working folder that has no <c>usync.config</c>: the library's export, without the sample content
-    /// unless <paramref name="includeSamples"/>, then every file of <paramref name="hostExport"/> at a path the library
-    /// does not ship, then the same of each theme library's export. Existing files are never overwritten.
+    /// Supplies a working folder that has no <c>usync.config</c>: the library's export, then every file of
+    /// <paramref name="hostExport"/> at a path the library does not ship, then the same of each theme library's export.
+    /// Existing files are never overwritten.
     /// </summary>
-    public static void EnsureWorkingCopy(string destination, bool includeSamples, string? hostExport, ILogger logger, IEnumerable<ThemeLibrary>? libraries = null)
+    public static void EnsureWorkingCopy(string destination, string? hostExport, ILogger logger, IEnumerable<ThemeLibrary>? libraries = null)
     {
         const string marker = "usync.config";
         var markerPath = Path.Combine(destination, marker);
@@ -75,7 +75,7 @@ internal static class USyncFiles
                 if (file.IsDirectory) { CopyDirectory(sourceDirectory.TrimEnd('/') + "/" + file.Name, target); continue; }
                 if (!file.Name.EndsWith(".config", StringComparison.OrdinalIgnoreCase)) continue;
                 shipped.Add(Path.GetRelativePath(destination, target));
-                if (target == markerPath || File.Exists(target) || (!includeSamples && sourceDirectory == "/Content" && IsSample(file))) continue;
+                if (target == markerPath || File.Exists(target)) continue;
                 CopyMissing(target, file.CreateReadStream);
             }
         }
@@ -97,12 +97,6 @@ internal static class USyncFiles
             return true;
         }
         finally { File.Delete(temporary); }
-    }
-
-    private static bool IsSample(IFileInfo file)
-    {
-        using var stream = file.CreateReadStream();
-        return SampleContent.IsSample(XElement.Load(stream));
     }
 
     /// <summary>

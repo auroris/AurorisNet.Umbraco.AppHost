@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.RegularExpressions;
+using AurorisNet.Umbraco.ApplicationVirtualPathFix.Hosting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -29,7 +30,7 @@ namespace UmbracoAppHost.Tests;
 [Collection("Umbraco hosts")]
 public sealed class MemberSignInHttpTests
 {
-    private const string prefix = "/wing";
+    private const string prefix = "/portal";
     private const string scheme = "UmbracoMembers.TestIdentity";
 
     [Fact]

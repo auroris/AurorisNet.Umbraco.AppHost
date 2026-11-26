@@ -1,14 +1,58 @@
+using System.Reflection;
+using AppBlocks.Setup;
 using Umbraco.Cms.Core.Models.PublishedContent;
-using Umbraco.Cms.Core.Services.Navigation;
 using Umbraco.Cms.Core.Services;
+using Umbraco.Cms.Core.Services.Navigation;
 using UmbracoAppHost.Website;
 
 namespace UmbracoAppHost.Themes;
 
-/// <summary>A theme's layouts. Each layout supplies its own stylesheet and styles the shared block hooks.</summary>
-public sealed record SiteTheme(string Alias, string PageLayout, string SignInLayout, string? PrintStylesheet = null)
+/// <summary>A theme's layouts, stylesheets, optional embedded library assembly and backoffice login branding.</summary>
+public sealed record SiteTheme(
+    string Alias,
+    string PageLayout,
+    string SignInLayout,
+    string? PrintStylesheet = null,
+    Assembly? Assembly = null,
+    string? Stylesheet = null,
+    LoginBranding? Login = null)
 {
     public string LayoutFor(bool signedIn) => signedIn ? PageLayout : SignInLayout;
+}
+
+/// <summary>Registration helpers for <see cref="SiteTheme"/>.</summary>
+public static class SiteThemeExtensions
+{
+    /// <summary>
+    /// Registers <paramref name="theme"/>, its embedded <see cref="ThemeLibrary"/> (when <see cref="SiteTheme.Assembly"/>
+    /// embeds <c>Views/</c> or <c>uSync/</c>), its <see cref="AppBlocksSchema"/> (when it embeds <c>Schema/</c>), and its
+    /// backoffice <see cref="LoginBranding"/> when provided.
+    /// </summary>
+    public static IUmbracoBuilder AddSiteTheme(this IUmbracoBuilder builder, SiteTheme theme)
+    {
+        builder.Services.AddSiteTheme(builder.Config, theme);
+        return builder;
+    }
+
+    /// <inheritdoc cref="AddSiteTheme(IUmbracoBuilder, SiteTheme)"/>
+    public static IServiceCollection AddSiteTheme(this IServiceCollection services, IConfiguration configuration, SiteTheme theme)
+    {
+        ArgumentNullException.ThrowIfNull(theme);
+        services.AddSingleton(theme);
+        if (theme.Assembly is { } assembly)
+        {
+            if (ThemeLibrary.HasEmbeddedContent(assembly)
+                && !services.Any(d => d.ServiceType == typeof(ThemeLibrary) && d.ImplementationInstance is ThemeLibrary existing && existing.Assembly == assembly))
+                services.AddSingleton(new ThemeLibrary(assembly));
+
+            if (ThemeLibrary.HasEmbeddedDirectory(assembly, "Schema")
+                && !services.Any(d => d.ServiceType == typeof(AppBlocksSchema) && d.ImplementationInstance is AppBlocksSchema existing && existing.Assembly == assembly))
+                services.AddSingleton(new AppBlocksSchema(assembly));
+        }
+        if (theme.Login is { } login)
+            services.AddLoginScreen(configuration, login);
+        return services;
+    }
 }
 
 /// <summary>

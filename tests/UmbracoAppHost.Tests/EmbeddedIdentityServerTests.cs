@@ -50,7 +50,7 @@ public sealed class EmbeddedIdentityServerTests
 
     [Theory]
     [InlineData("")]
-    [InlineData("/wing")]
+    [InlineData("/portal")]
     public async Task Missing_or_failed_Windows_credentials_return_through_the_validated_client_request(string prefix)
     {
         await using var site = await StartAsync(null, new Dictionary<string, string?>(ClientSettings)
@@ -363,18 +363,18 @@ public sealed class EmbeddedIdentityServerTests
     {
         await using var site = await StartAsync(null, new Dictionary<string, string?>(ClientSettings)
         {
-            ["Umbraco:CMS:Hosting:ApplicationVirtualPath"] = "/wing",
+            ["Umbraco:CMS:Hosting:ApplicationVirtualPath"] = "/portal",
         });
         var address = Address(site);
         using var anonymous = site.CreateClient();
-        var discovery = await GetJsonAsync(anonymous, "/wing/.well-known/openid-configuration");
-        Assert.Equal(address + "/wing/connect/authorize", discovery.GetProperty("authorization_endpoint").GetString());
-        Assert.Equal(address + "/wing/connect/token", discovery.GetProperty("token_endpoint").GetString());
+        var discovery = await GetJsonAsync(anonymous, "/portal/.well-known/openid-configuration");
+        Assert.Equal(address + "/portal/connect/authorize", discovery.GetProperty("authorization_endpoint").GetString());
+        Assert.Equal(address + "/portal/connect/token", discovery.GetProperty("token_endpoint").GetString());
         var issuer = discovery.GetProperty("issuer").GetString()!;
 
         using var windows = WindowsClient(address, out _);
-        var (code, verifier) = await AuthorizeAsync(windows, "/wing/connect/authorize", ClientId, RedirectUri, "openid");
-        using var tokenResponse = await anonymous.PostAsync("/wing/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
+        var (code, verifier) = await AuthorizeAsync(windows, "/portal/connect/authorize", ClientId, RedirectUri, "openid");
+        using var tokenResponse = await anonymous.PostAsync("/portal/connect/token", new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["grant_type"] = "authorization_code", ["code"] = code, ["redirect_uri"] = RedirectUri,
             ["client_id"] = ClientId, ["client_secret"] = ClientSecret, ["code_verifier"] = verifier,

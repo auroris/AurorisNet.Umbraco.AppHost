@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using InteractiveReport.AspNetCore;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Umbraco.Cms.Core;
 using Umbraco.Cms.Core.Models;
@@ -8,15 +7,17 @@ using Umbraco.Cms.Core.Models.Membership;
 using Umbraco.Cms.Core.Services;
 using IdentityServer.Sso;
 using AppBlocks.Authentication;
+using AppBlocks.DataSources;
 using AppBlocks.InteractiveReports;
 using AppBlocks.InteractiveReports.Blocks;
+using AppBlocks.InteractiveReports.DataSources;
 using AppBlocks.InteractiveReports.Reports;
 using AppBlocks.InteractiveReports.Setup;
 
 namespace UmbracoAppHost.Reports;
 
 /// <summary>
-/// Decides who administers Interactive Reports by bridging Umbraco's two identities.
+/// Decides who administers and reads Interactive Reports by bridging Umbraco's two identities.
 /// </summary>
 /// <remarks>
 /// A backoffice user is an administrator when, approved and not locked out, one of their user groups
@@ -27,12 +28,14 @@ namespace UmbracoAppHost.Reports;
 /// also linked to such a backoffice user: the provider key stored with the external login (the
 /// Windows SID, whichever provider supplied it) joins the two. That link is this host's choice as
 /// a single sign-on host; AppBlocks never relates the two account stores.
-/// Everyone else signed in is an ordinary report user. An anonymous visitor is refused every report
-/// unless <see cref="ReportAccountSettings.AllowAnonymousReportBlocks"/> is on; then they get AppBlocks'
-/// own answer, <see cref="AnonymousReportAccess.Allows"/>: a report block on a page without Public
-/// Access, whose SQL binds nobody, may be viewed, queried and exported, and every other report still
-/// needs an account. A saved view belongs to the one identity AppBlocks'
-/// <see cref="DefaultReportAccessPolicy.OwnerKey"/> names: the member when one is signed in, else the backoffice user.
+/// Everyone else signed in is an ordinary report user, subject to any per-report <c>Access</c>
+/// member groups configured on a published report definition node. An anonymous visitor is refused
+/// every report unless <see cref="ReportAccountSettings.AllowAnonymousReportBlocks"/> is on; then
+/// they get AppBlocks' own answer, <see cref="AnonymousReportAccess.Allows"/>: a report block on a
+/// page without Public Access, whose SQL binds nobody, may be viewed, queried and exported, and
+/// every other report still needs an account. A saved view belongs to the one identity AppBlocks'
+/// <see cref="DefaultReportAccessPolicy.OwnerKey"/> names: the member when one is signed in, else
+/// the backoffice user.
 /// </remarks>
 public sealed class ReportAccessPolicy(
     IUserService userService,
@@ -44,7 +47,9 @@ public sealed class ReportAccessPolicy(
     IOptions<AppBlocksOptions> appBlocks,
     IOptions<InteractiveReportOptions> reportOptions,
     ILogger<ReportAccessPolicy> logger,
-    AppBlocks.InteractiveReports.DataSources.PublishedReportCatalog? definitions = null) : IReportAccessPolicy
+    PublishedReportCatalog? definitions = null,
+    IDataSourceUserResolver? dataSourceUsers = null,
+    IMemberGroupService? memberGroups = null) : IReportAccessPolicy
 {
     /// <summary>Applies the Interactive Reports action/resource decision table for one request.</summary>
     public async ValueTask<bool> AuthorizeAsync(InteractiveReportAuthorizationRequest request, CancellationToken cancellationToken)
@@ -61,11 +66,12 @@ public sealed class ReportAccessPolicy(
 
         var isAdministrator = await IsAdministratorAsync(user);
         var saved = request.Resource.SavedReport;
-        var caller = DefaultReportAccessPolicy.OwnerKey(user);
+        var caller = DefaultReportAccessPolicy.OwnerKey(user, reportOptions.Value.IdentityClaim);
         var isOwner = saved is not null && caller is not null
             && string.Equals(saved.Owner, caller, StringComparison.Ordinal);
         var isPublic = saved is { IsGlobal: true } or { IsDefault: true };
 
+        var reportName = request.Resource.SourceReportName ?? request.Resource.ReportName;
         var allowed = request.Action switch
         {
             InteractiveReportAction.ViewReport
@@ -73,7 +79,7 @@ public sealed class ReportAccessPolicy(
                 or InteractiveReportAction.Export
                 or InteractiveReportAction.ListSavedReports
                 or InteractiveReportAction.CreateSavedReport =>
-                isAdministrator || !await IsAdministratorsOnlyAsync(request.Resource.SourceReportName ?? request.Resource.ReportName),
+                isAdministrator || await CanReadReportAsync(reportName, user, cancellationToken),
 
             InteractiveReportAction.ReadSavedReport => isPublic || isOwner || isAdministrator,
 
@@ -89,14 +95,24 @@ public sealed class ReportAccessPolicy(
         return allowed;
     }
 
-    /// <summary>Whether the report definition, or the built-in listing, is reserved for administrators.</summary>
-    private async Task<bool> IsAdministratorsOnlyAsync(string reportName)
+    private async Task<bool> CanReadReportAsync(string reportName, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
         if (reportName.StartsWith("__", StringComparison.Ordinal))
-            return true;
+            return false;
         if (definitions is not null) await definitions.LoadAsync();
-        return (definitions?.Reports ?? reportOptions.Value.Reports).TryGetValue(reportName, out var definition)
-            && definition.Authorization?.Policy == ReportAdministratorRequirement.Policy;
+        if ((definitions?.Reports ?? reportOptions.Value.Reports).TryGetValue(reportName, out var definition)
+            && definition.Authorization?.Policy == ReportAdministratorRequirement.Policy)
+            return false;
+
+        if (definitions?.ReportNodes.GetValueOrDefault(reportName)?.MemberGroups is not { } picked)
+            return true;
+        if (memberGroups is null || dataSourceUsers is null)
+            return false;
+        var reader = await DataSourceQueries.ResolveReaderAsync(dataSourceUsers, user, cancellationToken);
+        if (reader is not { IsAnonymous: false })
+            return false;
+        var allowedGroups = await MemberGroupNames.ResolveAsync(memberGroups, picked);
+        return allowedGroups.Any(reader.IsInMemberGroup);
     }
 
     /// <summary>Whether the principal, backoffice user or member, administers reports.</summary>

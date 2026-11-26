@@ -64,8 +64,7 @@ guides.
 - A site that selects Umbraco's `Production` runtime mode must precompile its Razor views, as it
   must for page rendering.
 - A layout partial with areas calls `GetPreviewBlockGridItemAreasHtmlAsync` from
-  `Umbraco.Community.BlockPreview.Extensions`, so its children remain editable areas. The
-  library's `umbBlockGridDemoTwoColumnLayoutBlock` partial is an example.
+  `Umbraco.Community.BlockPreview.Extensions`, so its children remain editable areas.
 
 ## Limits
 
@@ -76,7 +75,7 @@ block shows representative markup.
 
 ## Tests
 
-`BlockPreviewTests` starts hosts at `/` and under `/wing`. It checks that the preview endpoints
+`BlockPreviewTests` starts hosts at `/` and under `/portal`. It checks that the preview endpoints
 need a backoffice login, that AppBlocks' aliases are excluded, and that Razor previews render
 unsaved English and French values with their nested areas and prefixed stylesheets.
 

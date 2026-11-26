@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <CompressionEnabled Condition="'$(CompressionEnabled)' == ''">false</CompressionEnabled>
+    <RazorCompileOnBuild Condition="'$(RazorCompileOnBuild)' == ''">false</RazorCompileOnBuild>
+    <RazorCompileOnPublish Condition="'$(RazorCompileOnPublish)' == ''">false</RazorCompileOnPublish>
+    <CopyRazorGenerateFilesToPublishDirectory Condition="'$(CopyRazorGenerateFilesToPublishDirectory)' == ''">true</CopyRazorGenerateFilesToPublishDirectory>
+  </PropertyGroup>
+  <Import Project="..\buildMultiTargeting\AurorisNet.Umbraco.AppHost.props" Condition="Exists('..\buildMultiTargeting\AurorisNet.Umbraco.AppHost.props')" />
+</Project>

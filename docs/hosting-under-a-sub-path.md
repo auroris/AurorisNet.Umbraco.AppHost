@@ -21,21 +21,21 @@ its backoffice then answer at `/portal/` and `/portal/umbraco`.
 
 ## Running several installations on one hostname
 
-AppHost gives each installation its own cookie names and backoffice tab messages. For example,
-an editor can sign in to both `/wing/umbraco` and `/doa/umbraco` in one browser. Signing out of
-`/wing` signs out its other backoffice tabs while the `/doa` session stays active.
+[`AurorisNet.Umbraco.ApplicationVirtualPathFix`](https://github.com/auroris/AurorisNet.Umbraco.ApplicationVirtualPathFix) gives each installation its own cookie names and backoffice tab messages (and AppHost registers its member sign-out cookie with it). For example,
+an editor can sign in to both `/site-a/umbraco` and `/site-b/umbraco` in one browser. Signing out of
+`/site-a` signs out its other backoffice tabs while the `/site-b` session stays active.
 
 The suffix combines a cookie-safe version of `Umbraco:CMS:Hosting:SiteName` with 12 hex
 characters derived from `Umbraco:CMS:Global:Id`, for example
-`__Host-umbRefreshToken-wing-a1b2c3d4e5f6`. The application name supplies the label when
+`__Host-umbRefreshToken-portal-a1b2c3d4e5f6`. The application name supplies the label when
 `SiteName` is empty. New sites created by `new-site.ps1` use their `-Name` as the label.
 AppHost persists the installation ID in `instance.json`. Keep it across updates and replicas
 of the same site, and give independently cloned sites their own installation IDs.
 Hosts using the lower-level `IUmbracoBuilder` entry point supply their own `Global:Id`.
 If they omit it, the suffix uses the physical and virtual paths and can change when the app moves.
 
-Cookie paths are case-sensitive. A bookmark such as `/WING/orders` redirects to
-`/wing/orders` when the configured prefix is `/wing`. The redirect preserves the request
+Cookie paths are case-sensitive. A bookmark such as `/PORTAL/orders` redirects to
+`/portal/orders` when the configured prefix is `/portal`. The redirect preserves the request
 method and query string so forms and sign-in callbacks reach the same session.
 
 Users sign in again after the first deployment with these names, or after changing the site
@@ -58,7 +58,7 @@ combined size. `FieldLength` points to a single oversized field. A private windo
 identify the contribution of cookies, but verification should include the original cookie load.
 [Diagnosing HTTP 400 on IIS](https://learn.microsoft.com/en-us/troubleshoot/developer/webapps/iis/site-behavior-performance/troubleshoot-http-400-errors-in-iis)
 
-On the RDAO test VM, the failing `/connect/authorize` request had 23 cookies totaling 14,192
+On a multi-site test VM, a failing `/connect/authorize` request had 23 cookies totaling 14,192
 bytes and a 1,393-byte request target. For that workload, set the total allowance to 32 KiB
 in an elevated PowerShell session. The per-field allowance stays at its 16 KiB default.
 
@@ -68,7 +68,7 @@ New-ItemProperty -LiteralPath $httpParameters -Name MaxRequestBytes -PropertyTyp
 ```
 
 Schedule the HTTP service restart for the whole VM. Record which dependent services are
-running, restart HTTP, and bring those services back up. On the RDAO VM these included IIS
+running, restart HTTP, and bring those services back up. On a typical IIS host these include IIS
 (`W3SVC`), WinRM and the Print Spooler. Verify through the member page's **Sign in with
 domain** button. A 16,447-byte request with the same cookie count and sizes returned the
 Windows authentication challenge (`401` with `WWW-Authenticate: Negotiate`). Completing that

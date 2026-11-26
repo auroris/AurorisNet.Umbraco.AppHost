@@ -1,0 +1,35 @@
+﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@{
+    Layout = null;
+    var pageState = await AppHostPage.PrepareAsync(Model, Context, applyCacheHeaders: false);
+    if (pageState.ShouldShortCircuit)
+    {
+        IgnoreBody();
+        return;
+    }
+    var application = pageState.Site;
+}
+<!doctype html>
+<html lang="@Model.GetCultureFromDomains()">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@Model.PageTitle() - @application.NavigationTitle()</title>
+    <link rel="stylesheet" href="~/dist/css/app.css" asp-append-version="true" />
+    @AppHostPage.RenderPageHeaders(Context)
+</head>
+<body class="app">
+    <a class="app-skip" href="#main">@Umbraco.GetDictionaryValueOrDefault("app-skip", "Skip to content")</a>
+    <partial name="App/Header" />
+    <div class="app-frame">
+        <partial name="App/Navigation" />
+        <main class="app-main" id="main">
+            <partial name="App/Breadcrumb" />
+            <h1 class="app-page-title">@Model.PageTitle()</h1>
+            @RenderBody()
+        </main>
+    </div>
+    <partial name="App/Footer" />
+    <script src="~/dist/scripts/app.js" asp-append-version="true"></script>
+</body>
+</html>

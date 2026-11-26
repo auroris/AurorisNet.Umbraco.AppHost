@@ -22,8 +22,8 @@ public sealed class BlocksHttpTests
 {
     [Theory]
     [InlineData(false, "")]
-    [InlineData(false, "/wing")]
-    [InlineData(true, "/wing")]
+    [InlineData(false, "/portal")]
+    [InlineData(true, "/portal")]
     [ResetPublishedContentServices]
     public async Task Published_instances_enforce_page_access_antiforgery_and_unpublishing(bool administrator, string prefix)
     {

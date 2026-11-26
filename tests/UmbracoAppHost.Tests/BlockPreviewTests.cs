@@ -16,8 +16,8 @@ namespace UmbracoAppHost.Tests;
 [Collection("Umbraco hosts")]
 public sealed class BlockPreviewTests
 {
-    private const string HeadlineAlias = "umbBlockGridDemoHeadlineBlock";
-    private const string LayoutAlias = "umbBlockGridDemoTwoColumnLayoutBlock";
+    private const string HeadlineAlias = "testPreviewHeadlineBlock";
+    private const string LayoutAlias = "testPreviewTwoColumnLayoutBlock";
     private static readonly Guid HeadlineTypeKey = Guid.Parse("6d4177ea-dac0-4d71-9246-40ae54465066");
     private static readonly Guid LayoutTypeKey = Guid.Parse("3356470c-9377-4d3c-8fdc-de84307539b2");
     private static readonly Guid HeadlineKey = Guid.Parse("aa202528-ddba-462d-984e-e25772671f67");
@@ -26,13 +26,29 @@ public sealed class BlockPreviewTests
 
     [Theory]
     [InlineData("")]
-    [InlineData("/wing")]
+    [InlineData("/portal")]
     [ResetPublishedContentServices]
     public async Task Razor_previews_render_unsaved_variants_and_native_areas_without_replacing_AppBlocks(string prefix)
     {
+        var root = Directory.CreateTempSubdirectory("block-preview-test-").FullName;
+        var components = Directory.CreateDirectory(Path.Combine(root, "Views", "Partials", "blockgrid", "Components")).FullName;
+        await System.IO.File.WriteAllTextAsync(Path.Combine(components, HeadlineAlias + ".cshtml"), """
+            @using Umbraco.Extensions
+            @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage<Umbraco.Cms.Core.Models.Blocks.BlockGridItem>
+            <h2 style="padding: 20px">@Model.Content.Value("headline")</h2>
+            """, TestContext.Current.CancellationToken);
+        await System.IO.File.WriteAllTextAsync(Path.Combine(components, LayoutAlias + ".cshtml"), """
+            @using Umbraco.Extensions
+            @inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage<Umbraco.Cms.Core.Models.Blocks.BlockGridItem>
+            @using Umbraco.Community.BlockPreview.Extensions
+            <div>@await Html.GetPreviewBlockGridItemAreasHtmlAsync(Model)</div>
+            """, TestContext.Current.CancellationToken);
+        try
+        {
         await using var site = await TestSite.StartAsync(new TestSiteOptions
         {
             Application = typeof(Program).Assembly,
+            Root = root,
             EnvironmentName = "Production",
             VirtualPath = prefix,
             // The test publishes its own page; without the sample content it shares the install of the account tests.
@@ -97,6 +113,11 @@ public sealed class BlockPreviewTests
 
         string PreviewUrl(string alias, Guid key, string culture) => api +
             $"/preview/grid?nodeKey={page.Key}&documentTypeUnique={pageType.Key}&blockEditorAlias=body&contentElementAlias={alias}&contentUdi={key}&culture={culture}";
+        }
+        finally
+        {
+            try { Directory.Delete(root, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
     }
 
     private static async Task<(IContent, IContentType)> InstallBlocksAsync(IServiceProvider services)

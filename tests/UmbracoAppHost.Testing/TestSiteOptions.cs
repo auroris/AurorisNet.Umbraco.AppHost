@@ -38,7 +38,7 @@ public sealed class TestSiteOptions
 
     public string EnvironmentName { get; init; } = "Development";
 
-    /// <summary><c>Umbraco:CMS:Hosting:ApplicationVirtualPath</c>, such as <c>/wing</c>; null hosts the site at the root.</summary>
+    /// <summary><c>Umbraco:CMS:Hosting:ApplicationVirtualPath</c>, such as <c>/portal</c>; null hosts the site at the root.</summary>
     public string? VirtualPath { get; init; }
 
     /// <summary>The unattended install's administrator password.</summary>

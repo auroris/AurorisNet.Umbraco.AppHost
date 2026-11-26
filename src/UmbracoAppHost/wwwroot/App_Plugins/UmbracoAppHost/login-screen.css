@@ -1,0 +1,5 @@
+/* Umbraco uses this background on the login page and in the backoffice sign-in view. */
+:root {
+  --umb-login-background: #fff var(--apphost-login-backdrop, none) no-repeat top center / 100% auto;
+  --umb-login-curves-display: none;
+}

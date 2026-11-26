@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory)][string] $Directory,
     [Parameter(Mandatory)][string] $HostId,
-    [Parameter(Mandatory)][string] $Components
+    [Parameter(Mandatory)][string] $Components,
+    [string] $HostProps
 )
 $ErrorActionPreference = 'Stop'
 # NuGet normalizes versions in filenames, including dropping build metadata.
@@ -11,6 +12,15 @@ foreach ($file in Get-ChildItem -LiteralPath $Directory -Filter '*.nuspec' -Excl
     $specs[$document.package.metadata.id] = $document
 }
 $spec = $specs[$HostId]
+if ($HostProps -and (Test-Path -LiteralPath $HostProps)) {
+    foreach ($entry in @($spec.package.files.file | Where-Object { $_.target.Replace('\', '/').TrimStart('/') -eq "buildTransitive/$HostId.props" })) {
+        $null = $spec.package.files.RemoveChild($entry)
+    }
+    $propsFile = $spec.CreateElement('file', $spec.DocumentElement.NamespaceURI)
+    $propsFile.SetAttribute('src', (Resolve-Path -LiteralPath $HostProps).Path)
+    $propsFile.SetAttribute('target', "buildTransitive/$HostId.props")
+    $null = $spec.package.files.AppendChild($propsFile)
+}
 $group = $spec.package.metadata.dependencies.group
 $imports = [xml]'<Project />'
 $dependencies = @{}

@@ -1,0 +1,58 @@
+﻿@inherits Umbraco.Cms.Web.Common.Views.UmbracoViewPage
+@inject Umbraco.Cms.Core.Services.IUserService UserService
+@{
+    Layout = null;
+    var pageState = await AppHostPage.PrepareAsync(Model, Context);
+    if (pageState.ShouldShortCircuit)
+    {
+        IgnoreBody();
+        return;
+    }
+    var site = pageState.Site;
+    var pageUpdateDate = pageState.UpdateDate;
+}
+<!doctype html>
+<html dir="ltr" lang="@Model.GetCultureFromDomains()">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#252f7c" />
+    <meta name="dcterms.creator" content="@(Model.WriterName(UserService))" />
+    <meta name="dcterms.modified" content="@(pageUpdateDate.ToString("s"))" />
+    <title>@Model.PageTitle()</title>
+    <link rel="stylesheet" href="~/dist/css/site.css" asp-append-version="true" />
+    @AppHostPage.RenderPageHeaders(Context)
+</head>
+<body class="site">
+    <a class="site-skip" href="#content">@Umbraco.GetDictionaryValueOrDefault("skiptocontent", "Skip to main content")</a>
+    <header class="site-header" id="site-header">
+        <div class="site-container site-header__inner">
+            <partial name="Website/Brand" />
+            <button type="button" class="site-nav-toggle" aria-expanded="false" aria-controls="site-nav">
+                <span class="site-nav-toggle__bars" aria-hidden="true"></span>
+                <span>@Umbraco.GetDictionaryValueOrDefault("nav-menu", "Menu")</span>
+            </button>
+            <nav class="site-nav" id="site-nav" aria-label="@Umbraco.GetDictionaryValueOrDefault("nav-site", "Site navigation")">
+                <partial name="Website/Menu" />
+            </nav>
+        </div>
+    </header>
+    <partial name="Website/PageHead" />
+    <main id="content" class="site-main" tabindex="-1">
+        <div class="site-container site-content">
+            <article class="site-article">
+                @RenderBody()
+            </article>
+            <partial name="Website/Aside" />
+        </div>
+    </main>
+    <footer class="site-footer">
+        <div class="site-container site-footer__inner">
+            <span class="site-footer__name">@site.NavigationTitle()</span>
+            <span>@Umbraco.GetDictionaryValue("datemodified"): @(pageUpdateDate.ToString("yyyy-MM-dd"))</span>
+            <a href="@Context.Request.PathBase/umbraco/">@Umbraco.GetDictionaryValue("editthispage")</a>
+        </div>
+    </footer>
+    <script src="~/dist/scripts/site.js" asp-append-version="true"></script>
+</body>
+</html>

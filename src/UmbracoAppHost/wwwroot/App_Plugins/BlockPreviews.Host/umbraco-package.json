@@ -15,6 +15,14 @@
       "element": "/App_Plugins/BlockPreviews.Host/member-sign-in.js",
       "forContentTypeAlias": "appMemberSignIn",
       "forBlockEditor": "block-grid"
+    },
+    {
+      "type": "blockEditorCustomView",
+      "alias": "UmbracoAppHost.ChildPageLinks.Preview",
+      "name": "Child page links preview",
+      "element": "/App_Plugins/BlockPreviews.Host/child-page-links.js",
+      "forContentTypeAlias": "appChildPageLinks",
+      "forBlockEditor": "block-grid"
     }
   ]
 }

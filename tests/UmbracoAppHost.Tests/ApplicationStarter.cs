@@ -25,15 +25,18 @@ internal static class ApplicationStarter
     /// <summary>The library's saved export, which the build copies beside the tests.</summary>
     public static string Export => Path.Combine(AppContext.BaseDirectory, "uSync");
 
+    /// <summary>The reference sample site's saved export (<c>src/UmbracoAppHost.Web/uSync</c>).</summary>
+    public static string SampleExport => Path.Combine(TestSite.FindProjectFolder(typeof(Program).Assembly)!, "uSync");
+
     public static string FormContent() => BlockContent(FormPageKey);
     public static string ReportContent() => BlockContent(ReportPageKey);
 
-    private static string BlockContent(Guid page) => USyncExport.ContentByKey(Export, page).Property(BlockPropertyAlias)!;
+    private static string BlockContent(Guid page) => USyncExport.ContentByKey(SampleExport, page).Property(BlockPropertyAlias)!;
 
-    /// <summary>The Orders data source exactly as the saved export defines it, found by its key.</summary>
+    /// <summary>The Orders data source exactly as the sample export defines it, found by its key.</summary>
     public static DataSourceDefinition OrdersDataSource()
     {
-        var node = USyncExport.ContentByKey(Export, OrdersDataSourceKey);
+        var node = USyncExport.ContentByKey(SampleExport, OrdersDataSourceKey);
         var errors = new List<string>();
         var definition = DataSourceDefinition.Read(OrdersDataSourceKey, node.Alias, node.Property, _ => [], errors);
         Assert.True(definition is not null, string.Join(" ", errors));

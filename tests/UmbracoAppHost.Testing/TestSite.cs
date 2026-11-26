@@ -87,7 +87,7 @@ public sealed partial class TestSite : IAsyncDisposable
     /// <summary>The Kestrel address on a free loopback port.</summary>
     public Uri Address { get; }
 
-    /// <summary>The virtual path, such as <c>/wing</c>, or empty; the clients put it before every path.</summary>
+    /// <summary>The virtual path, such as <c>/portal</c>, or empty; the clients put it before every path.</summary>
     public string PathBase { get; }
 
     /// <summary>The content root, which holds the Umbraco database, the instance folder and the views.</summary>

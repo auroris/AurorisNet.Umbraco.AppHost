@@ -12,7 +12,7 @@ public sealed class PackageIntegrationTests
 {
     [Theory]
     [InlineData("")]
-    [InlineData("/wing")]
+    [InlineData("/portal")]
     [ResetPublishedContentServices]
     public async Task Host_discovers_telemetry_suppression_and_serves_packaged_report_assets(string prefix)
     {

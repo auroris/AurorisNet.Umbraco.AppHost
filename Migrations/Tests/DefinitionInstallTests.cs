@@ -88,7 +88,7 @@ public sealed class DefinitionInstallTests
         // What the host keeps in the export is what was imported over the schema's.
         var grid = await services.GetRequiredService<IDataTypeService>().GetAsync(ApplicationGrid);
         Assert.Equal("Application: Application blocks", grid!.Name);
-        Assert.Equal("OrdersPaperReport", types.Get("paperReport")!.DefaultTemplate?.Alias);
+        Assert.Null(types.Get("paperReport")!.DefaultTemplate);
         Assert.Equal(new[] { "sqlDataSource", "reportDefinition", "listOfValues", "apiEndpoint" }, types.Get("dataSources")!.AllowedContentTypes!.OrderBy(child => child.SortOrder).Select(child => child.Alias));
 
         foreach (var alias in new[] { "application", "appPage", "appBlockPage" }) Assert.Null(types.Get(alias));

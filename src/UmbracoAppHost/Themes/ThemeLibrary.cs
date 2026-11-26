@@ -12,5 +12,23 @@ namespace UmbracoAppHost.Themes;
 /// </summary>
 public sealed class ThemeLibrary(Assembly assembly)
 {
+    public Assembly Assembly { get; } = assembly;
+
     internal IFileProvider Files { get; } = new ManifestEmbeddedFileProvider(assembly);
+
+    internal static bool HasEmbeddedDirectory(Assembly assembly, string directory)
+    {
+        try
+        {
+            var provider = new ManifestEmbeddedFileProvider(assembly);
+            return provider.GetDirectoryContents(directory).Exists;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    internal static bool HasEmbeddedContent(Assembly assembly)
+        => HasEmbeddedDirectory(assembly, "Views") || HasEmbeddedDirectory(assembly, "uSync");
 }

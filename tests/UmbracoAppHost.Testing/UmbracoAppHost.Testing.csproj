@@ -4,8 +4,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>AurorisNet.Umbraco.AppHost.Testing</PackageId>
-    <Title>Umbraco App Host Testing</Title>
-    <Description>Boots an UmbracoAppHost site in a test process: the host's own registrations on Kestrel at a free loopback port, with a fresh SQLite database and instance folder, and signs in members and backoffice users. No test framework dependency; failures throw TestSiteException.</Description>
+    <Title>App Host Testing</Title>
+    <Description>Boots an AurorisNet.Umbraco.AppHost site on Kestrel with a fresh SQLite database and bundled AppBlocks.Testing clients for HTTP integration tests.</Description>
     <PackageTags>umbraco;apphost;testing</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>

@@ -1,18 +1,35 @@
 @inherits UmbracoViewPage
 @inject AppBlocks.Blocks.AppPageAccess PageAccess
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
     var application = Model.SiteRoot(NavigationQueryService, PublishedStatusFilteringService);
     var atHome = Model.Id == application.Id;
     var menu = await SiteMenu.BuildAuthoredAsync(Model, NavigationQueryService, PublishedStatusFilteringService);
+    var mode = ViewData["AppNavigationMode"] as string ?? Configuration["UmbracoAppHost:AppNavigationMode"];
+    var flatSiblings = string.Equals(mode, "Siblings", StringComparison.OrdinalIgnoreCase);
     // Generated entries go four levels below the application, as they did when applications were roots.
     ViewData["AppNavigationRootLevel"] = application.Level;
 }
-@* The menu: Home, then one entry per page beneath the application, nested as the content tree is. *@
+@* The menu: Home, then pages beneath the application (tree by default, or flat siblings when AppNavigationMode is Siblings). *@
 <nav class="app-nav" id="app-nav" aria-label="Application menu">
     <ul class="app-nav-list">
     @if (menu is not null)
     {
         <partial name="App/NavigationMenuItems" model="menu" />
+    }
+    else if (flatSiblings)
+    {
+        var parent = Model.Key == application.Key
+            ? application
+            : Model.Parent<IPublishedContent>(NavigationQueryService, PublishedStatusFilteringService) ?? application;
+        var candidates = parent.VisibleChildren(NavigationQueryService, PublishedStatusFilteringService).Prepend(application);
+        foreach (var item in await PageAccess.NavigationPagesAsync(candidates))
+        {
+            var current = item.Key == Model.Key;
+            <li class="app-nav-item@(current ? " is-current" : "")">
+                <a href="@item.NavigationUrl()" aria-current="@(current ? "page" : null)">@item.NavigationTitle()</a>
+            </li>
+        }
     }
     else
     {
