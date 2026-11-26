@@ -70,25 +70,46 @@ function Get-BinaryHash([string] $Path) {
 
 function Copy-Tree([string] $Source, [string] $Destination) {
     [IO.Directory]::CreateDirectory($Destination) | Out-Null
-    foreach ($file in Get-ChildItem -LiteralPath $Source -Recurse -File -Force) {
+    foreach ($file in Get-ChildItem -LiteralPath $Source -Recurse -Force) {
         $relative = [IO.Path]::GetRelativePath($Source, $file.FullName)
         $sourcePath = Get-SafePath $Source $relative
         $target = Get-SafePath $Destination $relative
+        if ($file.PSIsContainer) {
+            [IO.Directory]::CreateDirectory($target) | Out-Null
+            continue
+        }
         [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
         [IO.File]::Copy($sourcePath, $target, $true)
     }
 }
 
+function Assert-BuildFiles([string] $App, $Files) {
+    if ($Files -isnot [Collections.IDictionary] -or !$Files.Count) { throw 'The build has no application file inventory.' }
+    $missing = [Collections.Generic.HashSet[string]]::new([string[]]@($Files.Keys), [StringComparer]::Ordinal)
+    foreach ($item in Get-ChildItem -LiteralPath $App -Recurse -Force) {
+        $relative = [IO.Path]::GetRelativePath($App, $item.FullName).Replace('\', '/')
+        $path = Get-SafePath $App $relative
+        if ($item.PSIsContainer) { continue }
+        if (!$missing.Remove($relative)) { throw "Unlisted build file: $relative" }
+        if ((Get-AppFileHash $path) -ne $Files[$relative]) { throw "Changed build file: $relative" }
+    }
+    if ($missing.Count) { throw "Missing build file: $($missing | Select-Object -First 1)" }
+}
+
 function Get-Build([string] $Path) {
     $root = (Resolve-Path -LiteralPath $Path).Path
-    $manifestPath = Join-Path $root build.json
+    $manifestPath = Get-SafePath $root build.json
     if (!(Test-Path -LiteralPath $manifestPath)) { throw "Not a published build (build.json is missing): $root" }
     $manifest = Read-JsonFile $manifestPath
     if ($manifest.schemaVersion -ne 3) { throw "This build was published by different scripts. Publish it again from the reference checkout: $root" }
+    if ($manifest.id -isnot [string] -or $manifest.id -notmatch '^[\w.-]+$' -or !($manifest.umbraco -as [version])) {
+        throw "Invalid build identifier or Umbraco version in $manifestPath"
+    }
     if (!(Test-Path -LiteralPath (Join-Path $root 'app/uSync/usync.config'))) {
         throw "This build does not contain the saved uSync export at app/uSync. Publish it again from the reference checkout: $root"
     }
     if (!$manifest.Contains('assembly')) { $manifest.project = [IO.Path]::GetFileName($script:ReferenceProject); $manifest.assembly = $script:ReferenceAssembly }
+    Assert-BuildFiles (Get-SafePath $root app) $manifest.appFiles
     if (!(Test-Path -LiteralPath (Get-SafePath (Join-Path $root app) $manifest.assembly) -PathType Leaf)) {
         throw "This build does not contain the application it records, app/$($manifest.assembly): $root"
     }
@@ -214,7 +235,7 @@ function Publish-Reference([string] $RepositoryRoot, [string] $Project, [string]
     $umbraco = @($versions.Project.ItemGroup.PackageVersion | Where-Object Include -EQ 'Umbraco.Cms')[0].Version
     $app = Join-Path $root app
     $appFiles = [ordered]@{}
-    foreach ($file in Get-ChildItem -LiteralPath $app -Recurse -File | Sort-Object FullName) {
+    foreach ($file in Get-ChildItem -LiteralPath $app -Recurse -File -Force | Sort-Object FullName) {
         $appFiles[[IO.Path]::GetRelativePath($app, $file.FullName).Replace('\', '/')] = Get-AppFileHash $file.FullName
     }
     $after = @(Get-SourceCheckouts $Project $MsBuildProperties)

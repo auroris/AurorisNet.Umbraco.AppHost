@@ -150,15 +150,22 @@ pwsh E:/Sites/MyWebsite/start-site.ps1
 Upgrade Umbraco and the packages in the checkout, check the result in the reference website,
 then update the sites. Take a backup before updating a production site. `update-site.ps1` then:
 
-1. Checks that the site's shipped files are unchanged. A changed file stops the update, and
-   `-WhatIf` ends here. `app/appsettings.json` is exempt, and views are compared without byte
-   order marks and line endings.
-2. Publishes the application, or takes the build `-Build` names.
-3. Stages the new application and copies `app/appsettings.json` and the files created through
-   Umbraco into it. A file created in the site at a path the new build ships stops the update.
-4. Copies the saved export's definition folders into the site's `uSync/` folder and removes the
-   site's copies of the definitions AppBlocks installs.
-5. Moves the old application to `.apphost/backups/` and puts the new one in its place.
+1. Takes the instance lock, resolves an interrupted update and checks the installed files.
+   Operators may customize `app/appsettings.json`. Razor template hashes use Umbraco's newline
+   and byte-order-mark normalization.
+2. Publishes the application or reads the supplied build. Creation and updates compare the
+   incoming application's paths and hashes to `build.json`, then verify the staged copy before
+   applying site settings. A missing, changed or unlisted file stops installation.
+3. Copies the site's settings and files created through Umbraco into the staged app. A conflict
+   with a newly shipped file stops the update. Stages the working uSync folder with the incoming
+   shared definitions and removes the staged copies of definitions AppBlocks owns.
+4. Moves the previous app to `.apphost/backups/`, installs the staged app and uSync folder,
+   then atomically replaces the installed inventory. A failure before that last step restores
+   the previous files. If the process stops during the switch, keep the site stopped and rerun
+   the update. The updater uses its pending record to recover before applying the build.
+
+`-WhatIf` checks installed files and verifies an explicitly supplied or bundled build. With
+`-Project` it skips publishing. Previews leave a pending update for the actual update to recover.
 
 Settings, databases, media, sign-in keys and content stay as they are. Keep custom source out
 of `app/`: make changes in the checkout and publish them.
@@ -176,8 +183,10 @@ describes the start and how to import by hand instead.
 | The build's Umbraco version is older than the site's | Restore a matching database backup; do not downgrade. |
 | The build's Umbraco major version differs | Plan the major upgrade separately. |
 
-Database upgrades run at the site's next start. Installing an older build does not undo a
-database migration; restore the matching database backup when a rollback is needed.
+Database upgrades run at the site's next start. For a rollback after that point, restore the
+pre-update site backup, including its working uSync folder and installed inventory, together
+with the matching databases. The directory under `.apphost/backups/` holds the previous
+application files.
 
 `update-site.ps1` takes the same `-Build`, `-Project`, `-Assembly` and `-MsBuildProperties` as
 `new-site.ps1`.

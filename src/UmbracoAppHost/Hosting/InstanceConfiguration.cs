@@ -33,6 +33,8 @@ internal static class InstanceConfiguration
 
         try
         {
+            if (Directory.Exists(Path.Combine(state, "pending-update")))
+                throw new InvalidOperationException("An application update was interrupted. Run update-site.ps1 again before starting this site.");
             var settingsPath = Path.Combine(root, "instance.json");
             if (!File.Exists(settingsPath))
             {

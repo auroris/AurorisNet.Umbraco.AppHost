@@ -14,6 +14,22 @@ namespace UmbracoAppHost.Tests;
 public sealed class InstanceConfigurationTests
 {
     [Fact]
+    public void An_interrupted_update_blocks_startup_until_the_files_are_recovered()
+    {
+        var root = Directory.CreateTempSubdirectory("pending-update-").FullName;
+        try
+        {
+            var pending = Directory.CreateDirectory(Path.Combine(root, "instance", ".apphost", "pending-update"));
+            var failure = Assert.Throws<InvalidOperationException>(() => Apply(root, configured: null));
+            Assert.Contains("update-site.ps1", failure.Message);
+            Assert.False(File.Exists(Path.Combine(root, "instance", "instance.json")));
+            pending.Delete();
+            Apply(root, configured: null);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
     public void AppBlocks_keeps_its_files_in_the_instance_data_folder()
     {
         var root = Directory.CreateTempSubdirectory("instance-config-").FullName;
