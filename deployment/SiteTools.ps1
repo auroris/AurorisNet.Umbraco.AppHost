@@ -365,6 +365,7 @@ function New-InstanceSettings([string] $Root, [string] $Name) {
     foreach ($folder in @('data', 'media', 'uSync', '.apphost')) { New-Item -ItemType Directory -Force (Get-SafePath $Root $folder) | Out-Null }
     Write-JsonFile $settingsPath ([ordered]@{
         Urls = 'https://localhost:' + (Get-Random -Minimum 44400 -Maximum 44500)
+        UmbracoAppHost = @{ RedirectToHttps = $false }
         Umbraco = @{ CMS = @{
             Global = @{ Id = [guid]::NewGuid().ToString() }
             Imaging = @{ HMACSecretKey = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(64)) }

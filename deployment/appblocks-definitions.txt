@@ -24,12 +24,15 @@ ContentTypes/appformthreecolumns.config
 ContentTypes/appfullwidth.config
 ContentTypes/apphtml.config
 ContentTypes/appnumber.config
+ContentTypes/appreadonlycondition.config
 ContentTypes/appregion.config
 ContentTypes/appregionsettings.config
 ContentTypes/appreport.config
 ContentTypes/apprichtext.config
 ContentTypes/appschedule.config
 ContentTypes/appscript.config
+ContentTypes/appsearchselect.config
+ContentTypes/appsecuritycondition.config
 ContentTypes/appselect.config
 ContentTypes/appshuttle.config
 ContentTypes/apptabular.config
@@ -37,6 +40,7 @@ ContentTypes/apptext.config
 ContentTypes/apptextarea.config
 ContentTypes/appthreecolumns.config
 ContentTypes/apptime.config
+ContentTypes/appvisibilitycondition.config
 ContentTypes/datasources.config
 ContentTypes/listofvalues.config
 ContentTypes/reportdefinition.config
@@ -72,6 +76,8 @@ DataTypes/ApplicationListOfValuesPicker.config
 DataTypes/ApplicationMemberGroups.config
 DataTypes/ApplicationMultiline.config
 DataTypes/ApplicationPagePicker.config
+DataTypes/ApplicationReadOnlyConditions.config
+DataTypes/ApplicationReadOnlyConditionType.config
 DataTypes/ApplicationReportAccess.config
 DataTypes/ApplicationReportLinkVisibility.config
 DataTypes/ApplicationReportSource.config
@@ -79,7 +85,11 @@ DataTypes/ApplicationReportStartingView.config
 DataTypes/ApplicationReportUserGroups.config
 DataTypes/ApplicationRichText.config
 DataTypes/ApplicationScheduleColumns.config
+DataTypes/ApplicationSecurityConditions.config
+DataTypes/ApplicationSecurityConditionType.config
 DataTypes/ApplicationText.config
+DataTypes/ApplicationVisibilityConditions.config
+DataTypes/ApplicationVisibilityConditionType.config
 DataTypes/ApplicationWritableTextField.config
 DataTypes/fieldRules.config
 DataTypes/parentForm.config

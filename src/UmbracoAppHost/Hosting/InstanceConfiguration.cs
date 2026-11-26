@@ -45,6 +45,7 @@ internal static class InstanceConfiguration
                     {
                         JsonSerializer.Serialize(settingsFile, new
                         {
+                            UmbracoAppHost = new { RedirectToHttps = false },
                             Accounts = new { BackOfficeMemberGroups = Array.Empty<string>() },
                             Umbraco = new { CMS = new
                             {

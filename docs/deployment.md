@@ -107,6 +107,29 @@ same setting in `instance.json`.
 The application holds `.apphost/run.lock` while it runs, under Kestrel and IIS alike. A second
 start, an update or a reset of the same site stops with a message while the lock is held.
 
+## Redirect HTTP to HTTPS
+
+New sites write this setting to `instance.json` at creation or first startup.
+
+```json
+{
+  "UmbracoAppHost": {
+    "RedirectToHttps": false
+  }
+}
+```
+
+To enable redirects for the whole site, including the backoffice, change the value to `true`
+and restart the site. On older sites, add the setting to `instance.json` to opt in.
+AppHost returns a temporary HTTP 307 redirect that preserves the method, path and query string.
+HSTS is configured separately.
+
+The site needs both an HTTP binding to receive requests and a reachable HTTPS endpoint.
+ASP.NET Core discovers the port from a single HTTPS binding. If a reverse proxy terminates TLS,
+set the top-level `https_port` to the public HTTPS port (usually `443`) and configure forwarded
+headers from the trusted proxy so AppHost sees the original request scheme.
+[ASP.NET Core HTTPS redirection](https://learn.microsoft.com/en-us/aspnet/core/security/enforcing-ssl?view=aspnetcore-10.0#port-configuration)
+
 ## Host a site in IIS
 
 1. Install the .NET 10 Hosting Bundle on the server.

@@ -77,6 +77,7 @@ foreach ($name in @('first', 'second')) {
     $assembly = (Read-JsonFile (Join-Path $site '.apphost/instance.json')).assembly
     Assert-True ($assembly -eq 'UmbracoAppHost.Web.dll') "The site records $assembly as its application, not the reference launcher."
     $settings = Read-JsonFile (Join-Path $site instance.json)
+    Assert-True ($settings.UmbracoAppHost.RedirectToHttps -is [bool] -and !$settings.UmbracoAppHost.RedirectToHttps) 'New instance.json files must set RedirectToHttps to false.'
     # Without a sign-in provider an anonymous request to a signed-in page sees the member sign-in form instead of a challenge.
     $settings.IdentityServer = @{ Enabled = $false }
     $settings.Accounts.SeedCurrentWindowsUserAsAdministrator = $false

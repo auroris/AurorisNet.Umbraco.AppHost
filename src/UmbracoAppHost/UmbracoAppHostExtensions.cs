@@ -325,6 +325,9 @@ public static class UmbracoAppHostExtensions
                 instance.Root, instance.SettingsPath);
         await app.BootUmbracoAsync();
 
+        if (app.Configuration.GetValue<bool>("UmbracoAppHost:RedirectToHttps"))
+            app.UseHttpsRedirection();
+
         app.UseUmbraco()
             .WithMiddleware(u =>
             {

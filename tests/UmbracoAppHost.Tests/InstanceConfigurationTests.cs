@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +14,19 @@ namespace UmbracoAppHost.Tests;
 /// </summary>
 public sealed class InstanceConfigurationTests
 {
+    [Fact]
+    public void New_instance_settings_explicitly_disable_HTTPS_redirection()
+    {
+        var root = Directory.CreateTempSubdirectory("instance-config-").FullName;
+        try
+        {
+            Apply(root, configured: null);
+            using var settings = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "instance", "instance.json")));
+            Assert.False(settings.RootElement.GetProperty("UmbracoAppHost").GetProperty("RedirectToHttps").GetBoolean());
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
     [Fact]
     public void An_interrupted_update_blocks_startup_until_the_files_are_recovered()
     {
