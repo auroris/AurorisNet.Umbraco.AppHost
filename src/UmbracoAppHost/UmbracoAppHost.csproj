@@ -100,8 +100,6 @@
              PackagePath="content/uSync/%(RecursiveDir)%(Filename)%(Extension);contentFiles/any/$(TargetFramework)/uSync/%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="../../Migrations/Runtime/**/*.cs" />
     <EmbeddedResource Include="Hosting\defaults.json" LogicalName="UmbracoAppHost.Hosting.defaults.json" />
-    <!-- The sample database's schema scripts, read through the embedded files manifest; see Sample/SampleData.cs. -->
-    <EmbeddedResource Include="../../Migrations/**/*.sql" Link="Migrations\%(RecursiveDir)%(Filename)%(Extension)" />
     <EmbeddedResource Include="Views\**\*.cshtml" />
     <EmbeddedResource Include="$(InstallRoot)Schema/ContentTypes/*.config" Link="Schema\ContentTypes\%(Filename)%(Extension)" />
     <Content Remove="wwwroot/dist/**/*" />
@@ -112,6 +110,8 @@
     <Content Update="Hosting\defaults.json" CopyToPublishDirectory="Never" />
     <!-- The package icon, ready for when the library ships as a NuGet package; the SVG beside it is the editable source. -->
     <None Include="../../docs/images/icon.png" Pack="true" PackagePath="/" Visible="false" />
+    <!-- Replaced into buildTransitive/ by Bundle-AppBlocks.ps1 so it merges cleanly with Razor SDK's generated props. -->
+    <None Include="buildTransitive/AurorisNet.Umbraco.AppHost.props" Pack="false" />
   </ItemGroup>
 
   <!-- Visual Studio only schedules projects listed in its solution. The source dependencies

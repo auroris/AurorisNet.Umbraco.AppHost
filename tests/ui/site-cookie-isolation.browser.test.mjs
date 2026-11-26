@@ -94,8 +94,8 @@ async function refresh(page, site, url) {
 test("two installations share an HTTPS origin and keep independent backoffice sessions", { timeout: 300_000 }, async () => {
     assert.ok(existsSync(dll), `Build the reference website first: ${dll}`);
     const root = await mkdtemp(join(tmpdir(), "apphost-site-cookies-"));
-    const [wing, doa] = ["wing", "doa"].map(name => ({ name, root: join(root, name) }));
-    const sites = [wing, doa];
+    const [portal, app] = ["portal", "app"].map(name => ({ name, root: join(root, name) }));
+    const sites = [portal, app];
     const password = "Test!" + randomBytes(20).toString("hex");
     let browser, proxy;
     const diagnostics = [];
@@ -144,47 +144,47 @@ test("two installations share an HTTPS origin and keep independent backoffice se
         const legacy = ["UMB_UCONTEXT", "UMB_PREVIEW"];
         await context.addCookies(legacy.map(name => ({ name, value: "other-installation", url: origin })));
         const tabA = await context.newPage(), tabB = await context.newPage();
-        await login(tabA, wing, origin, password, "WING");
-        const bookmark = await context.request.get(`${origin}/WING/api/reports/whoami?view=full`);
-        assert.equal(bookmark.url(), `${origin}/wing/api/reports/whoami?view=full`);
+        await login(tabA, portal, origin, password, "PORTAL");
+        const bookmark = await context.request.get(`${origin}/PORTAL/api/reports/whoami?view=full`);
+        assert.equal(bookmark.url(), `${origin}/portal/api/reports/whoami?view=full`);
         assert.equal((await bookmark.json()).authenticated, true);
         const refreshNames = async () => (await context.cookies()).filter(cookie => cookie.name.includes("umbRefreshToken")).map(cookie => cookie.name).sort();
-        const [wingCookie] = await refreshNames();
-        assert.match(wingCookie, /^__Host-umbRefreshToken-shared-test-site-[0-9a-f]{12}$/);
-        await login(tabB, doa, origin, password);
+        const [portalCookie] = await refreshNames();
+        assert.match(portalCookie, /^__Host-umbRefreshToken-shared-test-site-[0-9a-f]{12}$/);
+        await login(tabB, app, origin, password);
         const names = await refreshNames();
         assert.equal(names.length, 2);
         const assetHash = page => page.evaluate(() =>
             JSON.parse(document.querySelector('script[type="importmap"]').textContent).imports["@umbraco-cms/backoffice/app"].match(/\/backoffice\/([\da-f]+)\//)[1]);
         assert.notEqual(await assetHash(tabA), await assetHash(tabB));
-        await refresh(tabA, wing, `${origin}/wing/umbraco`);
-        await refresh(tabB, doa);
+        await refresh(tabA, portal, `${origin}/portal/umbraco`);
+        await refresh(tabB, app);
 
         // Both tabs have live auth contexts: signing out of A must leave B's open tab and cookies valid.
         const peer = await context.newPage();
-        await peer.goto(`${origin}/wing/umbraco`);
+        await peer.goto(`${origin}/portal/umbraco`);
         await peer.locator("umb-backoffice-header-logo").waitFor();
         await Promise.all([
-            tabA.waitForURL(`${origin}/wing/umbraco/logout`), peer.waitForURL(`${origin}/wing/umbraco/logout`),
+            tabA.waitForURL(`${origin}/portal/umbraco/logout`), peer.waitForURL(`${origin}/portal/umbraco/logout`),
             tabA.evaluate(async () => {
                 const { UMB_AUTH_CONTEXT } = await import("@umbraco-cms/backoffice/auth");
                 await (await document.querySelector("umb-app").getContext(UMB_AUTH_CONTEXT)).signOut();
             }),
         ]);
         await tabB.locator("umb-backoffice-header-logo").waitFor();
-        await currentUser(tabB, doa);
-        assert.deepEqual(await refreshNames(), names.filter(name => name !== wingCookie));
+        await currentUser(tabB, app);
+        assert.deepEqual(await refreshNames(), names.filter(name => name !== portalCookie));
         const afterLogout = await context.cookies();
-        assert.ok(!afterLogout.some(cookie => cookie.name.startsWith("UMB_UCONTEXT") && cookie.name.includes(wingCookie.slice(-12))),
+        assert.ok(!afterLogout.some(cookie => cookie.name.startsWith("UMB_UCONTEXT") && cookie.name.includes(portalCookie.slice(-12))),
             "Logging out clears the installation's login cookie even when the initial bookmark used different casing");
         assert.ok(legacy.every(name => afterLogout.some(cookie => cookie.name === name && cookie.value === "other-installation")));
-        await refresh(tabB, doa);
+        await refresh(tabB, app);
 
-        await stopSite(wing);
-        await startSite(wing);
-        await login(tabA, wing, origin, password);
+        await stopSite(portal);
+        await startSite(portal);
+        await login(tabA, portal, origin, password);
         assert.deepEqual(await refreshNames(), names, "An installation keeps its cookie names after restart");
-        await currentUser(tabB, doa);
+        await currentUser(tabB, app);
     } catch (error) {
         if (diagnostics.length) error.message += "\n" + diagnostics.slice(-15).join("\n");
         throw error;

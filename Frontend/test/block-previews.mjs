@@ -21,7 +21,6 @@ const hostInstall = currentInstall(root);
 const owners = [
     ['../AurorisNet.Umbraco.AppBlocks/src/AppBlocks', resolve(blocksInstall, 'AppBlocks/Schema')], ['../AurorisNet.Umbraco.AppBlocks/src/AppBlocks.InteractiveReports', resolve(blocksInstall, 'AppBlocks.InteractiveReports/Schema')],
     ['../AurorisNet.Umbraco.AppBlocks/src/AppBlocks.Documents', resolve(blocksInstall, 'AppBlocks.Documents/Schema')], ['src/UmbracoAppHost', resolve(hostInstall, 'uSync'), resolve(hostInstall, 'Schema')],
-    ...['4WingSiteIdentity', '4WingDiagrams', '4WingTelephoneDirectory', '4WingFileRepository', '4WingActivityScheduler', '4WingAerodromeStatus'].map(name => [`../4Wing/${name}`, 'Schema']),
 ];
 async function files(directory, suffix) {
     let entries;
@@ -58,7 +57,7 @@ test('every owned element offered by the block editors has a preview in its owni
                 allTypes.set(type.getAttribute('Key'), alias);
                 const nestedType = appBlockTypes.find(item => item.alias === alias);
                 if (nestedType) assert.equal(nestedType.key, type.getAttribute('Key'), `Nested preview identity differs: ${alias}`);
-                if (doc.querySelector('Info > IsElement')?.textContent === 'true' && !['appColumnsSettings', 'appRegionSettings', 'fourWingMediaPresentation'].includes(alias)) {
+                if (doc.querySelector('Info > IsElement')?.textContent === 'true' && !['appColumnsSettings', 'appRegionSettings'].includes(alias)) {
                     assert(aliases.has(alias) || nativeLayouts.has(alias) || ruleLabels.has(alias) || razorAliases.has(alias), `${project} does not preview ${alias}`);
                 }
             }

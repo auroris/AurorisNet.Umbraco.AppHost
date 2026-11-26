@@ -29,7 +29,7 @@ namespace UmbracoAppHost.Tests;
 [Collection("Umbraco hosts")]
 public sealed class MemberSignInHttpTests
 {
-    private const string prefix = "/wing";
+    private const string prefix = "/portal";
     private const string scheme = "UmbracoMembers.TestIdentity";
 
     [Fact]

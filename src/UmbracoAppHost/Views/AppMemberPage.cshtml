@@ -1,0 +1,34 @@
+@inherits UmbracoViewPage
+@inject IEnumerable<UmbracoAppHost.Application.ApplicationPageRole> Roles
+@inject AppBlocks.DataSources.IDataSourceUserResolver Users
+@inject UmbracoAppHost.Themes.SiteThemeCatalog Themes
+@{
+    PageAssets.RegisterPage(Model, NavigationQueryService, PublishedStatusFilteringService, Context);
+    await Visitor.ResolveAsync();
+    var account = await Users.ResolveAsync(new AppBlocks.Forms.FormExecutionContext(Context.User, Model.Key, Guid.Empty, ""), Context.RequestAborted);
+    // Any role registered for the page admits; a registration with an empty role admits every signed-in member.
+    var roles = Roles.Where(r => r.Page == Model.Key).Select(r => r.Role).Distinct().ToList();
+    var allowed = account is not null && roles.Any(role => role.Length == 0 ? account.IsMember : account.IsInMemberGroup(role));
+    if (!allowed) Context.Response.StatusCode = 403;
+    Layout = (await Themes.ResolveForAsync(Model, NavigationQueryService, PublishedStatusFilteringService, TemplateService)).LayoutFor(Visitor.IsSignedIn);
+}
+@if (allowed)
+{
+    @await Component.InvokeAsync("AppBlocks", new { page = Model })
+}
+else if (Visitor.IsSignedIn)
+{
+    <h1>Access restricted</h1>
+    @if (roles.Any(role => role.Length == 0))
+    {
+        <p>This page requires a member account.</p>
+    }
+    else if (roles.Count > 0)
+    {
+        <p>This page requires membership in @string.Join(" or ", roles).</p>
+    }
+    else
+    {
+        <p>This page has no member role.</p>
+    }
+}

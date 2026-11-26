@@ -205,7 +205,7 @@ if (watch) {
     // esbuild returns `hosts` (an array); older releases returned a single `host`.
     const server = await context.serve({ servedir: root, host: '127.0.0.1', port: 8000 });
     const host = server.hosts?.[0] ?? '127.0.0.1';
-    console.log(`\nPreview:  http://${host}:${server.port}/demo/pages/website/WebsiteLayout.html (run npm run templates first)`);
+    console.log(`\nServing Frontend/ at http://${host}:${server.port}/`);
     console.log('Rebuilds on save. Ctrl+C to stop.');
   } else {
     console.log('Watching for changes... (Ctrl+C to stop)');

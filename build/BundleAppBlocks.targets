@@ -8,7 +8,7 @@
     </PropertyGroup>
     <MSBuild Projects="$(MSBuildProjectFullPath);@(BundledProject)" Targets="_GetRestoreProjectStyle;GenerateNuspec"
              Properties="GenerateComponentSpec=true;NoBuild=true;ContinuePackingAfterGeneratingNuspec=false;NuspecOutputPath=$(_BundleDirectory);PackageVersion=$(PackageVersion)" />
-    <Exec Command="pwsh -NoProfile -File &quot;$(MSBuildThisFileDirectory)Bundle-AppBlocks.ps1&quot; -Directory &quot;$(_BundleDirectory).&quot; -HostId &quot;$(PackageId)&quot; -Components &quot;@(BundledProject->'%(Filename)', ',')&quot;" />
+    <Exec Command="pwsh -NoProfile -File &quot;$(MSBuildThisFileDirectory)Bundle-AppBlocks.ps1&quot; -Directory &quot;$(_BundleDirectory).&quot; -HostId &quot;$(PackageId)&quot; -Components &quot;@(BundledProject->'%(Filename)', ',')&quot; -HostProps &quot;$(MSBuildProjectDirectory)\buildTransitive\$(PackageId).props&quot;" />
     <PropertyGroup>
       <NuspecFile>$(_BundleDirectory)bundled.nuspec</NuspecFile>
     </PropertyGroup>

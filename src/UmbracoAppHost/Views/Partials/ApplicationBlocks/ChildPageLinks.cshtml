@@ -1,0 +1,9 @@
+@model AppBlocks.Blocks.AppBlockView
+@{
+    var heading = Model.Block.Content.Value<string>("heading")?.Trim();
+}
+@if (!string.IsNullOrEmpty(heading))
+{
+    <h2>@heading</h2>
+}
+@await Html.PartialAsync("App/Cards", Model.Page)

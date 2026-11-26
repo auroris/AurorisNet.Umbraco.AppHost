@@ -18,7 +18,7 @@ public sealed class WelcomeReportTests
 {
     [Theory]
     [InlineData("")]
-    [InlineData("/wing")]
+    [InlineData("/portal")]
     [ResetPublishedContentServices]
     public async Task Welcome_lists_latest_versions_with_paging_paths_links_and_content_permissions(string prefix)
     {

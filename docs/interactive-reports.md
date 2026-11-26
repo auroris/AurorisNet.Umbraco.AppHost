@@ -35,9 +35,7 @@ A caller is a **report administrator** when either holds:
   (`interactiveReportAdministrators`) at startup, with access to the Content section.
 - They are a member whose sign-in is linked to such a backoffice user. The host follows the
   member's external login key, the Windows SID, to a backoffice user linked under the same key.
-  When it finds none, it matches the member's email with a backoffice user's email. A member
-  who can set their email to an administrator's address therefore becomes a report
-  administrator, so keep member emails under the control of sign-in or of administrators.
+  Email addresses are never matched without a verified external login link.
 
 | Action | Allowed for |
 |---|---|
@@ -93,10 +91,9 @@ Report Page selects. To limit a named report, give its definition the
 `UmbracoReportAdministrators` authorization policy, or base it on a data source whose read
 groups and row restriction decide who sees which rows.
 
-**This host's policy does not apply a report definition node's Access groups.** AppBlocks' own
-policy admits only the picked member groups to a node whose **Access** is **Specific groups**.
-`ReportAccessPolicy` replaces that policy and has no such check, so in this host every signed-in
-account can read such a report. Use the data source's read groups instead.
+A published **Report definition** node whose **Access** is set to **Specific groups** admits only
+members of the picked member groups (and report administrators). Data source read groups and row
+restrictions continue to apply on top.
 
 A project registers the connections its reports read from the connections callback of
 `AddUmbracoAppHost`; see [Databases](databases.md#a-database-of-your-own). To change the report

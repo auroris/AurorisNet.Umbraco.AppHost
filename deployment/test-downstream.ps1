@@ -70,7 +70,6 @@ await app.RunAsync();
 Write-JsonFile (Join-Path $projectRoot appsettings.json) ([ordered]@{
     InstanceRoot = '../instance'
     Umbraco = @{ CMS = @{ Global = @{ UseHttps = $false } } }
-    UmbracoAppHost = @{ Samples = $false }
     IdentityServer = @{ Enabled = $false }
     Accounts = @{ MembersManagedBy = 'Umbraco' }
 })
@@ -254,7 +253,7 @@ try {
     Assert-True (Test-Path -LiteralPath (Join-Path $working 'Templates/downstreamreport.config')) "The host's template registration is not in the working uSync folder."
     Assert-True (!(Test-Path -LiteralPath (Join-Path $working 'Content/sample-application.config'))) 'The working uSync folder holds the sample content.'
     $runtime = Read-JsonFile (Join-Path $instance '.apphost/runtime.json')
-    Assert-True ($runtime.samples -eq $false -and $runtime.hostExport -eq $export) "runtime.json does not record the samples off and the host's export: $($runtime | ConvertTo-Json -Compress)"
+    Assert-True ($runtime.hostExport -eq $export) "runtime.json does not record the host's export: $($runtime | ConvertTo-Json -Compress)"
     Write-Host 'PASS: the downstream host builds and boots without the samples, and its working uSync folder holds its own export beside the library''s.'
 
     $password = (Read-JsonFile (Join-Path $instance instance.json)).Umbraco.CMS.Unattended.UnattendedUserPassword

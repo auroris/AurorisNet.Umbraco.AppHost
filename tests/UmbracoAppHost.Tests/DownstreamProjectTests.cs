@@ -132,7 +132,7 @@ public sealed class DownstreamProjectTests
 
         // This repository's reference launcher, from this test's output folder.
         Assert.Equal(Path.Combine(Repository(), "src", "UmbracoAppHost.Web"), TestSite.FindProjectFolder(typeof(Program).Assembly));
-        Assert.Null(TestSite.FindHost(typeof(Program).Assembly));
+        Assert.Equal(typeof(Program), TestSite.FindHost(typeof(Program).Assembly));
         Assert.Equal(typeof(DownstreamProgram), TestSite.FindHost(typeof(DownstreamProgram).Assembly));
     }
 
@@ -142,7 +142,7 @@ public sealed class DownstreamProjectTests
         File.WriteAllText(Path.Combine(project, "appsettings.json"), JsonSerializer.Serialize(new
         {
             InstanceRoot = "instance-not-for-tests",
-            UmbracoAppHost = new { Samples = false, AdminPassword = ProjectPassword },
+            UmbracoAppHost = new { AdminPassword = ProjectPassword },
             Downstream = new { Greeting = "from appsettings.json", Environment = "Production" },
         }));
         File.WriteAllText(Path.Combine(project, "appsettings.Development.json"), """{ "Downstream": { "Environment": "Development" } }""");

@@ -103,7 +103,7 @@ public sealed class DownstreamHostTests
                 await reports.LoadAsync();
                 Assert.DoesNotContain(SampleReport.ReportName, reports.Reports.Keys);
 
-                // Every installed template is allowed on a paper report, and the default stays the default.
+                // Paper report templates are allowed on a paper report, site page layouts stay out, and there is no sample default.
                 var types = services.GetRequiredService<IContentTypeService>();
                 async Task<string[]> AllowedAsync(Func<string[], bool> done)
                 {
@@ -118,8 +118,8 @@ public sealed class DownstreamHostTests
                 }
                 var allowed = await AllowedAsync(aliases => aliases.Contains("DownstreamReport"));
                 Assert.Contains("DownstreamReport", allowed);
-                Assert.Contains("AppBlocks", allowed);
-                Assert.Equal("OrdersPaperReport", types.Get(PaperReportDefinition.Alias)!.DefaultTemplate?.Alias);
+                Assert.DoesNotContain("AppBlocks", allowed);
+                Assert.Null(types.Get(PaperReportDefinition.Alias)!.DefaultTemplate);
 
                 var address = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.Single();
                 using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { BaseAddress = new Uri(address) };
@@ -130,6 +130,8 @@ public sealed class DownstreamHostTests
                 Assert.True(home.IsSuccessStatusCode, $"Home returned {home.StatusCode}: {homeHtml}");
                 Assert.Contains("Downstream home", homeHtml);
                 Assert.Contains("<p>A downstream host's own root page.</p>", homeHtml);
+                var memberSignIn = await client.GetAsync("/_test-member", TestContext.Current.CancellationToken);
+                Assert.True(memberSignIn.IsSuccessStatusCode, $"Member sign-in returned {memberSignIn.StatusCode}");
                 var paper = await client.GetAsync($"/api/paper-reports/{PaperKey}?format=html", TestContext.Current.CancellationToken);
                 var print = await paper.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
                 Assert.True(paper.IsSuccessStatusCode, print);
@@ -139,12 +141,11 @@ public sealed class DownstreamHostTests
 
                 Assert.Empty(Directory.EnumerateFiles(Path.Combine(instance, "data"), SampleReport.DatabaseFile, SearchOption.AllDirectories));
                 using var state = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(instance, ".apphost", "runtime.json"), TestContext.Current.CancellationToken));
-                Assert.False(state.RootElement.GetProperty("samples").GetBoolean());
                 Assert.Equal(export, state.RootElement.GetProperty("hostExport").GetString());
 
                 // A template registered later joins the paper report's templates, and leaves them when deleted.
                 var templates = services.GetRequiredService<ITemplateService>();
-                Assert.True((await templates.CreateAsync("Downstream extra", "DownstreamExtra", "@* A second report template. *@", Constants.Security.SuperUserKey)).Success);
+                Assert.True((await templates.CreateAsync("Downstream extra", "DownstreamExtra", "@using AppBlocks.Documents.PaperReports\n@model PaperReportModel\n@* A second report template. *@", Constants.Security.SuperUserKey)).Success);
                 Assert.Contains("DownstreamExtra", await AllowedAsync(aliases => aliases.Contains("DownstreamExtra")));
                 Assert.True((await templates.DeleteAsync("DownstreamExtra", Constants.Security.SuperUserKey)).Success);
                 Assert.DoesNotContain("DownstreamExtra", await AllowedAsync(aliases => !aliases.Contains("DownstreamExtra")));
@@ -186,7 +187,6 @@ public sealed class DownstreamHostTests
             Application = typeof(Program).Assembly,
             Settings =
             {
-                [SampleContent.Setting] = "false",
                 ["UmbracoAppHost:HostExport"] = export,
                 ["Accounts:EnsureMemberGroups:0"] = editors,
             },
@@ -221,7 +221,6 @@ public sealed class DownstreamHostTests
             ["Umbraco:CMS:Hosting:Debug"] = "false",
             ["uSync:Settings:ExportOnSave"] = "None",
             [TestSite.ConsoleLogLevelSetting] = "Error",
-            [SampleContent.Setting] = "false",
             ["UmbracoAppHost:HostExport"] = export,
         });
         builder.AddUmbracoAppHost();
@@ -229,7 +228,20 @@ public sealed class DownstreamHostTests
         var app = builder.Build();
         try
         {
-            await app.UseUmbracoAppHostAsync();
+            await app.UseUmbracoAppHostAsync(configureEndpoints: u =>
+            {
+                u.EndpointRouteBuilder.MapGet("/_test-member", async (Microsoft.AspNetCore.Http.HttpContext http, IMemberService members) =>
+                {
+                    var member = members.GetByUsername("downstream-reader")
+                        ?? members.CreateMemberWithIdentity("downstream-reader", "downstream-reader@example.invalid", "Downstream reader", "Member", isApproved: true);
+                    var identity = new System.Security.Claims.ClaimsIdentity(
+                        [new(System.Security.Claims.ClaimTypes.NameIdentifier, member.Id.ToString()), new(System.Security.Claims.ClaimTypes.Name, member.Username)],
+                        Microsoft.AspNetCore.Identity.IdentityConstants.ApplicationScheme);
+                    await Microsoft.AspNetCore.Authentication.AuthenticationHttpContextExtensions.SignInAsync(
+                        http, Microsoft.AspNetCore.Identity.IdentityConstants.ApplicationScheme, new System.Security.Claims.ClaimsPrincipal(identity));
+                    return Microsoft.AspNetCore.Http.Results.Ok();
+                });
+            });
             await app.StartAsync();
             await UmbracoTestSupport.WaitForInstallAsync(app.Services, TimeSpan.FromMinutes(3));
             return app;
@@ -244,7 +256,7 @@ public sealed class DownstreamHostTests
         Directory.CreateDirectory(Path.Combine(export, "Templates"));
 
         // The Website theme demo's root, renamed; its menu links the demo's pages, so this one links itself only.
-        var home = XElement.Load(Path.Combine(AppContext.BaseDirectory, "uSync", "Content", "theme-website.config"));
+        var home = XElement.Load(Path.Combine(ApplicationStarter.SampleExport, "Content", "theme-website.config"));
         home.SetAttributeValue("Key", HomeKey);
         home.SetAttributeValue("Alias", "Downstream home");
         var info = home.Element("Info")!;

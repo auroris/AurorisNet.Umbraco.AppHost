@@ -16,12 +16,12 @@ public sealed class PreviewCookieTests
     public async Task Entering_and_leaving_preview_only_uses_this_installations_cookie()
     {
         const string route = "/__tests/preview";
-        const string url = "/wing" + route;
+        const string url = "/portal" + route;
         await using var site = await TestSite.StartAsync(new TestSiteOptions
         {
             Application = typeof(Program).Assembly,
-            VirtualPath = "/wing",
-            StartSettings = { ["Umbraco:CMS:Hosting:SiteName"] = "Wing" },
+            VirtualPath = "/portal",
+            StartSettings = { ["Umbraco:CMS:Hosting:SiteName"] = "Portal" },
             ConfigureApp = app =>
             {
                 app.MapPost(route, async (IPreviewService preview, IUserService users) =>
@@ -37,14 +37,14 @@ public sealed class PreviewCookieTests
 
         // The browser compares cookie paths case-sensitively. Preserve the operation and its query when
         // a visitor follows a bookmark with another spelling of the mount path.
-        using var bookmark = await browser.PostAsync("/WING" + route + "?return=%2FResume", null, TestContext.Current.CancellationToken);
+        using var bookmark = await browser.PostAsync("/PORTAL" + route + "?return=%2FResume", null, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.TemporaryRedirect, bookmark.StatusCode);
         Assert.Equal(url + "?return=%2FResume", bookmark.Headers.Location!.OriginalString);
         using var enter = await browser.PostAsync(bookmark.Headers.Location, null, TestContext.Current.CancellationToken);
         Assert.True(await enter.Content.ReadFromJsonAsync<bool>(TestContext.Current.CancellationToken));
         var issued = PreviewCookie(enter);
-        Assert.Matches("^UMB_PREVIEW-wing-[0-9a-f]{12}$", issued.Name.ToString());
-        Assert.Equal("/wing", issued.Path.ToString());
+        Assert.Matches("^UMB_PREVIEW-portal-[0-9a-f]{12}$", issued.Name.ToString());
+        Assert.Equal("/portal", issued.Path.ToString());
         Assert.True(issued.HttpOnly);
         Assert.True(await browser.GetFromJsonAsync<bool>(url, TestContext.Current.CancellationToken));
 

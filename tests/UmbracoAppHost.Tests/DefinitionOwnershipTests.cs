@@ -95,7 +95,7 @@ public sealed class DefinitionOwnershipTests
     [Fact]
     public void Every_sample_data_source_explicitly_requires_sign_in()
     {
-        var sources = Directory.EnumerateFiles(Path.Combine(Export, "Content"), "*.config")
+        var sources = Directory.EnumerateFiles(Path.Combine(ApplicationStarter.SampleExport, "Content"), "*.config")
             .Select(XElement.Load).Where(node => Text(node.Element("Info")!, "ContentType") == DataSourceSchema.SqlAlias).ToArray();
         Assert.NotEmpty(sources);
         foreach (var node in sources)
@@ -207,9 +207,12 @@ public sealed class DefinitionOwnershipTests
     public void Everything_the_exports_content_uses_exists_once_the_schemas_are_installed()
     {
         var installed = new Installed();
-        var templates = Directory.EnumerateFiles(Path.Combine(Export, "Templates"), "*.config").Select(file => Key(XElement.Load(file))).ToHashSet();
+        var templates = Directory.EnumerateFiles(Path.Combine(Export, "Templates"), "*.config")
+            .Concat(Directory.EnumerateFiles(Path.Combine(ApplicationStarter.SampleExport, "Templates"), "*.config"))
+            .Select(file => Key(XElement.Load(file))).ToHashSet();
         var problems = new List<string>();
-        foreach (var file in Directory.EnumerateFiles(Path.Combine(Export, "Content"), "*.config"))
+        foreach (var file in Directory.EnumerateFiles(Path.Combine(Export, "Content"), "*.config")
+            .Concat(Directory.EnumerateFiles(Path.Combine(ApplicationStarter.SampleExport, "Content"), "*.config")))
         {
             var content = XElement.Load(file);
             var name = Path.GetFileName(file);
@@ -248,6 +251,11 @@ public sealed class DefinitionOwnershipTests
         else if (editor == "Umbraco.SingleBlock" && layout.Count > 1)
             problems.Add($"{where} cannot contain more than one Single Block.");
         var offered = (JsonNode.Parse(Text(dataType, "Config"))?["blocks"]?.AsArray() ?? []).Select(block => block!["contentElementTypeKey"]!.GetValue<string>()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (Alias(dataType) is "Website: Page blocks" or "Application: Application blocks")
+        {
+            foreach (var alias in new[] { UmbracoAppHost.Authentication.MemberSignInBlock.BlockAlias, UmbracoAppHost.Application.ChildPageLinksBlock.BlockAlias })
+                if (installed.Types.TryGetValue(alias, out var allowedType)) offered.Add(Key(allowedType).ToString());
+        }
         foreach (var section in new[] { "contentData", "settingsData" })
         foreach (var block in value[section]?.AsArray() ?? [])
         {

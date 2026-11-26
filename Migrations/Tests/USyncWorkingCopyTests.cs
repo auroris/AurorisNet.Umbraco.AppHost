@@ -14,7 +14,7 @@ public sealed class USyncWorkingCopyTests
             var working = Path.Combine(root.FullName, "working");
             var export = Path.Combine(root.FullName, "export");
             var marker = Path.Combine(working, "usync.config");
-            void Copy() => USyncFiles.EnsureWorkingCopy(working, false, export, NullLogger.Instance);
+            void Copy() => USyncFiles.EnsureWorkingCopy(working, export, NullLogger.Instance);
 
             // The host export is unavailable on the first attempt, after the packaged files were copied.
             Assert.Throws<DirectoryNotFoundException>(Copy);

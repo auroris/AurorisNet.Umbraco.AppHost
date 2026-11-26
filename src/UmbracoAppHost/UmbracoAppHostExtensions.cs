@@ -3,11 +3,11 @@ using AppBlocks.Authentication;
 using AppBlocks.Connections;
 using AppBlocks.InteractiveReports;
 using AppBlocks.Documents;
-using InteractiveReport.Client.FileDownload;
-using InteractiveReport.Client.Json;
+using InteractiveReport.AspNetCore;
 using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Cms.Core.Configuration.Models;
 using Umbraco.Cms.Core.Security;
+using Umbraco.Cms.Core.Services;
 using Umbraco.Cms.Web.Common.ApplicationBuilder;
 using Umbraco.Cms.Web.Common.Hosting;
 using UmbracoAppHost.Authentication;
@@ -18,8 +18,6 @@ using Microsoft.Extensions.FileProviders;
 using AppBlocks.InteractiveReports.Reports;
 using UmbracoAppHost.Reports;
 using AppBlocks.Blocks;
-using AppBlocks.Forms;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Umbraco.Cms.Infrastructure.Migrations.Notifications;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -28,10 +26,8 @@ using Umbraco.Cms.Core.Persistence.Repositories;
 using UmbracoAppHost.Application;
 using AppBlocks.Attachments;
 using AppBlocks.DataSources;
-using AppBlocks.Documents.PaperReports;
-using AppBlocks.Schedules;
-using AppBlocks.Tabular;
 using UmbracoAppHost.Hosting;
+using UmbracoAppHost.Themes;
 using uSync.BackOffice;
 using uSync.BackOffice.Configuration;
 using UmbracoAppHost.PeoplePicker;
@@ -47,25 +43,18 @@ namespace UmbracoAppHost;
 public static class UmbracoAppHostExtensions
 {
     /// <summary>
-    /// Initializes an independent site with the shared services, views and starter content, and the samples unless
-    /// <c>UmbracoAppHost:Samples</c> is false.
+    /// Initializes a clean site with the shared services, views and base definitions.
     /// </summary>
     public static WebApplicationBuilder AddUmbracoAppHost(
         this WebApplicationBuilder builder, Action<AppBlocksBuilder>? configureConnections = null)
     {
         InstanceConfiguration.Apply(builder);
         builder.WebHost.UseStaticWebAssets();
-        var samples = builder.Configuration.GetValue(SampleContent.Setting, true);
-        if (samples) builder.Services.AddScoped<IFormResource, OrdersFormResource>();
         builder.CreateUmbracoBuilder()
             .AddBackOffice()
             .AddWebsite()
             .AddComposers()
-            .AddUmbracoAppHost(builder.Configuration, connections =>
-            {
-                if (samples) connections.AddSampleOrders(builder.Services);
-                configureConnections?.Invoke(connections);
-            })
+            .AddUmbracoAppHost(builder.Configuration, configureConnections)
             .Build();
         return builder;
     }
@@ -73,12 +62,17 @@ public static class UmbracoAppHostExtensions
     /// <summary>
     /// <see cref="AddUmbracoAppHost(WebApplicationBuilder, Action{AppBlocksBuilder}?)"/> with the host's own
     /// registrations: <typeparamref name="THost"/>'s services first, then its connections and
-    /// <paramref name="configureConnections"/>.
+    /// <paramref name="configureConnections"/>. When <typeparamref name="THost"/>'s assembly embeds <c>Views/</c> or
+    /// <c>uSync/</c> via an embedded files manifest, it is automatically registered as a <see cref="ThemeLibrary"/>.
     /// </summary>
     public static WebApplicationBuilder AddUmbracoAppHost<THost>(
         this WebApplicationBuilder builder, Action<AppBlocksBuilder>? configureConnections = null) where THost : IUmbracoAppHost
     {
         THost.ConfigureServices(builder);
+        var hostAssembly = typeof(THost).Assembly;
+        if (ThemeLibrary.HasEmbeddedContent(hostAssembly)
+            && !builder.Services.Any(d => d.ServiceType == typeof(ThemeLibrary) && d.ImplementationInstance is ThemeLibrary existing && existing.Assembly == hostAssembly))
+            builder.Services.AddSingleton(new ThemeLibrary(hostAssembly));
         return builder.AddUmbracoAppHost(connections =>
         {
             THost.ConfigureConnections(builder, connections);
@@ -91,11 +85,11 @@ public static class UmbracoAppHostExtensions
     /// directory, Interactive Reports with Umbraco-backed authorization and the built-in audit
     /// reports, configured accounts, the older setting names of break-glass access, virtual-path
     /// hosting, and each language's configured fallback for pages and values missing in its culture.
-    /// On first boot the working uSync folder receives the library's export, without its sample content when
-    /// <c>UmbracoAppHost:Samples</c> is false, then the host's own export from <c>UmbracoAppHost:HostExport</c>.
+    /// On first boot the working uSync folder receives the library's export, then the host's own export
+    /// from <c>UmbracoAppHost:HostExport</c>.
     /// Call it after <c>AddComposers()</c> so account provisioning runs after uSync's startup import.
     /// </summary>
-    /// <param name="configureConnections">Registers the site's own connections, for example a sample database.</param>
+    /// <param name="configureConnections">Registers the site's own connections, for example an application database.</param>
     public static IUmbracoBuilder AddUmbracoAppHost(
         this IUmbracoBuilder builder,
         IConfiguration configuration,
@@ -103,6 +97,7 @@ public static class UmbracoAppHostExtensions
     {
         SharedViews.Configure(builder.Services);
         BlockPreviews.Configure(builder.Services);
+        builder.AddNotificationHandler<UmbracoApplicationStartedNotification, BlockPreviews.BlockPreviewPluginAliases>();
         builder.Services.AddSingleton<BackOfficeAuthFiles>();
         Decorate<IBackOfficePathGenerator>(builder.Services, (paths, services) =>
             new InstallationBackOfficePaths(paths, services.GetRequiredService<BackOfficeAuthFiles>()));
@@ -115,12 +110,12 @@ public static class UmbracoAppHostExtensions
                 settings.InstallData = InstallDefaultDataOption.Values;
                 settings.Values = new HashSet<string> { "en" };
             });
-        builder.Services.AddOptions<uSyncSettings>().Configure<IWebHostEnvironment, ILoggerFactory, IEnumerable<UmbracoAppHost.Themes.ThemeLibrary>>((settings, environment, loggers, libraries) =>
+        builder.Services.AddOptions<uSyncSettings>().Configure<IWebHostEnvironment, ILoggerFactory, IEnumerable<ThemeLibrary>>((settings, environment, loggers, libraries) =>
         {
             settings.ImportOnFirstBoot = configuration.GetValue("uSync:Settings:ImportOnFirstBoot", true);
             settings.FirstBootGroup = configuration["uSync:Settings:FirstBootGroup"] ?? "All";
             var working = Path.GetFullPath(settings.RootFolder, environment.ContentRootPath);
-            USyncFiles.EnsureWorkingCopy(working, configuration.GetValue(SampleContent.Setting, true),
+            USyncFiles.EnsureWorkingCopy(working,
                 USyncFiles.HostExport(configuration, environment.ContentRootPath, working), loggers.CreateLogger(typeof(USyncFiles)), libraries);
             SharedViews.EnsureTemplates(environment, loggers.CreateLogger(typeof(SharedViews)), libraries);
         });
@@ -130,7 +125,15 @@ public static class UmbracoAppHostExtensions
         builder.Services.AddScoped<ReportAccessPolicy>();
         // Backoffice report management checks editors' permissions. The published website uses the member session.
         builder.Services.PostConfigure<WebsiteIdentityOptions>(options => options.IncludeBackOfficeUsers = false);
-        builder.Services.AddScoped<IProtectedPageAdmission, EditorPageAdmission>();
+        builder.Services.TryAddScoped<EditorPageAdmission>();
+        builder.Services.TryAddScoped<IProtectedPageAdmission>(services => services.GetRequiredService<EditorPageAdmission>());
+        if (builder.Services.Any(service => service.ServiceType == typeof(IPublicAccessChecker) && !service.IsKeyedService))
+            Decorate<IPublicAccessChecker>(builder.Services, (inner, services) =>
+                new AppHostPublicAccessChecker(inner,
+                    services.GetRequiredService<IHttpContextAccessor>(),
+                    services.GetRequiredService<IPublicAccessService>(),
+                    services.GetRequiredService<IContentService>(),
+                    services.GetRequiredService<IOptions<ProtectedPageAdmissionOptions>>()));
         builder.Services.Replace(ServiceDescriptor.Scoped<IReportAccessPolicy>(services => services.GetRequiredService<ReportAccessPolicy>()));
         builder.Services.AddScoped<BackOfficeMemberProvisioning>();
         builder.Services.AddScoped<IUserValidator<BackOfficeIdentityUser>, BackOfficeMemberProvisioning>();
@@ -143,6 +146,8 @@ public static class UmbracoAppHostExtensions
         // Who is signed in, for the views and the application pages, and AppBlocks' access rule for those pages.
         builder.Services.AddScoped<SiteVisitor>();
         builder.Services.AddScoped<ApplicationAccessPolicy>();
+        builder.Services.TryAddScoped<IMemberSidResolver, WindowsMemberSidResolver>();
+        builder.Services.TryAddScoped<ApplicationPages>();
         // The embedded identity server keeps its keys where this host always has: keys/identity-server under the
         // instance data folder, not the package's own default under App_Data.
         builder.Services.AddOptions<EmbeddedIdentityServerSettings>().PostConfigure<IWebHostEnvironment>((settings, environment) =>
@@ -151,6 +156,9 @@ public static class UmbracoAppHostExtensions
             var dataRoot = configuration["UmbracoAppHost:DataRoot"] ?? Path.Combine(environment.ContentRootPath, "App_Data", "UmbracoAppHost");
             settings.DataPath = Path.Combine(dataRoot, "keys", "identity-server");
         });
+        var attachmentsConfigured = !string.IsNullOrWhiteSpace(configuration["Attachments:Connection"]);
+        var savedReportsConfigured = !string.IsNullOrWhiteSpace(configuration["InteractiveReport:SavedReports:Connection"])
+            || !string.IsNullOrWhiteSpace(configuration["InteractiveReport:SavedReports:DataSource"]);
         builder
             // Before the package's configured accounts, so a configured backoffice user can join this group on the first run.
             .AddNotificationAsyncHandler<UmbracoApplicationStartedNotification, ReportAdministratorsGroup>()
@@ -165,6 +173,8 @@ public static class UmbracoAppHostExtensions
                 appBlocks.SiteOwnsDefinition([.. AppBlocksDefinitions.HostOwned.Keys]);
                 appBlocks.AllowInBlockGrid("Website: Page blocks", MemberSignInBlock.BlockAlias, "Page blocks");
                 appBlocks.AllowInBlockGrid("Application: Application blocks", MemberSignInBlock.BlockAlias, "Page blocks");
+                appBlocks.AllowInBlockGrid("Website: Page blocks", ChildPageLinksBlock.BlockAlias, "Page blocks");
+                appBlocks.AllowInBlockGrid("Application: Application blocks", ChildPageLinksBlock.BlockAlias, "Page blocks");
                 configureConnections?.Invoke(appBlocks);
             })
             // The configured groups exist before uSync's first-boot import resolves the export's group pickers.
@@ -175,10 +185,28 @@ public static class UmbracoAppHostExtensions
             // After uSync's own startup work, which its composer registered: the build's definitions reach a site that an
             // earlier build created, and applications then hear that they may install their content.
             .AddNotificationAsyncHandler<UmbracoApplicationStartingNotification, SiteDefinitions>();
+
+        // When a host registers exactly one application database, store attachments and saved report views there
+        // unless appsettings explicitly chooses another connection.
+        builder.Services.AddOptions<AttachmentSettings>().PostConfigure<AppBlocksBuilder, ConnectionCatalog>((options, appBlocks, catalog) =>
+        {
+            if (!attachmentsConfigured)
+                options.Connection = SingleApplicationDatabase(appBlocks, catalog) ?? ConnectionCatalog.AttachmentsConnection;
+        });
+        builder.Services.AddOptions<InteractiveReportOptions>().PostConfigure<AppBlocksBuilder, ConnectionCatalog>((options, appBlocks, catalog) =>
+        {
+            if (!savedReportsConfigured)
+                options.SavedReports.Connection = SingleApplicationDatabase(appBlocks, catalog) ?? "ReportsDb";
+        });
+        if (builder.Services.Any(service => service.ServiceType == typeof(IDataSourceUserResolver) && !service.IsKeyedService))
+            Decorate<IDataSourceUserResolver>(builder.Services, (inner, services) =>
+                new VerifiedSidDataSourceUserResolver(inner, services.GetRequiredService<IMemberSidResolver>()));
+
         builder.Services.AddSingleton<AppBlocksDefinitions>();
         builder.Services.AddSingleton(new AppBlocksSchema(typeof(PeoplePickerBlock).Assembly));
         builder.Services.AddSingleton<IAppBlockPlugin, PeoplePickerBlock>();
         builder.Services.AddSingleton<IAppBlockPlugin, MemberSignInBlock>();
+        builder.Services.AddSingleton<IAppBlockPlugin, ChildPageLinksBlock>();
         builder.Services.TryAddSingleton<TimeProvider>(TimeProvider.System);
         builder.Services.TryAddSingleton<IPeoplePickerDirectory, PeoplePickerDirectory>();
         builder.Services.AddSingleton<PeoplePickerCache>();
@@ -187,14 +215,15 @@ public static class UmbracoAppHostExtensions
         AddDirectoryAccountSettings(builder.Services, configuration);
 
         builder.AddAppBlocksDocuments();
-        builder.Services.Replace(ServiceDescriptor.Scoped<IDocumentPresentationProvider, UmbracoAppHost.Themes.AppHostDocumentPresentation>());
-        builder.Services.AddSingleton<UmbracoAppHost.Themes.SiteThemeCatalog>();
+        builder.Services.Replace(ServiceDescriptor.Scoped<IDocumentPresentationProvider, AppHostDocumentPresentation>());
+        builder.Services.AddSingleton<SiteThemeCatalog>();
+        builder.Services.TryAddScoped<Website.PageDestination>();
         // The authored menu with its visitor tokens replaced, once per request.
-        builder.Services.AddScoped<UmbracoAppHost.Website.SiteMenu>();
+        builder.Services.AddScoped<Website.SiteMenu>();
         builder.Services.AddSingleton<Website.NavigationUpdates>();
         builder.AddNotificationHandler<ContentCacheRefresherNotification, Website.NavigationRefresh>();
         builder.AddNotificationHandler<PublicAccessCacheRefresherNotification, Website.NavigationRefresh>();
-        builder.AddNotificationAsyncHandler<RoutingRequestNotification, UmbracoAppHost.Website.WebsiteTemplateInheritance>();
+        builder.AddNotificationAsyncHandler<RoutingRequestNotification, Website.WebsiteTemplateInheritance>();
         AddCultureFallback(builder);
 
         InstallationCookies.Configure(builder.Services);
@@ -206,6 +235,12 @@ public static class UmbracoAppHostExtensions
         // sign-in. This host's older setting names still feed them.
         builder.AddBreakGlassCompatibility(configuration);
         return builder;
+    }
+
+    private static string? SingleApplicationDatabase(AppBlocksBuilder appBlocks, ConnectionCatalog catalog)
+    {
+        var databases = appBlocks.ConnectionNames.Where(catalog.IsApplicationDatabase).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        return databases.Length == 1 ? databases[0] : null;
     }
 
     /// <summary>

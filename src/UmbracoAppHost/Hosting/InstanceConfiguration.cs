@@ -95,7 +95,6 @@ internal static class InstanceConfiguration
                 projectRoot = builder.ProjectRoot(), managedDatabase,
                 uSyncRoot = Path.Combine(AppContext.BaseDirectory, "uSync"),
                 hostExport = USyncFiles.HostExport(builder.Configuration, builder.Environment.ContentRootPath, Path.Combine(root, "uSync")),
-                samples = builder.Configuration.GetValue(SampleContent.Setting, true),
             }));
             var dp = builder.Services.AddDataProtection().PersistKeysToFileSystem(Directory.CreateDirectory(Path.Combine(data, "keys")))
                 .SetApplicationName(builder.Configuration["Umbraco:CMS:Global:Id"]!);

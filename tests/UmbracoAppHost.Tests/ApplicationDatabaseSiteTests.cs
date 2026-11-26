@@ -80,7 +80,7 @@ public sealed class ApplicationDatabaseSiteTests
 
             // First boot published the whole sample on this database, the sources that publishing reads included.
             var content = scope.ServiceProvider.GetRequiredService<IContentService>();
-            var refused = USyncExport.Content(Path.Combine(AppContext.BaseDirectory, "uSync"))
+            var refused = USyncExport.Content(ApplicationStarter.Export).Concat(USyncExport.Content(ApplicationStarter.SampleExport))
                 .Where(item => XElement.Load(item.File).Element("Info")?.Element("Published")?.Attribute("Default")?.Value == "true")
                 .Where(item => content.GetById(item.Key)?.Published != true).Select(item => item.Path).ToArray();
             Assert.True(refused.Length == 0, "Published in the export but not here: " + string.Join(", ", refused));

@@ -32,6 +32,6 @@ public sealed class ContentBlocksTests
     }
 
     /// <summary>The Content blocks page of the saved export, which shows every new block and field property.</summary>
-    internal static string DemoContent() => XElement.Load(Path.Combine(AppContext.BaseDirectory, "uSync", "Content", "content-blocks.config"))
+    internal static string DemoContent() => XElement.Load(Path.Combine(ApplicationStarter.SampleExport, "Content", "content-blocks.config"))
         .Element("Properties")!.Element(ApplicationStarter.BlockPropertyAlias)!.Element("Value")!.Value;
 }

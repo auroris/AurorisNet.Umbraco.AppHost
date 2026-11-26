@@ -21,7 +21,7 @@ namespace UmbracoAppHost.Tests;
 [Collection("Umbraco hosts")]
 public sealed class BackOfficeSsoHttpTests
 {
-    private const string Prefix = "/wing";
+    private const string Prefix = "/portal";
     private const string Api = Prefix + "/umbraco/management/api/v1/security/back-office";
     private const string Scheme = "Umbraco.TestIdentity";
 

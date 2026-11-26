@@ -7,5 +7,3 @@
 [Oo]bj/
 artifacts/
 reference/
-# Leftover generated assets from the retired frontend packaging project.
-/src/FourWing.Frontend/wwwroot/

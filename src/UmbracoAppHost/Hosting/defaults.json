@@ -132,12 +132,9 @@
   "InteractiveReport": {
     "WhoamiEnabled": true,
     "Administrators": [],
-    "SavedReports": {
-      "connection": "ReportsDb"
-    }
+    "SavedReports": {}
   },
   "Attachments": {
-    "Connection": "AttachmentsDb",
     "MaxFileSize": 26214400,
     "AllowedExtensions": [],
     "RetentionDays": 30

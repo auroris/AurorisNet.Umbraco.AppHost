@@ -31,7 +31,7 @@ public sealed class TabularBlockTests
     {
         // A first import publishes the nodes of one level in sort order, and publishing a page checks its data source,
         // so the source must come before both sample pages whatever order their parents give.
-        static int SortOrder(Guid key) => int.Parse(XElement.Load(USyncExport.ContentByKey(ApplicationStarter.Export, key).File).Element("Info")!.Element("SortOrder")!.Value);
+        static int SortOrder(Guid key) => int.Parse(XElement.Load(USyncExport.ContentByKey(ApplicationStarter.SampleExport, key).File).Element("Info")!.Element("SortOrder")!.Value);
         var lines = SortOrder(ApplicationStarter.OrderLinesDataSourceKey);
         Assert.True(lines < SortOrder(ApplicationStarter.FormPageKey));
         Assert.True(lines < SortOrder(Guid.Parse("d9a69f9f-f8e4-dc51-76c8-9d1ec178b238")));
