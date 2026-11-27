@@ -11,6 +11,7 @@ ContentTypes/appcss.config
 ContentTypes/appdate.config
 ContentTypes/appdatetime.config
 ContentTypes/appdisplay.config
+ContentTypes/appEmailLink.config
 ContentTypes/appfieldcondition.config
 ContentTypes/appfieldrule.config
 ContentTypes/appfieldset.config
