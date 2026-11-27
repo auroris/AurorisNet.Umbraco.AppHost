@@ -91,9 +91,11 @@ test('custom views render with the running host’s installed Umbraco modules', 
             assert.match(element.shadowRoot.querySelector('.split').getAttribute('style'), /1fr 2fr/);
         } else {
             assert(frame, alias);
-            assert.equal(frame.getAttribute('sandbox'), 'allow-same-origin');
+            assert(frame.hasAttribute('inert'), alias);
+            assert.equal(frame.getAttribute('sandbox'), null);
             assert.equal(element.shadowRoot.querySelector('.edit-preview').getAttribute('href'), '/edit-block');
             const preview = new JSDOM(frame.srcdoc).window.document;
+            assert.match(preview.querySelector('meta[http-equiv="Content-Security-Policy"]').content, /script-src 'none'/);
             assert.equal(preview.querySelector('script,form,[onerror]'), null, alias);
             if (alias === 'appMemberSignIn') {
                 assert.equal(preview.querySelector('h3').textContent, 'Member access');
