@@ -117,17 +117,12 @@ Copy-Item ../AurorisNet.Umbraco.AppHost/src/UmbracoAppHost/Views/_ViewImports.cs
 `new-site.ps1 -Project` creates the file when it is missing and leaves an existing one alone, so
 the host can add its own directives.
 
-`Program.cs` makes the two calls:
+`Program.cs` starts the site through AppHost so it can serve the setup page if startup checks fail.
 
 ```csharp
 using UmbracoAppHost;
 
-var builder = WebApplication.CreateBuilder(args);
-builder.AddUmbracoAppHost<Program>();
-
-await using var app = builder.Build();
-await app.UseUmbracoAppHostAsync<Program>();
-await app.RunAsync();
+await AppHostStartup.RunAsync<Program>(args);
 
 public partial class Program : IUmbracoAppHost
 {
@@ -143,9 +138,25 @@ The `Program` class holds the host's registrations as static members of `IUmbrac
 | `ConfigureConnections(WebApplicationBuilder, AppBlocksBuilder)` | Registers the host's connections, such as [a database of its own](databases.md#a-database-of-your-own). |
 | `ConfigureMiddleware(IUmbracoApplicationBuilderContext)` | Adds middleware inside Umbraco's pipeline, after Umbraco's own. |
 | `ConfigureEndpoints(IUmbracoEndpointBuilderContext)` | Maps the host's endpoints after Umbraco's. |
+| `CheckNewInstallation(WebApplicationBuilder, AppHostStartupReport)` | Checks settings before the instance data has been initialized. It can report missing settings even when the site account cannot create its files. |
 
-A host with no registrations can call `builder.AddUmbracoAppHost()` and
-`app.UseUmbracoAppHostAsync()`, which take the same registrations as optional callbacks.
+Register site-specific checks in `ConfigureServices` with
+`builder.Services.AddAppHostStartupCheck<CaseDatabaseCheck>()`. Implement `IAppHostStartupCheck`
+on the class. AppHost resolves its dependencies from a scope and calls
+`Task CheckAsync(AppHostStartupReport report, CancellationToken cancellationToken)` before Umbraco boots.
+Use read-only operations that work before installation. For example, a database check can inspect
+the effective connection and the current database user's default schema. Opening a connection through
+a factory that runs migrations on open would start the installation during the check.
+
+Call `report.AddProblem(description, remedy)` for each failed requirement and continue with the
+independent checks. `AddAdvice` adds a nonblocking issue to the guide when another problem stops
+startup. Write both strings for the person installing the site. Include the file, setting, and
+steps to fix it. Log exception details privately with the check's injected logger. Everyone who
+visits the site can read the guide.
+
+Hosts that manage the ASP.NET Core lifecycle themselves can use `builder.AddUmbracoAppHost()`
+and `app.UseUmbracoAppHostAsync()`. These calls run the checks and propagate startup exceptions.
+The independent HTTP responder is provided by `AppHostStartup.RunAsync`.
 
 A host that builds Umbraco itself can call the overload on `IUmbracoBuilder` after
 `AddComposers()`: `AddUmbracoAppHost(configuration, configureConnections)`. It registers the

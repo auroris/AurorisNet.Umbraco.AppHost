@@ -38,7 +38,7 @@ public sealed class InstanceConfigurationTests
         try
         {
             var pending = Directory.CreateDirectory(Path.Combine(root, "instance", ".apphost", "pending-update"));
-            var failure = Assert.Throws<InvalidOperationException>(() => Apply(root, configured: null));
+            var failure = Assert.Throws<StartupFailure>(() => Apply(root, configured: null));
             Assert.Contains("update-site.ps1", failure.Message);
             Assert.False(File.Exists(Path.Combine(root, "instance", "instance.json")));
             pending.Delete();

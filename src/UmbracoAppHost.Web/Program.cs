@@ -3,12 +3,7 @@ using AppBlocks.Forms;
 using UmbracoAppHost;
 using UmbracoAppHost.Application;
 
-var builder = WebApplication.CreateBuilder(args);
-builder.AddUmbracoAppHost<Program>();
-
-await using var app = builder.Build();
-await app.UseUmbracoAppHostAsync<Program>();
-await app.RunAsync();
+await AppHostStartup.RunAsync<Program>(args);
 
 public partial class Program : IUmbracoAppHost
 {

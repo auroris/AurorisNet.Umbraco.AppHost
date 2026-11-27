@@ -61,11 +61,14 @@ public sealed class SiteHostingTests
         var log = new StartupLog();
         SiteHosting.CheckKeyRing(new EphemeralDataProtectionProvider(), "Portal", "site/keys", log);
         Assert.Empty(log.Messages);
-        var error = Assert.Throws<InvalidOperationException>(() => SiteHosting.CheckKeyRing(new BrokenProtector(), "Portal", "site/keys", log));
+        var error = Assert.Throws<StartupFailure>(() => SiteHosting.CheckKeyRing(new BrokenProtector(), "Portal", "site/keys", log));
         Assert.IsType<CryptographicException>(error.InnerException);
         Assert.Equal(error.Message, Assert.Single(log.Messages));
         Assert.Contains("IIS pool 'Portal'", error.Message);
         Assert.Contains("site/keys", error.Message);
+        var problem = Assert.Single(error.Problems);
+        Assert.Contains("Load User Profile", problem.Remedy);
+        Assert.DoesNotContain("Portal", problem.Remedy);
     }
 
     private sealed class BrokenProtector : IDataProtector

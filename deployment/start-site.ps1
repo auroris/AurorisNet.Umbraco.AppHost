@@ -4,7 +4,8 @@
 param([string] $Urls)
 $ErrorActionPreference = 'Stop'
 $site = $PSScriptRoot
-if (!$Urls) { $Urls = (Get-Content -LiteralPath (Join-Path $site instance.json) -Raw | ConvertFrom-Json).Urls }
+$settings = Join-Path $site instance.json
+if (!$Urls -and (Test-Path -LiteralPath $settings)) { $Urls = (Get-Content -LiteralPath $settings -Raw | ConvertFrom-Json).Urls }
 $assembly = (Get-Content -LiteralPath (Join-Path $site '.apphost/instance.json') -Raw | ConvertFrom-Json).assembly
 # Sites created before the scripts recorded the assembly run the reference launcher.
 if (!$assembly) { $assembly = 'UmbracoAppHost.Web.dll' }

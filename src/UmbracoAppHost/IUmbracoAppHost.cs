@@ -12,6 +12,10 @@ namespace UmbracoAppHost;
 /// </summary>
 public interface IUmbracoAppHost
 {
+    /// <summary>Checks settings for a new instance. Runs even when the worker cannot create instance.json.
+    /// Existing installations are checked using their effective services through IAppHostStartupCheck.</summary>
+    static virtual void CheckNewInstallation(WebApplicationBuilder builder, AppHostStartupReport report) { }
+
     /// <summary>Registers the host's services, before the library's.</summary>
     static virtual void ConfigureServices(WebApplicationBuilder builder) { }
 

@@ -48,16 +48,31 @@ public static class UmbracoAppHostExtensions
     /// </summary>
     public static WebApplicationBuilder AddUmbracoAppHost(
         this WebApplicationBuilder builder, Action<AppBlocksBuilder>? configureConnections = null)
+        => AddManagedSite(builder, configureConnections, out _);
+
+    private static WebApplicationBuilder AddManagedSite(WebApplicationBuilder builder,
+        Action<AppBlocksBuilder>? configureConnections, out AppHostInstance instance,
+        Action<WebApplicationBuilder, AppHostStartupReport>? checkNewInstallation = null, AppHostStartupReport? report = null)
     {
-        InstanceConfiguration.Apply(builder);
-        builder.WebHost.UseStaticWebAssets();
-        builder.CreateUmbracoBuilder()
-            .AddBackOffice()
-            .AddWebsite()
-            .AddComposers()
-            .AddUmbracoAppHost(builder.Configuration, configureConnections)
-            .Build();
-        return builder;
+        report ??= new AppHostStartupReport();
+        builder.Services.AddSingleton(report);
+        instance = InstanceConfiguration.Apply(builder, report, checkNewInstallation);
+        try
+        {
+            builder.WebHost.UseStaticWebAssets();
+            builder.CreateUmbracoBuilder()
+                .AddBackOffice()
+                .AddWebsite()
+                .AddComposers()
+                .AddUmbracoAppHost(builder.Configuration, configureConnections)
+                .Build();
+            return builder;
+        }
+        catch
+        {
+            instance.Dispose();
+            throw;
+        }
     }
 
     /// <summary>
@@ -68,17 +83,21 @@ public static class UmbracoAppHostExtensions
     /// </summary>
     public static WebApplicationBuilder AddUmbracoAppHost<THost>(
         this WebApplicationBuilder builder, Action<AppBlocksBuilder>? configureConnections = null) where THost : IUmbracoAppHost
+        => AddManagedSite<THost>(builder, configureConnections, out _);
+
+    internal static WebApplicationBuilder AddManagedSite<THost>(WebApplicationBuilder builder,
+        Action<AppBlocksBuilder>? configureConnections, out AppHostInstance instance, AppHostStartupReport? report = null) where THost : IUmbracoAppHost
     {
         THost.ConfigureServices(builder);
         var hostAssembly = typeof(THost).Assembly;
         if (ThemeLibrary.HasEmbeddedContent(hostAssembly)
             && !builder.Services.Any(d => d.ServiceType == typeof(ThemeLibrary) && d.ImplementationInstance is ThemeLibrary existing && existing.Assembly == hostAssembly))
             builder.Services.AddSingleton(new ThemeLibrary(hostAssembly));
-        return builder.AddUmbracoAppHost(connections =>
+        return AddManagedSite(builder, connections =>
         {
             THost.ConfigureConnections(builder, connections);
             configureConnections?.Invoke(connections);
-        });
+        }, out instance, THost.CheckNewInstallation, report);
     }
 
     /// <summary>
@@ -97,6 +116,7 @@ public static class UmbracoAppHostExtensions
         Action<AppBlocksBuilder>? configureConnections = null)
     {
         SiteHosting.ApplyVirtualPath(configuration);
+        builder.Services.AddAppHostStartupCheck<UmbracoStartupCheck>();
         SharedViews.Configure(builder.Services);
         BlockPreviews.Configure(builder.Services);
         builder.AddNotificationHandler<UmbracoApplicationStartedNotification, BlockPreviews.BlockPreviewPluginAliases>();
@@ -323,7 +343,26 @@ public static class UmbracoAppHostExtensions
         if (app.Services.GetService<AppHostInstance>() is { } instance)
             app.Logger.LogInformation("Site data: {DataRoot}. Initial administrator credentials: {SettingsPath}",
                 instance.Root, instance.SettingsPath);
-        SiteHosting.Check(app);
+        var report = app.Services.GetService<AppHostStartupReport>() ?? new AppHostStartupReport();
+        SiteHosting.Check(app, report);
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var stopping = app.Lifetime.ApplicationStopping;
+            foreach (var registration in scope.ServiceProvider.GetServices<StartupCheckRegistration>())
+            {
+                try
+                {
+                    var check = (IAppHostStartupCheck)scope.ServiceProvider.GetRequiredService(registration.CheckType);
+                    await check.CheckAsync(report, stopping);
+                }
+                catch (Exception error) when (error is not OperationCanceledException)
+                {
+                    app.Logger.LogError(error, "Startup check {Check} failed", registration.CheckType.FullName);
+                    report.AddProblem("A site requirement could not be checked.", "Check the host log for the failing startup check and correct the error.");
+                }
+            }
+        }
+        report.ThrowIfBlocked();
         await app.BootUmbracoAsync();
 
         if (app.Configuration.GetValue<bool>("UmbracoAppHost:RedirectToHttps"))

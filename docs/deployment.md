@@ -156,14 +156,26 @@ headers from the trusted proxy so AppHost sees the original request scheme.
    uses its path for Umbraco routing, assets and sign-in callbacks. An existing explicit
    `Umbraco:CMS:Hosting:ApplicationVirtualPath` takes precedence. IIS supplies the listener binding.
 
-Before Umbraco boots, AppHost logs inconsistent paths and Kestrel listener addresses that contain
-an application path. Under in-process IIS it also checks the actual IIS mount and warns when URL
-detection is disabled and the public URL is missing. For AppHost-managed instances it uses the
-worker's Data Protection provider to protect and unprotect a probe. A failed key-ring check stops
-startup before unattended installation can save a login with an unusable password. Look in
-`app/umbraco/Logs` and the Windows Application event log for the pool name and key directory.
-Check the pool identity's Modify access to `data/keys`, its loaded Windows profile and the IIS
-`setProfileEnvironment` setting.
+### If the browser shows “Site startup stopped”
+
+The website and backoffice show the same setup guide. Each numbered item describes something
+the worker found wrong and how to correct it. After making the changes, stop the site's
+application pool in IIS Manager, wait for its worker to exit, start the pool, and refresh.
+This lets the old worker release its instance lock. A healthy site opens normally.
+
+AppHost checks the instance settings, lock, interrupted updates, writable storage and actual
+sign-in keys. Umbraco checks cover its effective cache, temporary uploads, logs, Views folder,
+runtime-mode requirements and CMS database. On a new SQLite installation the check probes the
+directory before Umbraco creates the database. On SQL Server it opens the configured connection
+as the worker and checks whether missing CMS tables can be created. Applications can contribute
+their own checks. Passing checks are omitted. If an early prerequisite prevents the remaining
+checks from running, the page asks you to restart after fixing it.
+
+For technical details, open **Event Viewer → Windows Logs → Application** and look for
+**.NET Runtime** at the time of startup. The normal Umbraco log, when available, lives in
+`app/umbraco/Logs` by default. Kestrel also writes the failure to its console. IIS must be able
+to launch ASP.NET Core to serve this page. If IIS itself reports a missing hosting module or
+runtime, check the application's physical path and the .NET 10 Hosting Bundle first.
 
 Stop the application pool before updating the site. Databases and media stay outside the
 application's physical path.
