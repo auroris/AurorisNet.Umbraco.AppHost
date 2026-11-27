@@ -59,6 +59,9 @@ DataTypes/ApplicationApiShape.config
 DataTypes/ApplicationBackingClass.config
 DataTypes/ApplicationBoolean.config
 DataTypes/ApplicationColumnSplit.config
+DataTypes/ApplicationConditionItem.config
+DataTypes/ApplicationConditionValue.config
+DataTypes/ApplicationCreateForm.config
 DataTypes/ApplicationCSS.config
 DataTypes/ApplicationDataSourceAccess.config
 DataTypes/ApplicationDataSourceConcurrency.config
@@ -76,6 +79,7 @@ DataTypes/ApplicationJavaScript.config
 DataTypes/ApplicationListOfValuesPicker.config
 DataTypes/ApplicationMemberGroups.config
 DataTypes/ApplicationMultiline.config
+DataTypes/ApplicationOpenForm.config
 DataTypes/ApplicationPagePicker.config
 DataTypes/ApplicationReadOnlyConditions.config
 DataTypes/ApplicationReadOnlyConditionType.config
@@ -86,6 +90,7 @@ DataTypes/ApplicationReportStartingView.config
 DataTypes/ApplicationReportUserGroups.config
 DataTypes/ApplicationRichText.config
 DataTypes/ApplicationScheduleColumns.config
+DataTypes/ApplicationScheduleSource.config
 DataTypes/ApplicationSecurityConditions.config
 DataTypes/ApplicationSecurityConditionType.config
 DataTypes/ApplicationText.config
