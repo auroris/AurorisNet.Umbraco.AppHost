@@ -256,9 +256,8 @@ try {
     Assert-True ($runtime.hostExport -eq $export) "runtime.json does not record the host's export: $($runtime | ConvertTo-Json -Compress)"
     Write-Host 'PASS: the downstream host builds and boots without the samples, and its working uSync folder holds its own export beside the library''s.'
 
-    $password = (Read-JsonFile (Join-Path $instance instance.json)).Umbraco.CMS.Unattended.UnattendedUserPassword
-    $credentials = @{ username = 'admin'; password = $password } | ConvertTo-Json
-    # The startup handlers rename the installed administrator to admin after the first boot's import.
+    $unattended = (Read-JsonFile (Join-Path $instance instance.json)).Umbraco.CMS.Unattended
+    $credentials = @{ username = $unattended.UnattendedUserEmail; password = $unattended.UnattendedUserPassword } | ConvertTo-Json
     $deadline = [DateTime]::UtcNow.AddSeconds(60)
     do {
         $login = Invoke-WebRequest "$base/umbraco/management/api/v1/security/back-office/login" -Method Post -ContentType 'application/json' -Body $credentials -SessionVariable session -SkipHttpErrorCheck

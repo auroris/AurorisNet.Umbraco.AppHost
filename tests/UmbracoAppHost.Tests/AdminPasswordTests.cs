@@ -32,6 +32,7 @@ public sealed class AdminPasswordTests
 {
     private const string InstalledPassword = "Initial-install-only91!";
     private const string FirstPassword = "First-configured-password91!";
+    private const string RenamedLogin = "renamed@example.invalid";
     private const string ChangedPassword = "  Changed-configured-password92!  ";
     private const string ManualPassword = "Manually-changed-password93!";
     private const string RestartPassword = "Configured-before-restart94!";
@@ -55,7 +56,7 @@ public sealed class AdminPasswordTests
                 var administrator = scope.ServiceProvider.GetRequiredService<IUserService>().GetUserById(-1);
                 Assert.NotNull(administrator);
                 Assert.Equal(-1, administrator.Id);
-                Assert.Equal("admin", administrator.Username);
+                Assert.Equal(site.AdminUserName, administrator.Username);
                 Assert.Equal("admin@localhost.local", administrator.Email);
             }
 
@@ -63,7 +64,7 @@ public sealed class AdminPasswordTests
             {
                 var users = scope.ServiceProvider.GetRequiredService<IBackOfficeUserManager>();
                 var administrator = (await users.FindByIdAsync(Constants.Security.SuperUserKey.ToString()))!;
-                administrator.Email = "renamed@example.invalid";
+                administrator.Email = RenamedLogin;
                 administrator.UserName = administrator.Email;
                 Assert.True((await users.UpdateAsync(administrator)).Succeeded);
                 var other = BackOfficeIdentityUser.CreateNew(
@@ -84,7 +85,7 @@ public sealed class AdminPasswordTests
             var address = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.Single();
             using (var client = new HttpClient(new HttpClientHandler { UseCookies = false }) { BaseAddress = new Uri(address) })
             {
-                using var response = await client.PostAsJsonAsync("/umbraco/management/api/v1/security/back-office/login", new { username = "admin", password = ChangedPassword }, cancellationToken: TestContext.Current.CancellationToken);
+                using var response = await client.PostAsJsonAsync("/umbraco/management/api/v1/security/back-office/login", new { username = RenamedLogin, password = ChangedPassword }, cancellationToken: TestContext.Current.CancellationToken);
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
                 Assert.True(response.SetsBackOfficeLoginCookie(app.Services));
             }
@@ -155,6 +156,7 @@ public sealed class AdminPasswordTests
         await using (var site = await StartApp(root, log))
         {
             var app = site.App;
+            Assert.Equal(RenamedLogin, site.AdminUserName);
             await SaveAndSettle(app, root, null, "Still no configured password");
             Assert.True(await AcceptsPassword(app, ManualPassword));
             Assert.False(await AcceptsPassword(app, InstalledPassword));
@@ -208,7 +210,6 @@ public sealed class AdminPasswordTests
     private static async Task SaveAndSettle(WebApplication app, string root, string? password, string title = "Password test")
     {
         await WriteSettings(root, password, title);
-        // A password left out of the file falls back to the launcher's empty one.
         await WaitUntil(() => Task.FromResult((app.Configuration[BreakGlassCompatibility.LegacyAdminPasswordKey] ?? "") == (password ?? "")
             && app.Configuration["UmbracoAppHost:Title"] == title));
         // Allow the queued notification (including a duplicate file-system event) to finish.

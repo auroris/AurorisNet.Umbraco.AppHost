@@ -21,11 +21,10 @@ the saved uSync export: English and French, the dictionary, the document types a
 content. The site answers at `http://localhost:5080/`, where `/` serves the Sample Application.
 Later starts keep the database and its content.
 
-The **Website** profile runs in the Development environment, whose settings turn on Umbraco's
-debug mode. Sign in at `/umbraco` as `admin` with any nonempty password. Outside debug mode the
-password is the generated one in `reference/instance.json`, under
-`Umbraco.CMS.Unattended.UnattendedUserPassword`.
-[Sign-in and accounts](sign-in-and-accounts.md) explains both, and how to choose a password.
+For the first sign-in at `/umbraco`, open `reference/instance.json` and use
+`UnattendedUserEmail` and `UnattendedUserPassword` under `Umbraco.CMS.Unattended`.
+`UnattendedUserName` is the display name. The **Website** development profile also requires the
+account's password. See [Sign-in and accounts](sign-in-and-accounts.md) for account recovery.
 
 Every save in the backoffice is exported to `reference/uSync/`. To make a change part of every
 new site, copy it into the saved export, as [uSync exports](usync-exports.md#save-a-backoffice-change)
@@ -200,9 +199,9 @@ dotnet build src\MyHost.Web -p:BreakGlassRoot=D:\src\AurorisNet.Umbraco.BreakGla
 ```
 
 Start the host from Visual Studio or with `dotnet run --project src\MyHost.Web`. The first start
-creates the instance folder, installs Umbraco and imports the working uSync folder. Sign in at
-`/umbraco` as `admin` with the password in `instance/instance.json`, under
-`Umbraco.CMS.Unattended.UnattendedUserPassword`.
+creates the instance folder, installs Umbraco and imports the working uSync folder. For the first
+sign-in at `/umbraco`, use `UnattendedUserEmail` and `UnattendedUserPassword` from the
+`Umbraco.CMS.Unattended` section in `instance/instance.json`.
 
 ### The host's export and the library's
 

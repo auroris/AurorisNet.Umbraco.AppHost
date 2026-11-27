@@ -25,8 +25,9 @@ pwsh E:/Sites/MyWebsite/start-site.ps1
   an HTTPS address on a random local port, and `Umbraco:CMS:Hosting:Debug` set to `false`.
 - `uSync/` receives the saved uSync export.
 
-The first start installs Umbraco and imports that folder. Sign in at `/umbraco` as `admin` with
-the password in `instance.json`, under `Umbraco.CMS.Unattended.UnattendedUserPassword`.
+The first start installs Umbraco and imports that folder. For the first sign-in at `/umbraco`,
+use `UnattendedUserEmail` and `UnattendedUserPassword` from `Umbraco.CMS.Unattended` in
+`instance.json`. Umbraco uses `UnattendedUserName` as the administrator's display name.
 
 | Parameter | Use |
 |---|---|

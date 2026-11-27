@@ -64,11 +64,12 @@ public sealed partial class TestSite : IAsyncDisposable
     private bool disposed;
     private bool deleteRoot;
 
-    private TestSite(WebApplication app, string root, string projectFolder, string adminPassword)
+    private TestSite(WebApplication app, string root, string projectFolder, string adminUsername, string adminPassword)
     {
         App = app;
         Root = root;
         ProjectFolder = projectFolder;
+        AdminUserName = adminUsername;
         AdminPassword = adminPassword;
         Address = new Uri(app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()?.Addresses.SingleOrDefault()
             ?? throw new TestSiteException("Kestrel reported no address for the started site."));
@@ -76,9 +77,6 @@ public sealed partial class TestSite : IAsyncDisposable
         InstanceRoot = app.Services.GetRequiredService<AppHostInstance>().Root;
         DataRoot = app.Configuration["UmbracoAppHost:DataRoot"]!;
         USyncFolder = Path.GetFullPath(app.Configuration["uSync:Settings:RootFolder"]!, app.Environment.ContentRootPath);
-        AdminUserName = app.Services.GetRequiredService<IOptionsMonitor<BreakGlassSettings>>().CurrentValue.GetAdminUserName()
-            // Without a configured name the administrator keeps the unattended install's, which is its email.
-            ?? app.Configuration["Umbraco:CMS:Unattended:UnattendedUserEmail"] ?? "";
     }
 
     public WebApplication App { get; }
@@ -184,8 +182,12 @@ public sealed partial class TestSite : IAsyncDisposable
             options.ConfigureApp?.Invoke(app);
             await app.StartAsync(ct);
             await UmbracoTestSupport.WaitForInstallAsync(app.Services, options.InstallTimeout);
-            var site = new TestSite(app, root, project, options.AdminPassword) { deleteRoot = options.Root is null };
-            if (options.WaitForAdministratorRename) await site.WaitForAdministratorAsync(ct);
+            var configuredUsername = app.Services.GetRequiredService<IOptionsMonitor<BreakGlassSettings>>().CurrentValue.GetAdminUserName();
+            using var accountScope = app.Services.CreateScope();
+            var username = configuredUsername ?? (await accountScope.ServiceProvider.GetRequiredService<IUserService>()
+                .GetAsync(Constants.Security.SuperUserKey))?.Username ?? throw new TestSiteException("The installed site has no administrator.");
+            var site = new TestSite(app, root, project, username, options.AdminPassword) { deleteRoot = options.Root is null };
+            if (configuredUsername is not null && options.WaitForAdministratorRename) await site.WaitForAdministratorAsync(ct);
             return site;
         }
         catch

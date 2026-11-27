@@ -31,6 +31,8 @@ namespace UmbracoAppHost.Tests;
 [OwnInstall]
 public sealed class ReferenceDevelopmentLoginTests
 {
+    private const string SavedUsername = "administrator";
+    private const string SavedEmail = "previous-admin@example.invalid";
     private const string InstalledPassword = "Local-test-only-Reference91!";
     private const string OtherPassword = "An unrelated nonempty password";
     private const string TwoFactorSecret = "existing-test-authenticator-secret";
@@ -51,17 +53,14 @@ public sealed class ReferenceDevelopmentLoginTests
                 using var scope = app.Services.CreateScope();
                 var users = scope.ServiceProvider.GetRequiredService<IBackOfficeUserManager>();
                 var administrator = (await users.FindByIdAsync(Constants.Security.SuperUserKey.ToString()))!;
-                for (var attempt = 0; attempt < 100 && administrator.UserName != "admin"; attempt++)
-                {
-                    await Task.Delay(100, TestContext.Current.CancellationToken);
-                    administrator = (await users.FindByIdAsync(Constants.Security.SuperUserKey.ToString()))!;
-                }
-                Assert.Equal("admin", administrator.UserName);
-                Assert.Equal("admin@localhost.local", administrator.Email);
+                var installedEmail = app.Configuration["Umbraco:CMS:Unattended:UnattendedUserEmail"]!;
+                Assert.Equal(installedEmail, administrator.UserName);
+                Assert.Equal(installedEmail, administrator.Email);
+                Assert.Equal(HttpStatusCode.OK, await Login(app, installedEmail, InstalledPassword));
                 originalHash = administrator.PasswordHash;
-                // Simulate a database that predates the managed administrator identity.
-                administrator.UserName = "administrator";
-                administrator.Email = "previous-admin@example.invalid";
+                // A site-managed identity must survive subsequent starts and recovery.
+                administrator.UserName = SavedUsername;
+                administrator.Email = SavedEmail;
                 Assert.True((await users.UpdateAsync(administrator)).Succeeded);
                 await scope.ServiceProvider.GetRequiredService<ITwoFactorLoginService>().SaveAsync(new TwoFactorLogin
                 {
@@ -70,7 +69,7 @@ public sealed class ReferenceDevelopmentLoginTests
                 });
                 // Use the real native endpoint to create an account lockout before recovery.
                 for (var attempt = 0; attempt < 6; attempt++)
-                    Assert.Contains(await Login(app, "administrator", OtherPassword),
+                    Assert.Contains(await Login(app, SavedUsername, OtherPassword),
                         new[] { HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden });
                 var locked = await AccountState(app);
                 Assert.True(locked.Locked);
@@ -80,32 +79,28 @@ public sealed class ReferenceDevelopmentLoginTests
             finally { await app.StopAsync(TestContext.Current.CancellationToken); }
         }
 
-        await using (var app = await StartApp(root, "Development"))
+        await using (var app = await StartApp(root, "Development", enableRecovery: true))
         {
             try
             {
                 Assert.True(app.Services.GetRequiredService<IOptions<HostingSettings>>().Value.Debug);
-                BackOfficeIdentityUser? administrator = null;
-                for (var attempt = 0; attempt < 100 && administrator?.UserName != "admin"; attempt++)
-                {
-                    using var scope = app.Services.CreateScope();
-                    administrator = await scope.ServiceProvider.GetRequiredService<IBackOfficeUserManager>()
-                        .FindByIdAsync(Constants.Security.SuperUserKey.ToString());
-                    if (administrator?.UserName != "admin") await Task.Delay(100, TestContext.Current.CancellationToken);
-                }
-                Assert.Equal("admin", administrator?.UserName);
-                Assert.Equal("admin@localhost.local", administrator!.Email);
+                using var accountScope = app.Services.CreateScope();
+                var administrator = await accountScope.ServiceProvider.GetRequiredService<IBackOfficeUserManager>()
+                    .FindByIdAsync(Constants.Security.SuperUserKey.ToString());
+                Assert.NotNull(administrator);
+                Assert.Equal(SavedUsername, administrator.UserName);
+                Assert.Equal(SavedEmail, administrator.Email);
                 Assert.Equal(originalHash, administrator.PasswordHash);
                 var before = await AccountState(app);
                 Assert.True(before.Locked);
                 Assert.Equal(TestTwoFactorProvider.Name, before.TwoFactorProviders);
                 // A refused attempt leaves the lockout alone; only a recovery sign-in lifts it.
-                await AssertRefused(app, "admin", "");
+                await AssertRefused(app, SavedUsername, "");
                 Assert.Equal(before, await AccountState(app));
                 using (var browser = Browser(app))
                 {
                     var loginStarted = DateTime.UtcNow;
-                    using var login = await browser.PostAsJsonAsync(Api + "/login", new { username = "admin", password = OtherPassword }, cancellationToken: TestContext.Current.CancellationToken);
+                    using var login = await browser.PostAsJsonAsync(Api + "/login", new { username = SavedUsername, password = OtherPassword }, cancellationToken: TestContext.Current.CancellationToken);
                     Assert.True(login.IsSuccessStatusCode, await login.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
                     Assert.True(login.SetsBackOfficeLoginCookie(app.Services));
                     await CompleteAuthorization(browser);
@@ -125,7 +120,7 @@ public sealed class ReferenceDevelopmentLoginTests
                     }
                     await AssertRefused(app, "not-a-user", OtherPassword);
                     await AssertRefused(app, "", OtherPassword);
-                    await AssertRefused(app, "admin", "");
+                    await AssertRefused(app, SavedUsername, "");
                     Assert.Equal(unlocked, await AccountState(app));
 
                     // Recovery is usable for the actual native account repair operation.
@@ -138,15 +133,14 @@ public sealed class ReferenceDevelopmentLoginTests
             finally { await app.StopAsync(TestContext.Current.CancellationToken); }
         }
 
-        // Hosting.Debug alone does not enable recovery when the selected flow is Form.
-        await using (var app = await StartApp(root, "Development", "Form"))
+        // The reference website selects the Debug login flow in Development. Recovery still requires opt-in.
+        await using (var app = await StartApp(root, "Development"))
         {
             try
             {
                 Assert.True(app.Services.GetRequiredService<IOptions<HostingSettings>>().Value.Debug);
-                Assert.Equal(BackOfficeLoginFlow.Form, app.Services.GetRequiredService<IOptions<BackOfficeLoginSettings>>()
+                Assert.Equal(BackOfficeLoginFlow.Debug, app.Services.GetRequiredService<IOptions<BackOfficeLoginSettings>>()
                     .Value.GetEffectiveFlow(true));
-                // The Form flow reaches the BreakGlass package as its debug sign-in switch.
                 Assert.False(app.Services.GetRequiredService<IOptionsMonitor<BreakGlassSettings>>().CurrentValue.DebugSignIn);
                 await AssertNativeSecurity(app);
                 // Restore a lockout so the following Production startup must enforce it too.
@@ -170,7 +164,7 @@ public sealed class ReferenceDevelopmentLoginTests
         }
     }
 
-    private static async Task<WebApplication> StartApp(string root, string environment, string? debugFlow = null)
+    private static async Task<WebApplication> StartApp(string root, string environment, bool enableRecovery = false)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -187,8 +181,8 @@ public sealed class ReferenceDevelopmentLoginTests
             ["uSync:Settings:ExportOnSave"] = "None",
             [TestSite.ConsoleLogLevelSetting] = "Error",
         });
-        if (debugFlow is not null)
-            builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["BackOfficeLogin:DebugFlow"] = debugFlow });
+        if (enableRecovery)
+            builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> { [BreakGlassSettings.DebugSignInKey] = "true" });
         builder.AddUmbracoAppHost();
         UmbracoTestSupport.UseSingleServer(builder.Services);
         builder.Services.AddSingleton<TestTwoFactorProvider>();
@@ -231,8 +225,8 @@ public sealed class ReferenceDevelopmentLoginTests
     {
         var locked = await AccountState(app);
         Assert.True(locked.Locked);
-        Assert.Equal(HttpStatusCode.Forbidden, await Login(app, "admin", InstalledPassword));
-        Assert.Equal(HttpStatusCode.Unauthorized, await Login(app, "admin", OtherPassword));
+        Assert.Equal(HttpStatusCode.Forbidden, await Login(app, SavedUsername, InstalledPassword));
+        Assert.Equal(HttpStatusCode.Unauthorized, await Login(app, SavedUsername, OtherPassword));
         Assert.Equal(locked, await AccountState(app));
 
         // Only the fixture unlocks the account, so the independent MFA check can be observed.
@@ -243,9 +237,9 @@ public sealed class ReferenceDevelopmentLoginTests
             Assert.True((await users.SetLockoutEndDateAsync(administrator, DateTimeOffset.UtcNow.AddMinutes(-1))).Succeeded);
             Assert.True((await users.ResetAccessFailedCountAsync(administrator)).Succeeded);
         }
-        Assert.Equal(HttpStatusCode.Unauthorized, await Login(app, "admin", OtherPassword));
+        Assert.Equal(HttpStatusCode.Unauthorized, await Login(app, SavedUsername, OtherPassword));
         using var browser = Browser(app);
-        using (var login = await browser.PostAsJsonAsync(Api + "/login", new { username = "admin", password = InstalledPassword }))
+        using (var login = await browser.PostAsJsonAsync(Api + "/login", new { username = SavedUsername, password = InstalledPassword }))
         {
             Assert.Equal(HttpStatusCode.PaymentRequired, login.StatusCode);
             Assert.Contains(TestTwoFactorProvider.Name, await login.Content.ReadAsStringAsync());
@@ -289,7 +283,7 @@ public sealed class ReferenceDevelopmentLoginTests
         using var user = await browser.SendAsync(current);
         var userBody = await user.Content.ReadAsStringAsync();
         Assert.True(user.IsSuccessStatusCode, userBody);
-        Assert.Contains("admin@localhost.local", userBody, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(SavedEmail, userBody, StringComparison.OrdinalIgnoreCase);
         using var users = await browser.GetAsync("/umbraco/management/api/v1/user");
         Assert.True(users.IsSuccessStatusCode, await users.Content.ReadAsStringAsync());
     }

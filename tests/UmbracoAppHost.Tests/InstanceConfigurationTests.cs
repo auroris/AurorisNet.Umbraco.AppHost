@@ -15,13 +15,17 @@ namespace UmbracoAppHost.Tests;
 public sealed class InstanceConfigurationTests
 {
     [Fact]
-    public void New_instance_settings_explicitly_disable_HTTPS_redirection()
+    public void New_instance_settings_include_the_initial_administrator_and_disable_HTTPS_redirection()
     {
         var root = Directory.CreateTempSubdirectory("instance-config-").FullName;
         try
         {
             Apply(root, configured: null);
             using var settings = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "instance", "instance.json")));
+            var unattended = settings.RootElement.GetProperty("Umbraco").GetProperty("CMS").GetProperty("Unattended");
+            Assert.Equal("Administrator", unattended.GetProperty("UnattendedUserName").GetString());
+            Assert.Equal("admin@localhost.local", unattended.GetProperty("UnattendedUserEmail").GetString());
+            Assert.False(settings.RootElement.TryGetProperty("BreakGlass", out _));
             Assert.False(settings.RootElement.GetProperty("UmbracoAppHost").GetProperty("RedirectToHttps").GetBoolean());
         }
         finally { Directory.Delete(root, recursive: true); }
@@ -63,34 +67,34 @@ public sealed class InstanceConfigurationTests
     }
 
     [Fact]
-    public void Defaults_name_the_administrator_and_keep_debug_sign_in_off_without_opt_in()
+    public void BreakGlass_requires_site_configuration()
     {
         var settings = BreakGlassSettingsFor();
         Assert.Null(settings.AdminPassword);
-        Assert.Equal("admin", settings.GetAdminUserName());
-        Assert.Equal("admin@localhost.local", settings.GetAdminEmail());
+        Assert.Null(settings.GetAdminUserName());
+        Assert.Null(settings.GetAdminEmail());
         Assert.False(settings.IsDebugSignInActive(hostingDebug: true));
         Assert.False(settings.IsDebugSignInActive(hostingDebug: false));
     }
 
     [Fact]
-    public void The_reference_website_settings_still_configure_the_administrator()
+    public void The_reference_website_also_leaves_BreakGlass_unconfigured()
     {
-        // The website's appsettings.json uses the older names: an empty password, admin and its local address.
         var settings = BreakGlassSettingsFor(new ConfigurationBuilder()
             .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.json"), optional: false).Build()
             .AsEnumerable().ToDictionary());
-        Assert.Equal("", settings.AdminPassword);
-        Assert.Equal("admin", settings.GetAdminUserName());
-        Assert.Equal("admin@localhost.local", settings.GetAdminEmail());
+        Assert.Null(settings.AdminPassword);
+        Assert.Null(settings.GetAdminUserName());
+        Assert.Null(settings.GetAdminEmail());
         Assert.False(settings.IsDebugSignInActive(hostingDebug: true));
     }
 
     [Fact]
     public void An_older_name_in_a_later_source_overrides_a_newer_name_in_an_earlier_one()
     {
-        // The host's settings come after the library's defaults, which use the BreakGlass names.
-        var cleared = BreakGlassSettingsFor(new Dictionary<string, string?> { ["UmbracoAppHost:AdminUserName"] = "", ["UmbracoAppHost:AdminEmail"] = "" });
+        var cleared = BreakGlassSettingsFor(
+            new() { [BreakGlassSettings.AdminUserNameKey] = "operator", [BreakGlassSettings.AdminEmailKey] = "operator@example.invalid" },
+            new() { ["UmbracoAppHost:AdminUserName"] = "", ["UmbracoAppHost:AdminEmail"] = "" });
         Assert.Null(cleared.GetAdminUserName());
         Assert.Null(cleared.GetAdminEmail());
 
@@ -111,10 +115,10 @@ public sealed class InstanceConfigurationTests
     [Theory]
     [InlineData("Form", null, false)]
     [InlineData("Auto", null, false)]
-    [InlineData("Debug", null, true)]
+    [InlineData("Debug", null, false)]
     [InlineData("Form", "true", true)]
     [InlineData("Debug", "false", false)]
-    public void The_debug_login_flow_turns_on_debug_sign_in_unless_BreakGlass_says_otherwise(string debugFlow, string? debugSignIn, bool active)
+    public void Debug_sign_in_requires_explicit_opt_in_regardless_of_login_flow(string debugFlow, string? debugSignIn, bool active)
     {
         var layer = new Dictionary<string, string?> { ["BackOfficeLogin:DebugFlow"] = debugFlow };
         if (debugSignIn is not null) layer[BreakGlassSettings.DebugSignInKey] = debugSignIn;

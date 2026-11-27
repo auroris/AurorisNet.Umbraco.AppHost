@@ -81,9 +81,6 @@ public sealed class DownstreamHostTests
                 var runtime = app.Services.GetRequiredService<IRuntimeState>();
                 var readiness = app.Services.GetRequiredService<IContentRoutingReadiness>();
                 for (var i = 0; i < 600 && (runtime.Level != RuntimeLevel.Run || !readiness.IsReady); i++) await Task.Delay(100, TestContext.Current.CancellationToken);
-                // The startup handlers rename the installed administrator, and run after the first boot's import.
-                var users = app.Services.GetRequiredService<IUserService>();
-                for (var i = 0; i < 300 && (await users.GetAsync(Constants.Security.SuperUserKey))?.Username != "admin"; i++) await Task.Delay(100, TestContext.Current.CancellationToken);
                 using var scope = app.Services.CreateScope();
                 var services = scope.ServiceProvider;
                 var contents = services.GetRequiredService<IContentService>();
@@ -123,7 +120,7 @@ public sealed class DownstreamHostTests
 
                 var address = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.Single();
                 using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { BaseAddress = new Uri(address) };
-                var signedIn = await client.PostAsJsonAsync("/umbraco/management/api/v1/security/back-office/login", new { username = "admin", password = AdminPassword }, cancellationToken: TestContext.Current.CancellationToken);
+                var signedIn = await client.PostAsJsonAsync("/umbraco/management/api/v1/security/back-office/login", new { username = app.Configuration["Umbraco:CMS:Unattended:UnattendedUserEmail"], password = AdminPassword }, cancellationToken: TestContext.Current.CancellationToken);
                 Assert.True(signedIn.IsSuccessStatusCode, $"Login returned {signedIn.StatusCode}: {await signedIn.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)}");
                 var home = await client.GetAsync("/", TestContext.Current.CancellationToken);
                 var homeHtml = await home.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);

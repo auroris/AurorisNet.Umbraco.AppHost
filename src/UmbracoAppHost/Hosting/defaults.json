@@ -138,9 +138,5 @@
     "MaxFileSize": 26214400,
     "AllowedExtensions": [],
     "RetentionDays": 30
-  },
-  "BreakGlass": {
-    "AdminUserName": "admin",
-    "AdminEmail": "admin@localhost.local"
   }
 }

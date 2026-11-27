@@ -230,8 +230,7 @@ public static class UmbracoAppHostExtensions
         builder.Services.Configure<SecuritySettings>(security =>
             security.UsernameIsEmail = configuration.GetValue("Umbraco:CMS:Security:UsernameIsEmail", false));
 
-        // The AurorisNet.Umbraco.BreakGlass package's composer adds the configured administrator password and debug
-        // sign-in. This host's older setting names still feed them.
+        // Older sites can still configure administrator recovery through the UmbracoAppHost keys.
         builder.AddBreakGlassCompatibility(configuration);
         return builder;
     }

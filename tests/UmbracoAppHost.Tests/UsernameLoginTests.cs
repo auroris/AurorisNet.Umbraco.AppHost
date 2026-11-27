@@ -48,10 +48,6 @@ public sealed class UsernameLoginTests
             ["Umbraco:CMS:Hosting:Debug"] = "false",
             // CreateUmbracoBuilder scans assemblies before the library's defaults, which exclude these, are added.
             ["Umbraco:CMS:TypeFinder:AdditionalAssemblyExclusionEntries:0"] = "xunit.",
-            // Exercise the default username policy without asking the administrator configurator
-            // to manage this test account's identity.
-            ["UmbracoAppHost:AdminUserName"] = "",
-            ["UmbracoAppHost:AdminEmail"] = "",
             ["uSync:Settings:ExportOnSave"] = "None",
             ["uSync:Settings:RootFolder"] = Path.Combine(root, "uSync"),
             ["uSync:Settings:FirstBootGroup"] = "Settings",

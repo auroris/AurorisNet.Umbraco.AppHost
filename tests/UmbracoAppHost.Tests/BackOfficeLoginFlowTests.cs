@@ -19,16 +19,16 @@ namespace UmbracoAppHost.Tests;
 public sealed class BackOfficeLoginFlowTests
 {
     [Theory]
-    [InlineData(false, "Form", "Debug", null, false)]
-    [InlineData(false, "Auto", "Debug", "Umbraco.Domain", false)]
-    [InlineData(false, "IdentityServer", "Debug", "Umbraco.Domain", false)]
-    [InlineData(false, "Debug", "Debug", null, false)]
-    [InlineData(true, "Form", "Debug", null, true)]
-    [InlineData(true, "Auto", "Debug", null, true)]
-    [InlineData(true, "Form", "Form", null, false)]
-    [InlineData(true, "Form", "IdentityServer", "Umbraco.Domain", false)]
-    public async Task Configuration_selects_one_initial_provider_and_gates_the_password_bypass(
-        bool debug, string defaultFlow, string? debugFlow, string? redirectScheme, bool acceptsAnyPassword)
+    [InlineData(false, "Form", "Debug", null)]
+    [InlineData(false, "Auto", "Debug", "Umbraco.Domain")]
+    [InlineData(false, "IdentityServer", "Debug", "Umbraco.Domain")]
+    [InlineData(false, "Debug", "Debug", null)]
+    [InlineData(true, "Form", "Debug", null)]
+    [InlineData(true, "Auto", "Debug", null)]
+    [InlineData(true, "Form", "Form", null)]
+    [InlineData(true, "Form", "IdentityServer", "Umbraco.Domain")]
+    public async Task Configuration_selects_one_initial_provider(
+        bool debug, string defaultFlow, string? debugFlow, string? redirectScheme)
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
@@ -46,11 +46,6 @@ public sealed class BackOfficeLoginFlowTests
         var automatic = extensions.Where(extension => extension.GetProperty("meta").GetProperty("behavior").GetProperty("autoRedirect").GetBoolean()).ToArray();
         if (redirectScheme is null) Assert.Empty(automatic);
         else Assert.Equal(redirectScheme, Assert.Single(automatic).GetProperty("forProviderName").GetString());
-
-        // The BreakGlass package accepts any password; this host's settings decide whether it may.
-        var breakGlass = new BreakGlassSettings();
-        BreakGlassCompatibility.Apply(breakGlass, configuration);
-        Assert.Equal(acceptsAnyPassword, breakGlass.IsDebugSignInActive(debug));
     }
 
     [Theory]
@@ -58,8 +53,8 @@ public sealed class BackOfficeLoginFlowTests
     [InlineData(true, "IdentityServer", "true", true)]
     [InlineData(true, "Debug", "false", false)]
     [InlineData(false, "Debug", "true", false)]
-    [InlineData(true, null, null, true)]
-    public void BreakGlass_DebugSignIn_overrides_the_login_flow_but_never_debug_mode(
+    [InlineData(true, "Debug", null, false)]
+    public void BreakGlass_debug_sign_in_requires_explicit_opt_in_and_hosting_debug(
         bool debug, string? debugFlow, string? debugSignIn, bool active)
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>

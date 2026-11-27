@@ -17,7 +17,8 @@ Reusable Umbraco 18 foundation bundling [AppBlocks](https://github.com/auroris/A
 
 ## Quick start
 
-Run the reference website (`http://localhost:5080`, backoffice `/umbraco`, dev login `admin` + any password):
+Run the reference website at `http://localhost:5080`. On a fresh install, sign in at `/umbraco` with
+`UnattendedUserEmail` and `UnattendedUserPassword` from `reference/instance.json`.
 
 ```powershell
 dotnet run --project src/UmbracoAppHost.Web

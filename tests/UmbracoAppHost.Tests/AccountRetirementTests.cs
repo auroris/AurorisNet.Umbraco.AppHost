@@ -86,7 +86,7 @@ public sealed class AccountRetirementTests(AccountsTestHost host) : IClassFixtur
         Assert.Equal(UserOperationStatus.UserNotFound, await users.DeleteAsync(Constants.Security.SuperUserKey, Guid.NewGuid()));
         Assert.Equal(UserOperationStatus.MissingUser, await users.DeleteAsync(Guid.NewGuid(), colleague.Key));
         var administrator = (await users.GetAsync(Constants.Security.SuperUserKey))!;
-        Assert.Equal("admin", administrator.Username);
+        Assert.Equal(host.Site.AdminUserName, administrator.Username);
         Assert.True(administrator.IsApproved);
 
         // A bulk delete handles each user by its own history.
@@ -212,6 +212,6 @@ public sealed class AccountRetirementTests(AccountsTestHost host) : IClassFixtur
         // Umbraco's own refusals still reach the backoffice as problem details: nobody deletes themselves.
         using var deleteSelf = await administrator.DeleteAsync($"/umbraco/management/api/v1/user/{Constants.Security.SuperUserKey}", TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.BadRequest, deleteSelf.StatusCode);
-        Assert.Equal("admin", (await host.Users.GetAsync(Constants.Security.SuperUserKey))!.Username);
+        Assert.Equal(host.Site.AdminUserName, (await host.Users.GetAsync(Constants.Security.SuperUserKey))!.Username);
     }
 }

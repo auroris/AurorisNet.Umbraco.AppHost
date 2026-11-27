@@ -2,8 +2,8 @@
 
 A site signs in backoffice users and members with their Windows accounts through an embedded
 identity server, and falls back to Umbraco's password form. Three packages do the work. This
-page describes the defaults the host gives them and what it adds: the administrator's identity,
-the member sign-in view, the account menu, and who a protected page admits.
+page covers administrator setup, the member sign-in view, the account menu, and who a protected
+page admits.
 
 | Package | Provides | Registered by |
 |---|---|---|
@@ -11,8 +11,8 @@ the member sign-in view, the account menu, and who a protected page admits.
 | [`AurorisNet.Umbraco.IdentityServer.SSO`](https://github.com/auroris/AurorisNet.Umbraco.IdentityServer.SSO) | The OpenID Connect provider, the embedded identity server, login flows, configured accounts and account retirement | `AddUmbracoAppHost`, which calls `AddSingleSignOn` |
 | [`AurorisNet.Umbraco.IdentityServer.Directory`](https://github.com/auroris/AurorisNet.Umbraco.IdentityServer.Directory) | The **Add from directory** button in Users and Members | Its own composer |
 
-Each package's README lists every setting and describes its behavior. The defaults below come
-from `src/UmbracoAppHost/Hosting/defaults.json` and replace the packages' own. Restart the site
+Each package's README lists its settings. AppHost supplies SSO and directory defaults in
+`src/UmbracoAppHost/Hosting/defaults.json`. Each site opts into BreakGlass separately. Restart the site
 after changing a `BackOfficeLogin`, `IdentityServer` or `EmbeddedIdentityServer` setting.
 
 Each installation has its own sign-in cookies. For sites sharing a hostname, see
@@ -23,15 +23,23 @@ Each installation has its own sign-in cookies. For sites sharing a hostname, see
 Local backoffice sign-in uses a username. The host sets `Umbraco:CMS:Security:UsernameIsEmail`
 to `false`, so Users shows separate username and email fields.
 
-| `BreakGlass` setting | This host's default | Effect |
-|---|---|---|
-| `AdminUserName` | `admin` | The username of the built-in administrator (user ID `-1`), applied at startup and whenever the configuration reloads. An empty string leaves the username to Users. |
-| `AdminEmail` | `admin@localhost.local` | The administrator's email, applied the same way. An empty string leaves it to Users. |
-| `AdminPassword` | empty | A password to apply. Empty leaves the password, lockout state and two-factor enrolment as they are. |
-| `DebugSignIn` | follows the login flow | See [Debug sign-in](#debug-sign-in). |
+On first install, Umbraco reads these values from `Umbraco:CMS:Unattended` in `instance.json`.
 
-A new instance gets a random administrator password, stored in its `instance.json` under
-`Umbraco:CMS:Unattended:UnattendedUserPassword`. Sign in as `admin` with that password.
+| Umbraco setting | Purpose on first install |
+|---|---|
+| `UnattendedUserName` | Display name shown in the backoffice, initially `Administrator`. |
+| `UnattendedUserEmail` | Initial login and contact email. AppHost generates `admin@localhost.local` on first start. The site installer generates `admin@<site-name>.local`. |
+| `UnattendedUserPassword` | Randomly generated password for the first sign-in. |
+
+Sign in with that email and password. On an existing site, use the username and password already
+saved in Umbraco. For example, a site previously configured with the `admin` login keeps it
+after an upgrade. The site updater preserves `app/appsettings.json`. If that file still has
+`AdminUserName` or `AdminEmail` from an older reference site, remove those entries to manage
+the account directly in **Users**.
+
+To manage the built-in administrator (user ID `-1`) through configuration, a site can set
+`BreakGlass:AdminUserName`, `BreakGlass:AdminEmail`, or `BreakGlass:AdminPassword`. BreakGlass
+applies the specified fields at startup and on configuration reload.
 
 ### Choose or reset the administrator password
 
@@ -62,17 +70,15 @@ the security notes.
 ### Older setting names
 
 `UmbracoAppHost:AdminPassword`, `UmbracoAppHost:AdminUserName` and `UmbracoAppHost:AdminEmail`
-still work, and the reference website's `appsettings.json` uses them. When both names are set,
-the configuration source with the higher precedence decides, and within one source the
-`BreakGlass` name does. A site's `appsettings.json` with the older names therefore still
-replaces the library's defaults.
+still work when a site explicitly sets them. The configuration source with the higher
+precedence decides. Within one source, the `BreakGlass` name wins.
 
 ## Backoffice login flow
 
 ```json
 "BackOfficeLogin": {
   "DefaultFlow": "Auto",
-  "DebugFlow": "Debug"
+  "DebugFlow": "Form"
 }
 ```
 
@@ -84,9 +90,8 @@ replaces the library's defaults.
 | `Debug` | Shows the password form and never redirects. Outside debug mode it acts as `Form`. |
 
 `DefaultFlow` applies outside debug mode. `DebugFlow` applies while `Umbraco:CMS:Hosting:Debug`
-is `true`; set it to `Form` to check real passwords during development, or to `null` to use
-`DefaultFlow`. A failed single sign-on attempt returns to the password form with the
-authorization request intact, so a valid password completes the sign-in.
+is `true`. Set it to `null` to use `DefaultFlow`. A failed single sign-on attempt returns to the
+password form with the authorization request intact, so a valid password completes the sign-in.
 
 ## Debug sign-in
 
@@ -94,26 +99,13 @@ authorization request intact, so a valid password completes the sign-in.
 > the username of an enabled account can sign in as that account with any nonempty password. It
 > skips the password, lockout and two-factor checks.
 
-Debug sign-in is `BreakGlass:DebugSignIn` in the BreakGlass package and works only while
-`Umbraco:CMS:Hosting:Debug` is `true`. In this host, a site that leaves `BreakGlass:DebugSignIn`
-out gets it from the login flow: debug sign-in is on when the flow selected for debug mode is
-`Debug`. With the library's defaults, `DebugFlow` is `Debug`, so **turning on Umbraco's debug mode
-alone turns on debug sign-in**. Set `BreakGlass:DebugSignIn` to `false`, or `DebugFlow` to `Form`,
-on a site that needs debug mode without it.
+Debug sign-in is off by default. It requires both an explicit `BreakGlass:DebugSignIn` setting
+of `true` and Umbraco hosting debug mode. `BackOfficeLogin:DebugFlow` only selects the login
+screen. The reference website uses normal password checks in Development. Sites that relied
+on the login flow to enable recovery must now opt in explicitly.
 
-The reference website's `appsettings.Development.json` turns debug mode on, so the **Website**
-launch profile accepts `admin` with any nonempty password. A site created by `new-site.ps1` has
-debug mode off in its `instance.json`.
-
-To get into a deployed site whose accounts are locked out or have lost their two-factor device:
-
-1. Set `Umbraco:CMS:Hosting:Debug` to `true` in `app/appsettings.json`. Keep
-   `BackOfficeLogin:DebugFlow` at `Debug`, or set `BreakGlass:DebugSignIn` to `true`. Restart
-   the site. The hosting environment name plays no part: the same settings work in Production.
-2. Sign in to an existing account with any nonempty password. The sign-in lifts the account's
-   lockout and leaves its password and two-factor enrolment as they are.
-3. Repair the account in **Users**.
-4. Restore the settings and restart.
+After recovering the account in **Users**, restore the site's previous recovery and hosting
+settings and restart the site.
 
 Prefer [the configured password](#choose-or-reset-the-administrator-password) when the built-in
 administrator is the account to recover.
