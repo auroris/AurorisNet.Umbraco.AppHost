@@ -26,7 +26,8 @@ public static class SiteContent
 
     public static string PageTitle(this IPublishedContent page) => Text(page, "title") ?? page.Name;
     public static string NavigationTitle(this IPublishedContent page) => Text(page, "siteTitle") ?? page.PageTitle();
-    public static string NavigationUrl(this IPublishedContent page) => Text(page, "link") ?? page.Url();
+    /// <summary>The page's <c>link</c> text when <see cref="PageDestination.Safe"/> accepts it, otherwise the page's own URL.</summary>
+    public static string NavigationUrl(this IPublishedContent page) => PageDestination.Safe(Text(page, "link")) ?? page.Url();
 
     public static string? Text(IPublishedContent page, string alias)
         => page.Value<string>(alias) is { } value && !string.IsNullOrWhiteSpace(value) ? value : null;

@@ -48,7 +48,7 @@ public sealed class DownstreamProjectTests
         using var browser = site.CreateClient();
         Assert.Equal("from appsettings.json|Development", await (await site.GetPageAsync(browser, "/downstream-settings")).Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
 
-        // UmbracoAppHost:Samples is false in the project, and its committed export is imported on first boot.
+        // The project's committed export is imported on first boot, in place of the reference launcher's sample content.
         await site.WaitForPublishedAsync(DownstreamHostTests.PaperKey);
         await site.WaitForPublishedAsync(DownstreamHostTests.HomeKey);
         using (var scope = site.CreateScope())
@@ -81,7 +81,7 @@ public sealed class DownstreamProjectTests
                 Assert.Equal("sqlite", downstream.GetProperty("provider").GetString());
             }
             Assert.DoesNotContain("sqlite.db", listed, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("ReportsSampleDb", listed); // UmbracoAppHost:Samples is false.
+            Assert.DoesNotContain("ReportsSampleDb", listed); // Only the reference launcher's Program registers the sample database.
             Assert.Contains("DOWNSTREAM_ROWS", await settings.GetStringAsync(api + "/tables?connection=DownstreamDb", TestContext.Current.CancellationToken));
             var selection = JsonSerializer.Serialize(new { kind = "table", connection = "DownstreamDb", source = "DOWNSTREAM_ROWS" });
             using var preview = await settings.PostAsync(api + "/report-preview", JsonContent.Create(new { dataSource = selection }), TestContext.Current.CancellationToken);

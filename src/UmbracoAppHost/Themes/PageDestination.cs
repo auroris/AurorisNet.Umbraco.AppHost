@@ -25,9 +25,19 @@ public sealed class PageDestination(IPublishedContentCache cache, IPublishedUrlP
             destination = target?.Url(urls, culture ?? variation.VariationContext?.Culture, UrlMode.Relative);
             if (destination is not null && suffixStart >= 0) destination += link.Url![suffixStart..];
         }
-        if (string.IsNullOrWhiteSpace(destination) || destination.Any(char.IsControl)) return null;
-        destination = destination.Trim();
-        if (destination.StartsWith('/') && !destination.StartsWith("//") && !destination.Contains('\\')) return destination;
-        return Uri.TryCreate(destination, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" ? destination : null;
+        return Safe(destination);
+    }
+
+    /// <summary>
+    /// <paramref name="link"/>, trimmed, when it is a path on this host or an HTTP(S) URL; otherwise null. Every use of a
+    /// page's <c>link</c> text, as a redirect or as an <c>href</c>, goes through this, so a value it refuses
+    /// (<c>javascript:</c>, <c>//host</c>, a backslash, a control character) is never followed.
+    /// </summary>
+    public static string? Safe(string? link)
+    {
+        if (string.IsNullOrWhiteSpace(link) || link.Any(char.IsControl)) return null;
+        link = link.Trim();
+        if (link.StartsWith('/') && !link.StartsWith("//") && !link.Contains('\\')) return link;
+        return !link.Contains('\\') && Uri.TryCreate(link, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" ? link : null;
     }
 }

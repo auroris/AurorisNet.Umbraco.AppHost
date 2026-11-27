@@ -75,7 +75,7 @@ MyHost\
   src\MyHost.Web\
     MyHost.Web.csproj         the project reference to the library
     Program.cs
-    appsettings.json          InstanceRoot, UmbracoAppHost:Samples, the host's settings
+    appsettings.json          InstanceRoot and the host's settings
     uSync\                    the host's committed export: content, dictionary keys, templates
     Views\                    the host's templates, beside copies of the library's views
       _ViewImports.cshtml     the library's imports, copied when the project is created
@@ -157,9 +157,6 @@ the host supplies both.
 ```json
 {
   "InstanceRoot": "../../instance",
-  "UmbracoAppHost": {
-    "Samples": false
-  },
   "Attachments": {
     "Connection": "MyHostDb"
   }
@@ -168,8 +165,6 @@ the host supplies both.
 
 - `InstanceRoot` is relative to the project folder. `../../instance` puts the instance at the
   root of the repository, so builds and publishes never pick up its files.
-- `UmbracoAppHost:Samples` set to `false` leaves out the sample content, the `sample.orders`
-  form class, the `orders` report and the sample database.
 - `Attachments:Connection` keeps record attachments in the host's own database. Leave it out to
   keep them in `Attachments.sqlite.db` in the instance.
 
@@ -217,7 +212,9 @@ definitions. A template is its registration under `Templates/` plus its view in 
 
 At every start the host rewrites the views the library ships when the copies in `Views/` differ,
 so an upstream change to a view arrives with the rebuild. Commit the copies with the upstream
-change that brought them. The host's other views are left alone.
+change that brought them, unless the host embeds its own `Views/`: such a host is a theme library
+itself, so it embeds and publishes only its own views and leaves the copies out of commits, or
+they would ship as its own. The host's other views are left alone.
 
 ### Bring an upstream change down
 

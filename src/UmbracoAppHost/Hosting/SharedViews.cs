@@ -42,12 +42,23 @@ internal static class SharedViews
     }
 
     public static void EnsureTemplates(IWebHostEnvironment environment, ILogger logger, IEnumerable<ThemeLibrary> libraries)
+        => EnsureTemplates(environment, logger, libraries.Select(library => library.Files).Prepend(Files));
+
+    /// <summary>
+    /// Writes each view name's winning version: this library's first, then each theme library's in order, so the last that ships
+    /// a name wins, as a later library overrides an earlier one. Deciding first writes an overridden view at most once, so a start
+    /// neither rewrites it twice nor reports it rewritten when the folder already holds the winner.
+    /// </summary>
+    internal static void EnsureTemplates(IWebHostEnvironment environment, ILogger logger, IEnumerable<IFileProvider> sources)
     {
         // uSync exports template registrations, not their Razor bodies. Supply the views
         // before importing those registrations so Umbraco never writes empty template stubs.
-        var rewritten = new List<string>();
-        foreach (var file in libraries.Select(library => library.Files).Prepend(Files).SelectMany(files => files.GetDirectoryContents("Views"))
+        var winners = new Dictionary<string, IFileInfo>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in sources.SelectMany(files => files.GetDirectoryContents("Views"))
             .Where(file => !file.IsDirectory && file.Name.EndsWith(".cshtml", StringComparison.OrdinalIgnoreCase)))
+            winners[file.Name] = file;
+        var rewritten = new List<string>();
+        foreach (var file in winners.Values)
         {
             var path = Path.Combine(environment.ContentRootPath, "Views", file.Name);
             var exists = File.Exists(path);

@@ -40,8 +40,8 @@ A caller is a **report administrator** when either holds:
 | Action | Allowed for |
 |---|---|
 | View, query and export a report, list its saved views, save a view | A report administrator. Other website members or backoffice report users can open reports available to their account on the corresponding routes. |
-| Read a saved view | Its owner, a report administrator, and everyone signed in when the view is public or the default. |
-| Change or delete a saved view | Its owner or a report administrator. |
+| Read a saved view | A report administrator. Its owner, and everyone signed in when the view is public or the default, while they may read the report itself. |
+| Change or delete a saved view | A report administrator. Its owner, while they may read the report itself. |
 | Choose the default view of a report block | Nobody: a published block's own settings are its starting view. |
 | Every other action, such as the administration pages | A report administrator. |
 

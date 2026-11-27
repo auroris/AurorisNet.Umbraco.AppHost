@@ -103,6 +103,7 @@ public sealed class WebPagesHttpTests
             new { key = Guid.NewGuid(), name = "Signed in as {{user.name}}", itemType = "Title", hideLoggedOut = true, children = Array.Empty<object>() },
             new { key = Guid.NewGuid(), name = "My profile", itemType = "Link", url = "{{user.profile}}", children = Array.Empty<object>() },
             new { key = Guid.NewGuid(), name = "Sign out", itemType = "Link", url = "{{user.signout}}", hideLoggedOut = true, children = Array.Empty<object>() },
+            new { key = Guid.NewGuid(), name = "Open the editor", itemType = "Link", url = "{{user.backoffice}}", children = Array.Empty<object>() },
         });
         site.SetValue("topNavigationMenu", menu, "en");
         site.SetValue("topNavigationMenu", menu, "fr");
@@ -127,6 +128,10 @@ public sealed class WebPagesHttpTests
         var privatePage = Create("Private guide", nestedSite.Id, "webPage", WebPageTestContent.Static("private-guide-marker"));
         var privateReference = Create("Private reference", site.Id, "webPage", WebPageTestContent.Static("private-reference-marker"));
         var deniedPage = Create("Access denied", site.Id, "webPage", WebPageTestContent.Static("access-denied-marker"));
+        var unsafeLink = Create("Unsafe link", site.Id, "webPage", WebPageTestContent.Static("unsafe-link-marker"));
+        unsafeLink.SetValue("link", "javascript:alert(1)", "en");
+        unsafeLink.SetValue("link", "/\\evil.example/", "fr");
+        Save(unsafeLink);
 #pragma warning restore CS0618
 
         var address = host.Address;
@@ -158,6 +163,17 @@ public sealed class WebPagesHttpTests
         Assert.Matches("<style nonce=\"website-test-nonce\">\\s*/\\* ancestor-css-marker", publicPage.Html);
         Assert.Matches("<script nonce=\"website-test-nonce\">\\s*/\\* ancestor-js-marker", publicPage.Html);
 
+        // A link the destination validation refuses neither redirects nor reaches an href: the page serves and links as itself.
+        Assert.Matches("<a href=\"(?:http://en\\.website\\.test)?/unsafe-link/\"[^>]*>Unsafe link</a>", publicPage.Html);
+        Assert.DoesNotContain("javascript:", publicPage.Html);
+        Assert.Contains("unsafe-link-marker", (await Page(anonymous, "/unsafe-link/")).Html);
+        using (var frenchVisitor = Client(address, "fr.website.test"))
+        {
+            var frenchUnsafe = await Page(frenchVisitor, "/unsafe-link/");
+            Assert.Contains("unsafe-link-marker", frenchUnsafe.Html);
+            Assert.DoesNotContain("evil.example", frenchUnsafe.Html);
+        }
+
         var publicMixed = await Page(anonymous, "/mixed-content/");
         Assert.Contains("public-introduction-marker", publicMixed.Html);
         Assert.Equal(3, Regex.Matches(publicMixed.Html, "class=\"app-block-signin\"").Count);
@@ -169,6 +185,17 @@ public sealed class WebPagesHttpTests
         var officeOnly = await Page(administrator, "/mixed-content/");
         Assert.DoesNotContain("data-app-form", officeOnly.Html);
         AssertMenuTokens(officeOnly.Html, signedInAs: null, profile: false);
+        // A backoffice session alone changes an open, static page (here its menu), so that page stays out of caches
+        // as a member's does: a cached copy or a 304 must not hand it to the next anonymous visitor.
+        Assert.DoesNotContain(">Open the editor</a>", publicPage.Html);
+        var officeOverview = await Page(administrator, "/overview/");
+        Assert.Matches("<a[^>]*href=\"[^\"]*/umbraco\"[^>]*>Open the editor</a>", officeOverview.Html);
+        AssertNoStore(officeOverview.Response);
+        // A sign-in page carries an antiforgery token: it is never stored, and it has no validators.
+        var signInPage = await Page(anonymous, "/member-login/");
+        Assert.Contains("loginModel.Username", signInPage.Html);
+        AssertNoStore(signInPage.Response);
+        Assert.True(signInPage.Response.Headers.CacheControl?.NoCache, signInPage.Response.Headers.CacheControl?.ToString());
         var readerAccount = host.CreateMember("website-reader", "website-reader@example.invalid", "Website reader");
         using var reader = Client(address, "en.website.test", useCookies: false);
         var readerLogin = await reader.GetAsync($"/__tests/login/{readerAccount.Id}?scheme=member", TestContext.Current.CancellationToken);

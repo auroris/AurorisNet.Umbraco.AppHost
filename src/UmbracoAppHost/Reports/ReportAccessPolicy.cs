@@ -35,7 +35,9 @@ namespace UmbracoAppHost.Reports;
 /// page without Public Access, whose SQL binds nobody, may be viewed, queried and exported, and
 /// every other report still needs an account. A saved view belongs to the one identity AppBlocks'
 /// <see cref="DefaultReportAccessPolicy.OwnerKey"/> names: the member when one is signed in, else
-/// the backoffice user.
+/// the backoffice user. As in AppBlocks' own policy, a view's owner, or anyone for a global or default
+/// view, reads it, and its owner changes or deletes it, only while they may read the report itself;
+/// an administrator may do all three.
 /// </remarks>
 public sealed class ReportAccessPolicy(
     IUserService userService,
@@ -81,10 +83,14 @@ public sealed class ReportAccessPolicy(
                 or InteractiveReportAction.CreateSavedReport =>
                 isAdministrator || await CanReadReportAsync(reportName, user, cancellationToken),
 
-            InteractiveReportAction.ReadSavedReport => isPublic || isOwner || isAdministrator,
+            // A saved view shows the report's rows, so someone who may no longer read the report, such as a member removed from
+            // its groups, keeps no way into it through their own views or the shared ones.
+            InteractiveReportAction.ReadSavedReport =>
+                isAdministrator || (isPublic || isOwner) && await CanReadReportAsync(reportName, user, cancellationToken),
 
             InteractiveReportAction.UpdateSavedReport
-                or InteractiveReportAction.DeleteSavedReport => isOwner || isAdministrator,
+                or InteractiveReportAction.DeleteSavedReport =>
+                isAdministrator || isOwner && await CanReadReportAsync(reportName, user, cancellationToken),
 
             _ => isAdministrator,
         };

@@ -15,6 +15,11 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'deployment/SiteTools.ps1')
 $InstanceRoot = [IO.Path]::GetFullPath($InstanceRoot)
 if (!(Test-Path -LiteralPath $InstanceRoot)) { Write-Host "Nothing to reset: $InstanceRoot does not exist."; return }
+# An interrupted update's journal needs the application backup that a reset deletes, so the update is finished first.
+# The check is repeated under the run lock, which an update holds while it writes the journal.
+$journal = Join-Path $InstanceRoot '.apphost/pending-update'
+$interrupted = 'An application update was interrupted. Run update-site.ps1 again to finish it, then reset the site.'
+if (Test-Path -LiteralPath $journal) { throw $interrupted }
 $projectRoot = Join-Path $PSScriptRoot 'src/UmbracoAppHost.Web'
 $baseline = (Resolve-Path -Path (Join-Path $PSScriptRoot 'Migrations/*-Current/uSync')).Path
 $downstream = $false
@@ -45,6 +50,7 @@ $lockPath = Join-Path $InstanceRoot '.apphost/run.lock'
 try { $lease = [IO.File]::Open($lockPath, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None) }
 catch [IO.IOException] { throw 'Stop the website in Visual Studio before resetting it.' }
 try {
+    if (Test-Path -LiteralPath $journal) { throw $interrupted }
     # Backoffice edits are exported to the working folder. They survive a reset only once they are copied into the saved export.
     if ($downstream) {
         $unsaved = @(Compare-HostSyncFolders $working $baseline $hostExport)
@@ -75,7 +81,7 @@ try {
     foreach ($target in $targets) { if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Recurse -Force } }
     if ($downstream) {
         Write-Host "Reset complete: $working was deleted and nothing was copied into it."
-        Write-Host ("Start the host: like a first boot, it copies the library's export into that folder, without the samples when UmbracoAppHost:Samples is false, " +
+        Write-Host ("Start the host: like a first boot, it copies the library's export into that folder, " +
             "then the host's own export, installs a fresh database and imports them. New administrator credentials will be in $(Join-Path $InstanceRoot instance.json).")
     } else {
         $copied = @(Copy-SyncDefinitions $baseline $working -IncludeContent)

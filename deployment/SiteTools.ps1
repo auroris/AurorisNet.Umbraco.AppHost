@@ -353,12 +353,6 @@ function Compare-HostSyncFolders([string] $Working, [string] $LibraryExport, [st
     return $differences
 }
 
-function Test-SamplesEnabled($AppSettings) {
-    # UmbracoAppHost:Samples, default true, as a host's appsettings.json sets it.
-    if (!$AppSettings.Contains('UmbracoAppHost') -or !$AppSettings.UmbracoAppHost.Contains('Samples')) { return $true }
-    return [string]$AppSettings.UmbracoAppHost.Samples -ne 'false'
-}
-
 function New-InstanceSettings([string] $Root, [string] $Name) {
     $settingsPath = Get-SafePath $Root instance.json
     if (Test-Path -LiteralPath $settingsPath) { throw "Instance settings already exist: $settingsPath" }

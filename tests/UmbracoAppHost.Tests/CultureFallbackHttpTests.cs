@@ -19,13 +19,16 @@ public sealed class CultureFallbackHttpTests
     private const string English = "en.fallback.test";
     private const string French = "fr.fallback.test";
 
-    [Fact]
+    [Theory]
+    [InlineData("")]
+    [InlineData("/portal")]
     [ResetPublishedContentServices]
-    public async Task A_French_URL_serves_the_French_page_or_the_English_one_where_the_translation_is_missing()
+    public async Task A_French_URL_serves_the_French_page_or_the_English_one_where_the_translation_is_missing(string prefix)
     {
         await using var host = await TestSite.StartAsync(new TestSiteOptions
         {
             Application = typeof(Program).Assembly,
+            VirtualPath = prefix,
             Settings = { ["IdentityServer:Enabled"] = "false" },
         }, TestContext.Current.CancellationToken);
         using var scope = host.CreateScope();
@@ -62,23 +65,23 @@ public sealed class CultureFallbackHttpTests
 #pragma warning restore CS0618
 
         using var english = Client(host.Address, English);
-        Assert.Contains("Orders in English", await Page(english, "/orders/"));
-        Assert.Contains("English page named commandes", await Page(english, "/commandes/"));
+        Assert.Contains("Orders in English", await Page(english, prefix + "/orders/"));
+        Assert.Contains("English page named commandes", await Page(english, prefix + "/commandes/"));
 
         using var french = Client(host.Address, French);
-        var translated = await Page(french, "/commandes/");
+        var translated = await Page(french, prefix + "/commandes/");
         Assert.Contains("Commandes traduites", translated);
         Assert.DoesNotContain("Orders in English", translated);
-        Assert.Contains("English guide", await Page(french, "/guide/"));
-        Assert.Contains("English page named commandes", await Page(french, "/commandes-en/"));
-        Assert.Equal(HttpStatusCode.NotFound, (await french.GetAsync("/brouillon/", TestContext.Current.CancellationToken)).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await french.GetAsync("/orders/", TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Contains("English guide", await Page(french, prefix + "/guide/"));
+        Assert.Contains("English page named commandes", await Page(french, prefix + "/commandes-en/"));
+        Assert.Equal(HttpStatusCode.NotFound, (await french.GetAsync(prefix + "/brouillon/", TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await french.GetAsync(prefix + "/orders/", TestContext.Current.CancellationToken)).StatusCode);
 
-        // The French home lists the English-only pages under their French-site URLs.
-        var home = await Page(french, "/");
+        // The French home lists the English-only pages under their French-site URLs, beneath the site's virtual path.
+        var home = await Page(french, prefix + "/");
         Assert.Contains("Accueil de repli", home);
         foreach (var path in new[] { "/commandes/", "/guide/", "/commandes-en/" })
-            Assert.Matches("href=\"(?:http://" + Regex.Escape(French) + ")?" + Regex.Escape(path) + "\"", home);
+            Assert.Matches("href=\"(?:http://" + Regex.Escape(French) + ")?" + Regex.Escape(prefix + path) + "\"", home);
         Assert.DoesNotContain("/brouillon/", home);
     }
 

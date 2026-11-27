@@ -14,7 +14,7 @@ folder for a site that `new-site.ps1` created.
 | `data/Umbraco.sqlite.db` | Umbraco: content, users and members | `UmbracoDb` for reports and data sources | Set `ConnectionStrings:umbracoDbDSN` and `umbracoDbDSN_ProviderName`. |
 | `data/AppBlocks.sqlite.db` | AppBlocks' default application database | `AppBlocksDb` | Set `ConnectionStrings:AppBlocksDb` and `AppBlocksDb_ProviderName`. |
 | `data/Attachments.sqlite.db` | Record attachments: the files and their links to records | `AttachmentsDb` | Set `Attachments:Connection` to another connection. |
-| `data/ReportsSample.sqlite.db` | The sample orders, when `UmbracoAppHost:Samples` is `true` | `ReportsSampleDb` | Set `ConnectionStrings:ReportsSampleDb` and `ReportsSampleDb_ProviderName`. |
+| `data/ReportsSample.sqlite.db` | The sample orders, which the reference launcher `src/UmbracoAppHost.Web` registers | `ReportsSampleDb` | Set `ConnectionStrings:ReportsSampleDb` and `ReportsSampleDb_ProviderName`. |
 
 Each application database is created the first time something opens it. AppBlocks places these
 files beside Umbraco's SQLite file. When Umbraco's database is not a SQLite file, they go to

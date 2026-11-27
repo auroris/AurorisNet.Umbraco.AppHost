@@ -110,6 +110,46 @@ public sealed class PeoplePickerTests
         await Assert.ThrowsAsync<DirectoryUnavailableException>(() => service.SelectAsync(picker, directory.Person.Sid, TestContext.Current.CancellationToken));
     }
 
+    private static IEnumerable<DirectoryUser?> Candidates(int excluded, int eligible, Action? read = null)
+    {
+        for (var i = 0; i < excluded + eligible; i++)
+        {
+            read?.Invoke();
+            yield return Person with { Sid = "S-1-5-21-1-2-3-" + (2000 + i), UserName = i < excluded ? "svc-" + i : "person-" + i };
+        }
+    }
+
+    [Fact]
+    public void A_search_reads_past_excluded_accounts_until_it_has_enough_people()
+    {
+        var settings = Settings with { ExcludedAccountPattern = "^svc-", MaxResults = 5 };
+        var read = 0;
+        var people = PeoplePickerDirectory.Collect(Candidates(600, 50, () => read++), settings, new Clock(), TestContext.Current.CancellationToken);
+        Assert.Equal(["person-600", "person-601", "person-602", "person-603", "person-604"], people.Select(p => p.UserName));
+        Assert.Equal(605, read);
+        // Entries without a SID count as candidates but are never people.
+        Assert.Equal(2, PeoplePickerDirectory.Collect([null, Person, null, Person with { UserName = "other" }], settings, new Clock(),
+            TestContext.Current.CancellationToken).Count);
+    }
+
+    [Fact]
+    public void A_search_stops_at_the_end_of_the_results_the_candidate_cap_or_the_timeout()
+    {
+        var settings = Settings with { ExcludedAccountPattern = "^svc-", MaxResults = 5, TimeoutSeconds = 3 };
+        Assert.Equal(2, PeoplePickerDirectory.Collect(Candidates(10, 2), settings, new Clock(), TestContext.Current.CancellationToken).Count);
+
+        var read = 0;
+        Assert.Empty(PeoplePickerDirectory.Collect(Candidates(PeoplePickerDirectory.MaxCandidates, 5, () => read++), settings, new Clock(), TestContext.Current.CancellationToken));
+        Assert.Equal(PeoplePickerDirectory.MaxCandidates, read);
+
+        // The timeout is for the whole search: whoever was found before it passed is the answer.
+        var clock = new Clock();
+        read = 0;
+        var late = PeoplePickerDirectory.Collect(Candidates(0, 50, () => { if (++read > 2) clock.Now += TimeSpan.FromSeconds(2); }), settings, clock,
+            TestContext.Current.CancellationToken);
+        Assert.Equal(["person-0", "person-1", "person-2", "person-3"], late.Select(p => p.UserName));
+    }
+
     private sealed class Clock : TimeProvider
     {
         public DateTimeOffset Now = DateTimeOffset.UtcNow;

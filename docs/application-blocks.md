@@ -308,8 +308,8 @@ property to add a Print action that passes the record's key.
 
 ## Sample pages
 
-With `UmbracoAppHost:Samples` on, the saved export adds these nodes. All of them use the sample
-orders database.
+The reference launcher's own export, `src/UmbracoAppHost.Web/uSync/`, holds these nodes. All of
+them use the sample orders database, which its `Program.cs` registers.
 
 | Node | Shows |
 |---|---|

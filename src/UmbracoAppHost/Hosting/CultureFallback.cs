@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using Umbraco.Cms.Core.Configuration.Models;
 using Umbraco.Cms.Core.Events;
 using Umbraco.Cms.Core.Models;
 using Umbraco.Cms.Core.Models.PublishedContent;
@@ -72,7 +74,7 @@ public sealed class LanguageFallbacksRefresh(LanguageFallbacks fallbacks) : INot
 /// </summary>
 public sealed class CultureFallback(LanguageFallbacks languages, IDocumentNavigationQueryService navigation,
     IDocumentPublishStatusQueryService status, IDocumentUrlService segments, IDomainCache domains,
-    IPublishedContentCache cache, IHttpContextAccessor http)
+    IPublishedContentCache cache, IHttpContextAccessor http, IOptions<HostingSettings> hosting)
 {
     private static readonly object SiblingSegments = new();
 
@@ -184,10 +186,14 @@ public sealed class CultureFallback(LanguageFallbacks languages, IDocumentNaviga
             if (ancestry.Take(rootIndex + 1).Any(k => ServedFrom(k, chain) is null)) return null;
             var pieces = ancestry.Take(rootIndex).Reverse().Select(k => Segment(k, chain[0])).ToArray();
             if (pieces.Any(string.IsNullOrWhiteSpace)) return null;
+            // Umbraco reads a domain, "/fr" as much as "example.com/fr", below the application's virtual path, and adds
+            // that path to the URLs it gives out; a URL from here needs it too.
             var name = assignment.Domain.Name;
             var domainUri = name.StartsWith('/') ? new Uri(current, name)
                 : new Uri(name.Contains("://") ? name : current.Scheme + "://" + name);
-            return new Uri(domainUri.AbsoluteUri.TrimEnd('/') + "/"
+            var virtualPath = hosting.Value.ApplicationVirtualPath?.Trim().TrimEnd('/') ?? "";
+            if (virtualPath.Length > 0 && !virtualPath.StartsWith('/')) virtualPath = "/" + virtualPath;
+            return new Uri(domainUri.GetLeftPart(UriPartial.Authority) + virtualPath + domainUri.AbsolutePath.TrimEnd('/') + "/"
                 + string.Join("/", pieces.Select(p => Uri.EscapeDataString(Uri.UnescapeDataString(p!)))) + (pieces.Length == 0 ? "" : "/"));
         }
         return null;

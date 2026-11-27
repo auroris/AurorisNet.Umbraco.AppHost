@@ -28,7 +28,8 @@ public static class AppHostPage
         var site = page.SiteRoot(navigation, published);
 
         var destination = services.GetService<PageDestination>();
-        var redirect = destination?.Url(page) ?? SiteContent.Text(page, "link");
+        // A destination the validation refuses is no redirect: the page renders as itself.
+        var redirect = destination is not null ? destination.Url(page) : PageDestination.Safe(SiteContent.Text(page, "link"));
         if (redirect is not null)
         {
             context.Response.Redirect(redirect);
@@ -38,7 +39,9 @@ public static class AppHostPage
         services.GetRequiredService<AppPageAssets>().RegisterPage(page, navigation, published, context);
         services.GetService<NavigationUpdates>()?.Register(context);
 
-        if (services.GetService<SiteVisitor>() is { } visitor && (await visitor.ResolveAsync()).IsSignedIn)
+        // A backoffice session alone also changes the page: menu tokens, the sign-in block's note, and pages and links
+        // a host's admission rules open to an editor. Its validators are the same for everyone, so none of it may be stored.
+        if (services.GetService<SiteVisitor>() is { } visitor && (await visitor.ResolveAsync()) is { IsSignedIn: true } or { IsBackOfficeUser: true })
             context.KeepOutOfCaches();
 
         var updateDate = context.GetPageUpdateDate(page.UpdateDate);

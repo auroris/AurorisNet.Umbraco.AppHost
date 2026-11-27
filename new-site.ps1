@@ -27,10 +27,7 @@ try {
     $appSettings.InstanceRoot = '..'
     Write-JsonFile $appSettingsPath $appSettings
     New-InstanceSettings $stage $Name
-    # The script cannot tell the samples from the other content, so a host that leaves them out fills its uSync
-    # folder at its first start: the library's export without them, then the host's own files.
-    $copied = @()
-    if (Test-SamplesEnabled $appSettings) { $copied = @(Copy-SyncDefinitions (Get-SafePath $stage 'app/uSync') (Get-SafePath $stage uSync) -IncludeContent) }
+    $copied = @(Copy-SyncDefinitions (Get-SafePath $stage 'app/uSync') (Get-SafePath $stage uSync) -IncludeContent)
     Write-JsonFile (Get-SafePath $stage '.apphost/instance.json') ([ordered]@{
         schemaVersion = 3; name = $Name; build = $published.Manifest.id; umbraco = $published.Manifest.umbraco
         assembly = $published.Manifest.assembly
@@ -44,7 +41,6 @@ try {
     if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
 }
 Write-UncommittedWarning $published.Manifest
-if ($copied.Count -gt 0) { Write-Host "Created $siteRoot from build $($published.Manifest.id); $($copied.Count) uSync files are in its uSync folder." }
-else { Write-Host "Created $siteRoot from build $($published.Manifest.id). Its application turns the samples off, so its first start copies the library's export without them and the application's own export into its uSync folder." }
+Write-Host "Created $siteRoot from build $($published.Manifest.id); $($copied.Count) uSync files are in its uSync folder."
 Write-Host "Start it with: pwsh '$siteRoot/start-site.ps1'. The first start installs Umbraco and imports the uSync folder."
 Write-Host "Administrator credentials: $siteRoot/instance.json"

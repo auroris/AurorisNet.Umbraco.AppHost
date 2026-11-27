@@ -41,11 +41,11 @@ needs no editing.
 - **Languages.** English (`en`, the default) and French (`fr`, falling back to English).
 - **Dictionary.** The 15 keys the templates use, each with an English and a French value.
   `Search URI` is `#` in both languages until a site supplies its search address.
-- **Content.** The Data sources root with the **Recently changed pages report** definition, and
-  the samples: the Sample Application, the Website theme demo, and the Orders data sources,
-  report definitions and lists. [Websites, pages and blocks](application-blocks.md#sample-pages)
-  lists them. A host with `UmbracoAppHost:Samples` set to `false` gets the Data sources root and
-  that report definition, and none of the samples.
+- **Content.** The Data sources root with the **Recently changed pages report** definition. The
+  samples (the Sample Application, the Website theme demo, and the Orders data sources, report
+  definitions and lists) are in the reference launcher's own export,
+  `src/UmbracoAppHost.Web/uSync/`. [Websites, pages and blocks](application-blocks.md#sample-pages)
+  lists them.
 
 The export assigns no domains, and its pages have English content only. `/` serves the first
 root page by sort order, which is the Sample Application, so keep the sort orders when adding
@@ -90,18 +90,20 @@ export's copies stay as uSync imported them, at a start and when an administrato
 A working folder without `usync.config` has never been filled. Before uSync's first import, the
 host fills it in this order and never replaces a file that is already there:
 
-1. The library's export, without the sample content when `UmbracoAppHost:Samples` is `false`.
+1. The library's export.
 2. The project's own export, the folder `UmbracoAppHost:HostExport` names (default `uSync` in the
    project root), for every path the library does not ship.
 3. The embedded `uSync/` files of each registered [theme library](themes.md#a-theme-library), for
    paths that neither of the first two ships.
 
-`new-site.ps1` and `reset.ps1` copy the saved export into the working folder themselves, for the
-reference website and for sites whose application keeps the samples.
+`new-site.ps1` copies the build's `app/uSync/` folder, which holds the library's export and the
+project's own, into each new site's working folder. `reset.ps1` copies the saved export into
+`reference/uSync/` for the reference website.
 
 The host also writes the views the library ships to the project's `Views/` folder before the
 import, so Umbraco finds a Razor file for every template registration. At each later start it
-rewrites a shipped view that differs from the library's. `_ViewImports.cshtml` is written only
+rewrites a shipped view that differs from the library's; when theme libraries ship a view of the
+same name, the last registered one's is the only one written. `_ViewImports.cshtml` is written only
 when it is missing, and a project's other views are left alone.
 
 Umbraco's installer creates English, so that its content cache can start before uSync runs. Set

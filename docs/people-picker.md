@@ -14,7 +14,7 @@ The published block configures the search OU (or explicitly permits the whole do
 - `GET /api/people-picker/{page}/{block}?s=...` searches; `?sid=...` validates a selection within the same scope (responses are non-cacheable).
 - On save, AppBlocks' `IFormSubmissionProcessor` runs `PeoplePickerService` again for every new or changed SID. Unchanged saved identities keep stored directory-owned fields during outages; search results never authorize a new saved identity.
 - Optional cached selection (off by default) allows recent validated people during outages (isolated per page/picker/settings, 1–1440 minute TTL, 2,000-person process cap, cleared on restart or live rejection).
-- LDAP calls use the Windows process identity with bounded result counts and 1–15s timeouts; search terms and person records are not logged.
+- LDAP calls use the Windows process identity and 1–15s timeouts; search terms and person records are not logged. A search reads the directory in pages of 200 until it has the maximum results of eligible people, so excluded accounts ahead of them do not hide them, and stops after 2,000 candidates or once the timeout has passed for the search as a whole.
 
 ## Extending and testing
 

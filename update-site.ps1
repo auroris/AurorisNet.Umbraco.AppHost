@@ -105,17 +105,27 @@ try {
         Write-JsonFile (Get-SafePath $scratch 'instance.json') $state
         Write-JsonFile (Get-SafePath $scratch 'plan.json') @{ id = $id; backup = $backupName; hadSync = $hadSync }
         [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($backup)) | Out-Null
+        # stop-point: update-staged
         [IO.Directory]::Move($scratch, $pending)
+        # stop-point: journal-written
     } finally {
         if ([IO.Directory]::Exists($scratch)) { Remove-Item -LiteralPath $scratch -Recurse -Force }
     }
 
+    # The stop-point comments mark where deployment/test-update-interruptions.ps1 stops a copy of this script.
     try {
         [IO.Directory]::Move($app, $backup)
+        # stop-point: app-moved-to-backup
         [IO.Directory]::Move((Get-SafePath $pending app), $app)
-        if ($hadSync) { [IO.Directory]::Move($sync, (Get-SafePath $pending 'previous-uSync')) }
+        # stop-point: new-app-installed
+        if ($hadSync) {
+            [IO.Directory]::Move($sync, (Get-SafePath $pending 'previous-uSync'))
+            # stop-point: previous-usync-moved
+        }
         [IO.Directory]::Move((Get-SafePath $pending uSync), $sync)
+        # stop-point: new-usync-installed
         [IO.File]::Move((Get-SafePath $pending 'instance.json'), $statePath, $true)
+        # stop-point: inventory-replaced
     } finally {
         try { Resolve-PendingUpdate $siteRoot }
         catch { throw "Keep the site stopped and rerun update-site.ps1 to finish recovery. $($_.Exception.Message)" }

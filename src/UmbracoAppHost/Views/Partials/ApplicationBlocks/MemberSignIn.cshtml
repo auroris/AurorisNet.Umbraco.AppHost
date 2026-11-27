@@ -6,6 +6,8 @@
 @{
     await Visitor.ResolveAsync();
     if (Visitor.IsMember) { return; }
+    // The form carries an antiforgery token: no browser, proxy or output cache may keep it, whatever the page cache setting.
+    Context.KeepOutOfCaches();
     Context.Response.Headers.CacheControl = "no-cache, no-store";
     var fieldId = "member-signin-" + Model.Block.ContentKey.ToString("N");
     var heading = Model.Block.Content.Value<string>("heading");

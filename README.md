@@ -44,7 +44,6 @@ Use `AddUmbracoAppHost<Program>()` / `UseUmbracoAppHostAsync<Program>()` when im
 | Setting | Default | Effect |
 |---|---|---|
 | `InstanceRoot` | `App_Data/UmbracoAppHost` | Instance folder holding `instance.json`, `data/`, `media/`, and `uSync/`. |
-| `UmbracoAppHost:Samples` | `true` | Registers sample orders form/report/DB and sample content. Set `false` in your own project. |
 | `UmbracoAppHost:HostExport` | `uSync` | Project's own uSync export folder copied over the library's export (empty disables). |
 | `UmbracoAppHost:ProjectRoot` | content root | Folder holding project files such as uSync exports and schema scripts. |
 | `UmbracoAppHost:ImportDefinitions` | `true` | Imports shared uSync definitions on first boot of each build. |

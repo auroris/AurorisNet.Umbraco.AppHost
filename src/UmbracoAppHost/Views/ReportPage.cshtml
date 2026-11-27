@@ -1,14 +1,17 @@
 @inherits UmbracoViewPage
 @inject UmbracoAppHost.Themes.SiteThemeCatalog Themes
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
     PageAssets.RegisterPage(Model, NavigationQueryService, PublishedStatusFilteringService, Context);
     await Visitor.ResolveAsync();
     Layout = (await Themes.ResolveForAsync(Model, NavigationQueryService, PublishedStatusFilteringService, TemplateService)).LayoutFor(Visitor.IsSignedIn);
-    var pathBase = Context.Request.PathBase;
+    // The routes follow AppBlocks' configured route root, as the Interactive Report block's do.
+    var reports = Context.Request.PathBase + AppBlocks.InteractiveReports.Reports.InteractiveReportsSite.ReportsRouteFor(Configuration);
+    var download = Context.Request.PathBase + AppBlocks.InteractiveReports.Reports.InteractiveReportsSite.DownloadRouteFor(Configuration);
     var pageQuery = Uri.EscapeDataString(Context.Request.QueryString.Value ?? "");
 }
 @if (Visitor.IsSignedIn)
 {
-    <interactive-report report="@Model.Value("reportName")" api-base="@(pathBase)/api/reports?appPageQuery=@pageQuery" download-base="@(pathBase)/api/download?appPageQuery=@pageQuery"></interactive-report>
-    <script type="module" src="@(pathBase)/api/reports/ui/ir.js" nonce="@AppBlocks.Blocks.AppPageAssets.Nonce(Context)"></script>
+    <interactive-report report="@Model.Value("reportName")" api-base="@(reports)?appPageQuery=@pageQuery" download-base="@(download)?appPageQuery=@pageQuery"></interactive-report>
+    <script type="module" src="@(reports)/ui/ir.js" nonce="@AppBlocks.Blocks.AppPageAssets.Nonce(Context)"></script>
 }

@@ -80,9 +80,8 @@ when the project has none. Commit that file with the project. The build's `app/V
 the library's own copies of the views it ships, whatever the project folder held, so a stale
 copy never reaches a site.
 
-When the published `appsettings.json` sets `UmbracoAppHost:Samples` to `false`, the site's
-`uSync/` folder starts empty. The first start fills it with the library's export without the
-samples, then with the project's own export, which the publish places in `app/uSync/`.
+`new-site.ps1` copies the build's `app/uSync/` folder into the site's `uSync/` folder. The
+publish places the library's export and the project's own export there.
 
 ## The site folder
 
@@ -230,6 +229,7 @@ host that keeps running, and import from **Settings → uSync** in its backoffic
 | Script | What it checks |
 |---|---|
 | `deployment/test-sites.ps1` | Publishes a build, or takes `-Build`. Creates two sites in a temporary folder, starts both, updates one, checks what the update keeps and refreshes, and starts the updated site. Run from the checkout, it then rehearses a release: it publishes a second build with one changed dictionary text, updates the site with it, and checks that the started site shows the new text. |
+| `deployment/test-update-recovery.ps1` | Stops copies of `update-site.ps1` at each rename of an update and of its recovery, using small generated builds and no `dotnet`, and checks that the next run installs the new build with the site's own uSync files and that `reset.ps1` refuses and changes nothing while an update's journal exists. |
 | `deployment/test-startup.ps1 -Project <project file> -ContentRoot <temporary folder> -Reset` | Starts a built host over HTTP on a separate instance and runs the reset script against it. |
 | `deployment/test-downstream.ps1` | Creates a project that references the library in a temporary folder, with its own export, template, data source and paper report. Starts it without the samples, delivers a changed library view and definition through a rebuild and `refresh-definitions.ps1`, then resets the instance. |
 

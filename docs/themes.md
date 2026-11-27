@@ -100,7 +100,8 @@ public sealed class MyThemeComposer : IComposer
 - `SiteTheme` names the layouts, as above.
 - `ThemeLibrary` hands the host the assembly's embedded files. Its `Views/` folder is supplied
   as the library's own views are: Razor finds every view, and the top-level ones are written to
-  the project's `Views/` folder before uSync imports. Its `uSync/` files are copied into a new
+  the project's `Views/` folder before uSync imports. When two libraries ship a view of the same
+  name, the one registered last wins and is the only one written. Its `uSync/` files are copied into a new
   working uSync folder, at paths that neither the library's export nor the project's export
   ships. The project file sets `GenerateEmbeddedFilesManifest` to `true` and embeds both folders.
 - `AddLoginScreen` is optional and brands the login screen; see

@@ -110,3 +110,6 @@ try {
 } finally {
     if ([IO.Directory]::Exists($root)) { Remove-Item -LiteralPath $root -Recurse -Force }
 }
+
+# Stop real copies of the scripts at each rename, recover, and check reset.ps1 against an interrupted update.
+& (Join-Path $PSScriptRoot test-update-interruptions.ps1)
