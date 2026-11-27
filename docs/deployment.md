@@ -151,15 +151,29 @@ headers from the trusted proxy so AppHost sees the original request scheme.
    The settings are stored in IIS configuration and stay through application updates. The
    package's [IIS reference](https://github.com/auroris/AurorisNet.Umbraco.IdentityServer.SSO/blob/main/docs/EMBEDDED-SERVER.md#iis-windows-authentication)
    explains each change.
-4. For an application under a path, set `Umbraco:CMS:Hosting:ApplicationVirtualPath` to that
-   path, such as `/portal`.
+4. Set `Umbraco:CMS:WebRouting:UmbracoApplicationUrl` in the site's `instance.json` to its
+   full public address, for example `https://intranet.example.org/portal/`. On startup AppHost
+   uses its path for Umbraco routing, assets and sign-in callbacks. An existing explicit
+   `Umbraco:CMS:Hosting:ApplicationVirtualPath` takes precedence. IIS supplies the listener binding.
+
+Before Umbraco boots, AppHost logs inconsistent paths and Kestrel listener addresses that contain
+an application path. Under in-process IIS it also checks the actual IIS mount and warns when URL
+detection is disabled and the public URL is missing. For AppHost-managed instances it uses the
+worker's Data Protection provider to protect and unprotect a probe. A failed key-ring check stops
+startup before unattended installation can save a login with an unusable password. Look in
+`app/umbraco/Logs` and the Windows Application event log for the pool name and key directory.
+Check the pool identity's Modify access to `data/keys`, its loaded Windows profile and the IIS
+`setProfileEnvironment` setting.
 
 Stop the application pool before updating the site. Databases and media stay outside the
 application's physical path.
 
 To choose or reset the administrator's password, set `BreakGlass:AdminPassword` in
 `app/appsettings.json` and save. The running site applies it without an IIS restart, unlocks the
-account and removes its two-factor enrolment. Remove the setting after signing in.
+account and removes its two-factor enrolment. With a new password, look for
+`Administrator password applied` in the Umbraco log, sign in, remove the setting and
+re-enrol two-factor authentication if used. This also recovers an installation that saved
+the unattended administrator's email before a Data Protection error interrupted its password setup.
 
 ## Update a site
 

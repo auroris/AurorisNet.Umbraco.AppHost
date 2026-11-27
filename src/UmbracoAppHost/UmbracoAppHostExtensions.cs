@@ -96,6 +96,7 @@ public static class UmbracoAppHostExtensions
         IConfiguration configuration,
         Action<AppBlocksBuilder>? configureConnections = null)
     {
+        SiteHosting.ApplyVirtualPath(configuration);
         SharedViews.Configure(builder.Services);
         BlockPreviews.Configure(builder.Services);
         builder.AddNotificationHandler<UmbracoApplicationStartedNotification, BlockPreviews.BlockPreviewPluginAliases>();
@@ -322,6 +323,7 @@ public static class UmbracoAppHostExtensions
         if (app.Services.GetService<AppHostInstance>() is { } instance)
             app.Logger.LogInformation("Site data: {DataRoot}. Initial administrator credentials: {SettingsPath}",
                 instance.Root, instance.SettingsPath);
+        SiteHosting.Check(app);
         await app.BootUmbracoAsync();
 
         if (app.Configuration.GetValue<bool>("UmbracoAppHost:RedirectToHttps"))

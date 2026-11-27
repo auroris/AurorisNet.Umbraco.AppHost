@@ -74,6 +74,7 @@ internal static class InstanceConfiguration
                 Optional = false,
                 ReloadOnChange = false,
             });
+            SiteHosting.ApplyVirtualPath(builder.Configuration);
             var data = Directory.CreateDirectory(Path.Combine(root, "data")).FullName;
             var media = Directory.CreateDirectory(Path.Combine(root, "media")).FullName;
             Directory.CreateDirectory(Path.Combine(data, "App_Data"));
