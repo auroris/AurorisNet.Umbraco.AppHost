@@ -115,6 +115,28 @@ A failed first import is reported in uSync's log. Fix the exported files and
 
 ## Save a backoffice change
 
+For a **project's own saved export**, save the change in the development backoffice and run
+these commands from the AppHost checkout. The first lists differences. The second copies the
+selected working files, byte for byte, to the project's configured export.
+
+```powershell
+./capture-usync.ps1 -InstanceRoot D:/Sites/dev-instance
+./capture-usync.ps1 -InstanceRoot D:/Sites/dev-instance -Path 'Dictionary/office-title.config','Templates/officelist.config'
+```
+
+Use the instance created by running the project from its checkout. Review the result in Git
+and include the corresponding Razor view for a template. A project that uses its own installer
+for forms or pages, such as RDAO, continues to maintain those items in its installer.
+
+The command reads the files uSync has already exported. It can promote existing project files
+and new shared-definition files, including dictionary entries and templates. New content and media
+are installation-specific and require an explicit source decision outside the command.
+Items shipped by another assembly, conflicting keys, and deletion or rename markers are listed for
+review. A selected template needs a project view that Git can include. Use `-WhatIf` to preview a
+selection. uSync continues to handle export on save and import into the database.
+
+For a **shared AppHost library definition**:
+
 1. Make the change in the reference backoffice. uSync writes the item's file to
    `reference/uSync/`.
 2. Copy that file to the same relative path in `Migrations/1.0.0-Current/uSync/`. When you copy the

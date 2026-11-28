@@ -218,7 +218,8 @@ A host file at a path the library ships is ignored.
 The project's `uSync/` folder holds the host's own files only: its content, its dictionary keys
 (prefix them with the host's name) and the registrations of its templates. Make them in the
 backoffice, where uSync writes every save to `instance/uSync/`, and copy the files to the same
-relative paths in the project's `uSync/`. Leave out `usync.config` and the library's
+relative paths in the project's `uSync/`. Use the [capture command](usync-exports.md#save-a-backoffice-change)
+to preview and copy selected project exports. Leave out `usync.config` and the library's
 definitions. A template is its registration under `Templates/` plus its view in `Views/`.
 
 At every start the host rewrites the views the library ships when the copies in `Views/` differ,

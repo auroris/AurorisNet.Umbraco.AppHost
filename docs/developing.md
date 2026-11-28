@@ -27,6 +27,7 @@ dotnet pack tests/UmbracoAppHost.Testing/UmbracoAppHost.Testing.csproj -c Releas
 Local-only checks:
 - `deployment/test-sites.ps1` — publish, create two sites, update one, rehearse a second release.
 - `deployment/test-downstream.ps1` — test a downstream consumer project update.
+- `deployment/test-capture-usync.ps1` — verify export selection and ownership using the built reference site.
 - `tests/UmbracoAppHost.ProviderTests` — PostgreSQL/Oracle tests via `UMBRACOAPPHOST_TEST_POSTGRES`, `UMBRACOAPPHOST_TEST_ORACLE`, or `UMBRACOAPPHOST_TEST_ORACLE11G`.
 
 ## Releases

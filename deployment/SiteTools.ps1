@@ -302,15 +302,15 @@ function Remove-AppBlocksDefinitions([string] $Working, [switch] $ListOnly) {
     return $removed
 }
 
-function Get-SyncExportFiles([string] $Root, [string] $Skip) {
+function Get-SyncExportFiles([string] $Root, [string] $Skip, [switch] $IncludeOwned) {
     # The files of a uSync folder by relative path, without its marker, the definitions the base rewrites and AppBlocks'
-    # definitions. $Skip leaves out a folder nested inside it: uSync's default working folder sits inside a host's export.
+    # definitions unless the caller needs to explain their ownership. $Skip leaves out a nested working folder.
     $files = @{}
     $skipped = if ($Skip) { [IO.Path]::TrimEndingDirectorySeparator([IO.Path]::GetFullPath($Skip)) + [IO.Path]::DirectorySeparatorChar }
     foreach ($file in Get-ChildItem -LiteralPath $Root -Recurse -File -Filter '*.config') {
         if ($skipped -and $file.FullName.StartsWith($skipped, [StringComparison]::OrdinalIgnoreCase)) { continue }
         $relative = [IO.Path]::GetRelativePath($Root, $file.FullName).Replace('\', '/')
-        if ($relative -eq 'usync.config' -or $relative -in $script:RewrittenDefinitions -or $relative -in $script:AppBlocksDefinitions) { continue }
+        if ($relative -eq 'usync.config' -or (!$IncludeOwned -and ($relative -in $script:RewrittenDefinitions -or $relative -in $script:AppBlocksDefinitions))) { continue }
         $files[$relative] = $file.FullName
     }
     return $files
